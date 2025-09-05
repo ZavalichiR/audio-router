@@ -16,18 +16,44 @@ Transform your Discord server into a professional broadcasting platform! The Dis
 
 ## 🚀 Quick Start
 
-### 1. Create Discord Bot
+### 1. Create Discord Bots
 
+You need to create **multiple bot users** for the audio routing system:
+
+#### 1.1 AudioBroadcast Bot (Main Control Bot)
 1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
-2. Click "New Application" and give it a name
+2. Click "New Application" and give it a name: `Audio Router System`
 3. Go to the "Bot" section
 4. Click "Add Bot"
-5. Copy the bot token (you'll need this later)
-6. Enable these **Privileged Gateway Intents**:
+5. Set bot name: `AudioBroadcast`
+6. Copy the bot token (you'll need this for `AUDIO_BROADCAST_TOKEN`)
+7. Enable these **Privileged Gateway Intents**:
    - ✅ Server Members Intent
    - ✅ Message Content Intent
 
-### 2. Invite Bot to Server
+#### 1.2 AudioForwarder Bot (Speaker Bot)
+1. In the same application, go to "Bot" section
+2. Click "Add Bot" (creates a second bot)
+3. Set bot name: `AudioForwarder`
+4. Copy the bot token (you'll need this for `AUDIO_FORWARDER_TOKEN`)
+5. Enable these **Privileged Gateway Intents**:
+   - ✅ Server Members Intent
+   - ✅ Message Content Intent
+
+#### 1.3 AudioReceiver Bots (Listener Bots)
+For each listener channel you want to support, create additional bots:
+
+1. In the same application, go to "Bot" section
+2. Click "Add Bot" (creates additional bots)
+3. Set bot names: `AudioReceiver-1`, `AudioReceiver-2`, `AudioReceiver-3`, etc.
+4. Copy each bot token (you'll need these for `AUDIO_RECEIVER_TOKENS`)
+5. Enable these **Privileged Gateway Intents** for each:
+   - ✅ Server Members Intent
+   - ✅ Message Content Intent
+
+### 2. Invite Bots to Server
+
+For each bot, create an invite link:
 
 1. Go to "OAuth2" → "URL Generator"
 2. Select scopes: **bot**
@@ -41,7 +67,9 @@ Transform your Discord server into a professional broadcasting platform! The Dis
      - ✅ Send Messages
      - ✅ Read Message History
      - ✅ Embed Links
-4. Copy the generated URL and use it to invite your bot
+4. Copy the generated URL and use it to invite each bot to your server
+
+**Note**: You'll need to create separate invite links for each bot (AudioBroadcast, AudioForwarder, AudioReceiver-1, AudioReceiver-2, etc.)
 
 ### 3. Install and Configure
 
@@ -56,7 +84,7 @@ Transform your Discord server into a professional broadcasting platform! The Dis
 2. **Configure environment**
    ```bash
    cp env.example .env
-   # Edit .env with your bot token
+   # Edit .env with your bot tokens
    ```
 
 3. **Run with Docker**
@@ -79,7 +107,7 @@ Transform your Discord server into a professional broadcasting platform! The Dis
 3. **Configure and run**
    ```bash
    cp env.example .env
-   # Edit .env with your bot token
+   # Edit .env with your bot tokens
    python launcher.py
    ```
 
@@ -176,30 +204,30 @@ Transform your Discord server into a professional broadcasting platform! The Dis
 Create a `.env` file with your configuration:
 
 ```env
-# Required
-MAIN_BOT_TOKEN=your_main_bot_token_here
-LISTENER_BOT_TOKEN=your_listener_bot_token_here
+# Required - Each bot needs its own unique token
+AUDIO_BROADCAST_TOKEN=your_audiobroadcast_bot_token_here
+AUDIO_FORWARDER_TOKEN=your_audioforwarder_bot_token_here
+
+# AudioReceiver Bot Tokens (for multiple listener channels) - REQUIRED
+AUDIO_RECEIVER_TOKENS=your_audioreceiver_1_bot_token,your_audioreceiver_2_bot_token,your_audioreceiver_3_bot_token
 
 # Optional
 BOT_PREFIX=!
 LOG_LEVEL=INFO
-AUTHORIZED_ROLES=Broadcast Controller,Moderator
-AUTHORIZED_USERS=123456789012345678
+SPEAKER_ROLE_NAME=Speaker
+BROADCAST_ADMIN_ROLE_NAME=Broadcast Admin
+AUTO_CREATE_ROLES=true
 ```
 
-### Multiple Listener Bots (Advanced)
+### Multiple AudioReceiver Bots (Advanced)
 
-For better performance with many listener channels, you can configure multiple listener bot tokens:
+For better performance with many listener channels, you can configure multiple AudioReceiver bot tokens:
 
 ```env
-# Multiple tokens (comma-separated)
-LISTENER_BOT_TOKENS=token1,token2,token3,token4,token5
-
-# Or numbered tokens
-LISTENER_BOT_TOKEN_1=token1
-LISTENER_BOT_TOKEN_2=token2
-LISTENER_BOT_TOKEN_3=token3
+AUDIO_RECEIVER_TOKENS=your_audioreceiver_1_bot_token,your_audioreceiver_2_bot_token,your_audioreceiver_3_bot_token,your_audioreceiver_4_bot_token,your_audioreceiver_5_bot_token
 ```
+
+**Important**: Each AudioReceiver bot must have its own unique token. Discord does not allow multiple bot instances to use the same token simultaneously. More bots = better performance and reliability.
 
 ## 🎯 Use Cases
 
@@ -235,10 +263,11 @@ LISTENER_BOT_TOKEN_3=token3
 1. Run `!fix_permissions` for detailed instructions
 2. Or give the bot Administrator permission in Server Settings
 
-#### ❌ "No available tokens for listener bot"
+#### ❌ "No available tokens for AudioReceiver bot"
 **Solution**: 
-1. Add more listener bot tokens to your `.env` file
-2. Or use the same token for all bots (less optimal but functional)
+1. Create more AudioReceiver bots in Discord Developer Portal
+2. Add their tokens to your `.env` file as `AUDIO_RECEIVER_TOKENS` (comma-separated)
+3. Each AudioReceiver bot must have its own unique token
 
 #### ❌ Audio not working
 **Solution**:
@@ -298,7 +327,7 @@ The new launcher provides robust process management:
 python launcher.py
 
 # Start specific component
-python launcher.py --component main_bot
+python launcher.py --component audiobroadcast_bot
 python launcher.py --component relay_server
 
 # Start with health monitoring
@@ -337,8 +366,9 @@ services:
   audio-router:
     build: .
     environment:
-      - MAIN_BOT_TOKEN=${MAIN_BOT_TOKEN}
-      - LISTENER_BOT_TOKEN=${LISTENER_BOT_TOKEN}
+      - AUDIO_BROADCAST_TOKEN=${AUDIO_BROADCAST_TOKEN}
+      - AUDIO_FORWARDER_TOKEN=${AUDIO_FORWARDER_TOKEN}
+      - AUDIO_RECEIVER_TOKENS=${AUDIO_RECEIVER_TOKENS}
     volumes:
       - ./logs:/app/logs
     ports:
@@ -360,13 +390,13 @@ Monitor your bot with:
 
 For high-traffic scenarios:
 
-1. **Multiple Main Bots**: Deploy multiple bot instances
-2. **Distributed Listeners**: Spread listener bots across servers
+1. **Multiple AudioBroadcast Bots**: Deploy multiple control bot instances
+2. **Distributed AudioReceiver Bots**: Spread listener bots across servers
 3. **Load Balancing**: Use multiple Discord applications
 
 ### Performance Optimization
 
-- **More Listener Tokens**: Reduces per-bot load
+- **More AudioReceiver Tokens**: Reduces per-bot load
 - **Dedicated Resources**: Allocate sufficient RAM and CPU
 - **Network Optimization**: Use low-latency hosting
 

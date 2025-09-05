@@ -36,7 +36,9 @@ class AudioRouter:
         self.config = config
         self.process_manager = ProcessManager(config)
         self.access_control = AccessControl(config)
-        self.section_manager = SectionManager(self.process_manager, self.access_control)
+        self.section_manager = SectionManager(
+            self.process_manager, self.access_control
+        )
 
         # Main bot instance
         self.main_bot: Optional[commands.Bot] = None
@@ -50,21 +52,28 @@ class AudioRouter:
         """
         self.main_bot = main_bot
 
-        # Add available listener bot tokens
+        # Add available AudioReceiver bot tokens (required)
         if (
-            hasattr(self.config, "listener_bot_tokens")
-            and self.config.listener_bot_tokens
+            hasattr(self.config, "audio_receiver_tokens")
+            and self.config.audio_receiver_tokens
         ):
-            self.process_manager.add_available_tokens(self.config.listener_bot_tokens)
+            self.process_manager.add_available_tokens(
+                self.config.audio_receiver_tokens
+            )
             logger.info(
-                f"Added {len(self.config.listener_bot_tokens)} listener bot tokens"
+                f"Added {len(self.config.audio_receiver_tokens)} AudioReceiver bot tokens"
             )
         else:
-            logger.warning(
-                "No listener bot tokens configured - only speaker channel will work"
+            logger.error(
+                "No AudioReceiver bot tokens configured - system cannot function without them"
+            )
+            raise ValueError(
+                "AudioReceiver bot tokens are required. Configure AUDIO_RECEIVER_TOKENS in your .env file."
             )
 
-        logger.info("Using process-based bot manager for true multi-channel audio")
+        logger.info(
+            "Using process-based bot manager for true multi-channel audio"
+        )
 
         logger.info("Audio router initialized")
 

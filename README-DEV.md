@@ -1,49 +1,171 @@
-# Discord Audio Router - Developer Documentation
+# 🎵 Discord Audio Router - Developer Guide
 
-A professional-grade Discord bot system for real-time audio routing between voice channels with multi-bot architecture support.
+This guide provides detailed instructions for setting up the Discord Audio Router system, including creating Discord applications and configuring bot permissions.
 
-## 🏗️ Architecture Overview
+## 📋 Table of Contents
 
-The Discord Audio Router uses a sophisticated multi-bot architecture to enable true multi-channel audio routing:
+- [Discord Application Setup](#discord-application-setup)
+- [Bot Permissions](#bot-permissions)
+- [Environment Configuration](#environment-configuration)
+- [Development Setup](#development-setup)
+- [Architecture Overview](#architecture-overview)
+- [Troubleshooting](#troubleshooting)
 
-### Core Components
+## 🚀 Discord Application Setup
 
+### Step 1: Create Discord Application
+
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+2. Click **"New Application"**
+3. Enter application name: `Audio Router System`
+4. Click **"Create"**
+
+### Step 2: Create Bot Users
+
+You need to create **multiple bot users** for the audio routing system:
+
+#### 2.1 AudioBroadcast Bot (Main Control Bot)
+1. In your application, go to **"Bot"** section
+2. Click **"Add Bot"**
+3. Set bot name: `AudioBroadcast`
+4. Copy the bot token (you'll need this for `AUDIO_BROADCAST_TOKEN`)
+5. Enable these **Privileged Gateway Intents**:
+   - ✅ **Server Members Intent**
+   - ✅ **Message Content Intent**
+
+#### 2.2 AudioForwarder Bot (Speaker Bot)
+1. Go to **"Bot"** section
+2. Click **"Add Bot"** (creates a second bot)
+3. Set bot name: `AudioForwarder`
+4. Copy the bot token (you'll need this for `LISTENER_BOT_TOKEN_1`)
+5. Enable these **Privileged Gateway Intents**:
+   - ✅ **Server Members Intent**
+   - ✅ **Message Content Intent**
+
+#### 2.3 AudioReceiver Bots (Listener Bots)
+For each listener channel you want to support, create additional bots:
+
+1. Go to **"Bot"** section
+2. Click **"Add Bot"** (creates additional bots)
+3. Set bot names: `AudioReceiver-1`, `AudioReceiver-2`, `AudioReceiver-3`, etc.
+4. Copy each bot token (you'll need these for `LISTENER_BOT_TOKEN_2`, `LISTENER_BOT_TOKEN_3`, etc.)
+5. Enable these **Privileged Gateway Intents** for each:
+   - ✅ **Server Members Intent**
+   - ✅ **Message Content Intent**
+
+### Step 3: Generate Invite Links
+
+For each bot, create an invite link:
+
+1. Go to **"OAuth2"** → **"URL Generator"**
+2. Select scopes: **bot**
+3. Select bot permissions (see [Bot Permissions](#bot-permissions) section)
+4. Copy the generated URL
+5. Use the URL to invite each bot to your Discord server
+
+## 🔐 Bot Permissions
+
+### Required Permissions for All Bots
+
+Each bot needs these permissions:
+
+#### Essential Permissions
+- ✅ **Administrator** (recommended for easy setup)
+- OR specific permissions:
+  - ✅ **Manage Channels** - Create and delete broadcast channels
+  - ✅ **Manage Roles** - Set up access control roles
+  - ✅ **Connect** - Join voice channels
+  - ✅ **Speak** - Transmit audio
+  - ✅ **Send Messages** - Send command responses
+  - ✅ **Read Message History** - Process commands
+  - ✅ **Embed Links** - Send rich command responses
+  - ✅ **Use Slash Commands** - Support slash commands
+
+#### Voice Permissions
+- ✅ **Connect** - Join voice channels
+- ✅ **Speak** - Transmit audio
+- ✅ **Use Voice Activity** - Detect when users are speaking
+- ✅ **Priority Speaker** - Ensure bot audio is heard clearly
+
+### Permission Setup Instructions
+
+#### Option 1: Administrator Permission (Recommended)
+1. In the **"OAuth2"** → **"URL Generator"**
+2. Select **"Administrator"** permission
+3. This gives the bot all necessary permissions
+
+#### Option 2: Specific Permissions
+1. In the **"OAuth2"** → **"URL Generator"**
+2. Select these specific permissions:
+   - **Text Permissions**: Send Messages, Read Message History, Embed Links, Use Slash Commands
+   - **Voice Permissions**: Connect, Speak, Use Voice Activity, Priority Speaker
+   - **General Permissions**: Manage Channels, Manage Roles
+
+## ⚙️ Environment Configuration
+
+Create a `.env` file in your project root with the following configuration:
+
+```env
+# ===========================================
+# DISCORD BOT TOKENS (ALL REQUIRED)
+# ===========================================
+
+# AudioBroadcast Bot (Main Control Bot) - REQUIRED
+AUDIO_BROADCAST_TOKEN=your_audiobroadcast_bot_token_here
+
+# AudioForwarder Bot (Speaker Bot) - REQUIRED
+AUDIO_FORWARDER_TOKEN=your_audioforwarder_bot_token_here
+
+# AudioReceiver Bots (Listener Bots) - REQUIRED
+# Each AudioReceiver bot needs its own unique token
+AUDIO_RECEIVER_TOKENS=your_audioreceiver_1_bot_token,your_audioreceiver_2_bot_token,your_audioreceiver_3_bot_token
+
+# ===========================================
+# BOT CONFIGURATION
+# ===========================================
+
+# Command prefix for bot commands
+BOT_PREFIX=!
+
+# Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+LOG_LEVEL=INFO
+
+# ===========================================
+# ACCESS CONTROL
+# ===========================================
+
+# Role names for access control
+SPEAKER_ROLE_NAME=Speaker
+BROADCAST_ADMIN_ROLE_NAME=Broadcast Admin
+
+# Auto-create roles if they don't exist
+AUTO_CREATE_ROLES=true
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Main Bot      │    │  Speaker Bot     │    │ Listener Bots   │
-│                 │    │                  │    │                 │
-│ • Commands      │    │ • Audio Capture  │    │ • Audio Playback│
-│ • Section Mgmt  │    │ • WebSocket Svr  │    │ • WebSocket Cli │
-│ • Process Mgmt  │    │ • Audio Forward  │    │ • Multi-channel │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-         │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 │
-                        ┌──────────────────┐
-                        │  Process Manager │
-                        │                  │
-                        │ • Bot Lifecycle  │
-                        │ • Token Mgmt     │
-                        │ • Health Monitor │
-                        └──────────────────┘
-```
 
-### Key Features
+### Token Assignment Strategy
 
-- **Multi-Bot Architecture**: Each listener channel runs in its own process with a separate bot token
-- **Real-time Audio Routing**: Low-latency audio forwarding using WebSocket communication
-- **Process Isolation**: Speaker and listener bots run in separate processes for stability
-- **Access Control**: Role-based permissions for broadcast management
-- **Auto-scaling**: Dynamic bot deployment based on listener channel count
+The system uses a clear token assignment strategy:
 
-## 🚀 Development Setup
+1. **AudioBroadcast Bot**: Uses `AUDIO_BROADCAST_TOKEN` for command handling and management
+2. **AudioForwarder Bot**: Uses `AUDIO_FORWARDER_TOKEN` for speaker channel audio capture
+3. **AudioReceiver Bots**: Use tokens from `AUDIO_RECEIVER_TOKENS` for listener channels
+
+**Important**: Each bot must have its own unique token. Discord does not allow multiple bot instances to use the same token simultaneously.
+
+This design allows:
+- **Scalability**: Each AudioReceiver bot can handle one listener channel
+- **Performance**: Multiple AudioReceiver bots reduce per-bot load
+- **Reliability**: If one AudioReceiver bot fails, others continue working
+- **Clarity**: Each bot type has its own dedicated token
+- **Compliance**: Follows Discord's token usage requirements
+
+## 🛠️ Development Setup
 
 ### Prerequisites
 
-- Python 3.11+ (recommended)
-- Discord Bot Tokens (main + listener tokens)
-- FFmpeg (for audio processing)
-- Git
+- **Python 3.11+**
+- **FFmpeg** (for audio processing)
+- **Git** (for version control)
 
 ### Installation
 
@@ -64,354 +186,192 @@ The Discord Audio Router uses a sophisticated multi-bot architecture to enable t
    pip install -r requirements.txt
    ```
 
-4. **Install development dependencies (optional)**
-   ```bash
-   pip install pytest pytest-asyncio black isort flake8 mypy
-   ```
-
-5. **Configure environment**
+4. **Configure environment**
    ```bash
    cp env.example .env
-   # Edit .env with your Discord bot tokens
+   # Edit .env with your bot tokens
    ```
 
-### Environment Configuration
+5. **Create logs directory**
+   ```bash
+   mkdir -p logs
+   ```
 
-Create a `.env` file with the following variables:
+### Running the System
 
-```env
-# Required
-MAIN_BOT_TOKEN=your_main_bot_token_here
-LISTENER_BOT_TOKEN=your_listener_bot_token_here
-
-# Optional
-BOT_PREFIX=!
-LOG_LEVEL=INFO
-AUTHORIZED_ROLES=Broadcast Controller,Moderator
-AUTHORIZED_USERS=123456789012345678
-```
-
-## 🏛️ Project Structure
-
-```
-discord-audio-router/
-├── bots/                          # Bot implementations
-│   ├── __init__.py
-│   ├── main_bot.py               # Main Discord bot with commands
-│   ├── speaker_bot.py            # Standalone speaker bot process
-│   ├── listener_bot.py           # Standalone listener bot process
-│   ├── audio_handler.py          # Audio processing utilities
-│   ├── logging_config.py         # Centralized logging setup
-│   ├── config/                   # Configuration management
-│   │   ├── __init__.py
-│   │   └── simple_config.py      # Configuration loader
-│   └── core/                     # Core system components
-│       ├── __init__.py
-│       ├── audio_router.py       # Main audio routing coordinator
-│       ├── process_manager.py    # Bot process lifecycle management
-│       ├── section_manager.py    # Broadcast section management
-│       ├── access_control.py     # Role-based access control
-│       └── audio_relay_server.py # Centralized WebSocket relay
-├── logs/                         # Log files
-├── start_bot.py                  # Main entry point
-├── websocket_relay.py           # Standalone relay server
-├── test_architecture.py         # Architecture validation tests
-├── requirements.txt             # Python dependencies
-├── Dockerfile                   # Container configuration
-├── env.example                  # Environment template
-└── README-DEV.md               # This file
-```
-
-## 🔧 Core Components
-
-### AudioRouter (`bots/core/audio_router.py`)
-
-The main coordinator that manages the entire audio routing system:
-
-- Initializes and manages all subsystems
-- Coordinates between section management and process management
-- Provides the main API for Discord commands
-
-### ProcessManager (`bots/core/process_manager.py`)
-
-Manages the lifecycle of bot processes:
-
-- Spawns and monitors speaker/listener bot processes
-- Handles token allocation and management
-- Provides process health monitoring
-- Manages graceful shutdown of bot processes
-
-### SectionManager (`bots/core/section_manager.py`)
-
-Handles broadcast section creation and management:
-
-- Creates Discord channels and categories
-- Manages section state and metadata
-- Coordinates bot deployment for sections
-- Handles section cleanup and deletion
-
-### AccessControl (`bots/core/access_control.py`)
-
-Implements role-based access control:
-
-- Manages authorized roles and users
-- Handles private channel permissions
-- Provides decorators for command authorization
-- Supports both role-based and user-based permissions
-
-## 🎵 Audio Processing
-
-### Audio Flow
-
-1. **Capture**: Speaker bot captures Opus audio from Discord voice channel
-2. **Forward**: Audio is forwarded via WebSocket to listener bots
-3. **Playback**: Listener bots play audio in their respective channels
-
-### AudioHandler (`bots/audio_handler.py`)
-
-Provides audio processing utilities:
-
-- `OpusAudioSink`: Captures audio from Discord voice channels
-- `OpusAudioSource`: Plays audio to Discord voice channels
-- `AudioBuffer`: Thread-safe buffer for audio packets
-- `SilentSource`: Generates silence frames to keep connections alive
-
-## 🧪 Testing
-
-### Running Tests
-
+#### Option 1: Using Launcher (Recommended)
 ```bash
-# Run all tests
-pytest
+# Start all components
+python launcher.py
 
-# Run specific test file
-pytest test_architecture.py
+# Start specific component
+python launcher.py --component audiobroadcast_bot
+python launcher.py --component relay_server
 
-# Run with coverage
-pytest --cov=bots
-
-# Run integration tests
-pytest -m integration
+# Start with health monitoring
+python launcher.py --monitor
 ```
 
-### Test Architecture
-
+#### Option 2: Direct Execution
 ```bash
-# Validate system architecture
-python test_architecture.py
+# Start AudioBroadcast bot
+python start_bot.py
+
+# Start AudioForwarder bot (for testing)
+python bots/audioforwarder_bot.py
+
+# Start AudioReceiver bot (for testing)
+python bots/audioreceiver_bot.py
 ```
 
-## 🐳 Docker Development
-
-### Building the Image
-
+#### Option 3: Docker
 ```bash
+# Build image
 docker build -t discord-audio-router .
-```
 
-### Running Components
-
-```bash
-# Main bot
-docker run -d --name main-bot \
-  -e MAIN_BOT_TOKEN=your_token \
-  -e LISTENER_BOT_TOKEN=your_token \
+# Run with environment file
+docker run -d --name audio-router \
+  --env-file .env \
+  -p 8000-8100:8000-8100 \
   discord-audio-router
-
-# Speaker bot (standalone)
-docker run -d --name speaker-bot \
-  -e BOT_TOKEN=your_token \
-  -e BOT_TYPE=speaker \
-  -e CHANNEL_ID=123456789 \
-  -e GUILD_ID=987654321 \
-  discord-audio-router python bots/speaker_bot.py
-
-# Listener bot (standalone)
-docker run -d --name listener-bot \
-  -e BOT_TOKEN=your_token \
-  -e BOT_TYPE=listener \
-  -e CHANNEL_ID=123456789 \
-  -e GUILD_ID=987654321 \
-  -e SPEAKER_CHANNEL_ID=111111111 \
-  discord-audio-router python bots/listener_bot.py
 ```
 
-### Docker Compose (Development)
+## 🏗️ Architecture Overview
 
-```yaml
-version: '3.8'
-services:
-  main-bot:
-    build: .
-    environment:
-      - MAIN_BOT_TOKEN=${MAIN_BOT_TOKEN}
-      - LISTENER_BOT_TOKEN=${LISTENER_BOT_TOKEN}
-    volumes:
-      - ./logs:/app/logs
-    ports:
-      - "8000-8100:8000-8100"
+### Bot Types and Responsibilities
+
+#### 1. AudioBroadcast Bot
+- **Purpose**: Main control bot that handles user commands
+- **Responsibilities**:
+  - Process Discord commands (`!setup_broadcast`, `!start_broadcast`, etc.)
+  - Create and manage broadcast sections
+  - Handle access control and role management
+  - Coordinate with other bots
+- **File**: `bots/audiobroadcast_bot.py`
+- **Token**: `AUDIO_BROADCAST_TOKEN`
+
+#### 2. AudioForwarder Bot
+- **Purpose**: Captures audio from speaker channels and forwards it
+- **Responsibilities**:
+  - Connect to speaker voice channels
+  - Capture audio using discord.py voice_recv
+  - Forward audio via WebSocket to AudioReceiver bots
+  - Manage WebSocket server for audio distribution
+- **File**: `bots/audioforwarder_bot.py`
+- **Token**: `AUDIO_FORWARDER_TOKEN`
+
+#### 3. AudioReceiver Bots
+- **Purpose**: Receive audio and play it in listener channels
+- **Responsibilities**:
+  - Connect to listener voice channels
+  - Receive audio via WebSocket from AudioForwarder bot
+  - Play audio in their assigned listener channel
+  - Handle audio buffering and playback
+- **File**: `bots/audioreceiver_bot.py`
+- **Token**: From `AUDIO_RECEIVER_TOKENS` (comma-separated)
+
+### System Flow
+
+```
+User Command → AudioBroadcast Bot → Process Manager → AudioForwarder Bot
+                                                      ↓
+AudioReceiver Bot ← WebSocket ← AudioForwarder Bot ← Speaker Channel
+       ↓
+Listener Channel
 ```
 
-## 🔍 Debugging
+### WebSocket Communication
 
-### Logging
+- **AudioForwarder Bot**: Runs WebSocket server on port `8000 + (channel_id % 1000)`
+- **AudioReceiver Bots**: Connect to AudioForwarder's WebSocket server
+- **Protocol**: JSON messages with audio data in hex format
+- **Features**: Automatic reconnection, health monitoring, error handling
 
-The system uses structured logging with different levels:
-
-```python
-import logging
-logger = logging.getLogger(__name__)
-
-# Different log levels
-logger.debug("Detailed debugging information")
-logger.info("General information")
-logger.warning("Warning messages")
-logger.error("Error messages")
-logger.critical("Critical errors")
-```
-
-### Log Files
-
-- `logs/main_bot.log`: Main bot operations
-- `logs/speaker_bot.log`: Speaker bot operations
-- `logs/listener_bot.log`: Listener bot operations
-- `logs/websocket_relay.log`: WebSocket relay operations
-- `logs/bot_startup.log`: System startup logs
+## 🔧 Troubleshooting
 
 ### Common Issues
 
-1. **Bot Permission Errors**
-   - Ensure bot has Administrator permission or specific permissions
-   - Check role hierarchy (bot role must be higher than managed roles)
+#### ❌ "No available tokens for AudioReceiver bot"
+**Cause**: Not enough AudioReceiver bot tokens configured
+**Solution**: 
+1. Create more AudioReceiver bots in Discord Developer Portal
+2. Add their tokens to `.env` file as `AUDIO_RECEIVER_TOKENS` (comma-separated)
+3. Restart the system
 
-2. **Audio Not Working**
-   - Verify FFmpeg installation
-   - Check WebSocket connectivity between bots
-   - Ensure proper token configuration
+#### ❌ "Bot lacks 'Manage Channels' permission"
+**Cause**: Bot doesn't have required permissions
+**Solution**:
+1. Go to Discord Developer Portal
+2. Update bot permissions in OAuth2 → URL Generator
+3. Re-invite the bot to your server
 
-3. **Process Management Issues**
-   - Check available listener bot tokens
-   - Verify process startup logs
-   - Monitor system resources
+#### ❌ "Failed to connect to AudioForwarder WebSocket"
+**Cause**: AudioForwarder bot not running or WebSocket server not started
+**Solution**:
+1. Check if AudioForwarder bot is running
+2. Verify WebSocket port is not blocked
+3. Check logs for connection errors
 
-## 🚀 Deployment
+#### ❌ "Audio not working"
+**Cause**: Various audio-related issues
+**Solution**:
+1. Verify FFmpeg is installed
+2. Check bot voice channel connections
+3. Run `!system_status` to check bot health
+4. Check logs for audio processing errors
 
-### Production Considerations
+### Debugging Commands
 
-1. **Resource Requirements**
-   - Minimum 2GB RAM for basic setup
-   - 1GB RAM per additional listener bot
-   - Stable internet connection for Discord API
+Use these commands in Discord to debug issues:
 
-2. **Security**
-   - Use environment variables for tokens
-   - Implement proper access controls
-   - Regular security updates
+- `!system_status` - Check all bot processes and system health
+- `!broadcast_status` - Check current broadcast section status
+- `!check_permissions` - Verify bot permissions
+- `!role_info` - Show role information and assignments
 
-3. **Monitoring**
-   - Set up log monitoring
-   - Monitor bot process health
-   - Track WebSocket connection status
+### Log Files
 
-### Scaling
+Check these log files for detailed error information:
 
-The system supports horizontal scaling:
+- `logs/audiobroadcast_bot.log` - Main bot logs
+- `logs/audioforwarder_bot.log` - AudioForwarder bot logs
+- `logs/audioreceiver_bot.log` - AudioReceiver bot logs
+- `logs/launcher.log` - Process manager logs
 
-- Multiple main bot instances (with different tokens)
-- Distributed listener bots across servers
-- Load balancing for high-traffic scenarios
+### Performance Optimization
+
+#### For High-Traffic Scenarios
+
+1. **More AudioReceiver Bots**: Add more `LISTENER_BOT_TOKEN_X` entries
+2. **Dedicated Resources**: Allocate sufficient RAM and CPU
+3. **Network Optimization**: Use low-latency hosting
+4. **Load Balancing**: Distribute bots across multiple servers
+
+#### Recommended Token Count
+
+- **Small Setup** (1-5 listener channels): 1-2 AudioReceiver tokens
+- **Medium Setup** (5-10 listener channels): 3-5 AudioReceiver tokens  
+- **Large Setup** (10+ listener channels): 5-10 AudioReceiver tokens
+
+## 📚 Additional Resources
+
+- [Discord Developer Portal](https://discord.com/developers/applications)
+- [Discord.py Documentation](https://discordpy.readthedocs.io/)
+- [Voice Receive Extension](https://github.com/imayhaveborkedit/discord.py-voice-recv)
+- [WebSocket Documentation](https://websockets.readthedocs.io/)
 
 ## 🤝 Contributing
-
-### Development Workflow
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests for new functionality
-5. Run the test suite
-6. Submit a pull request
-
-### Code Style
-
-We use Black for code formatting and isort for import sorting:
-
-```bash
-# Format code
-black .
-
-# Sort imports
-isort .
-
-# Lint code
-flake8 .
-```
-
-### Commit Messages
-
-Use conventional commit format:
-
-```
-feat: add new audio routing feature
-fix: resolve WebSocket connection issue
-docs: update API documentation
-test: add integration tests for process manager
-```
-
-## 📚 API Reference
-
-### Main Bot Commands
-
-- `!setup_broadcast 'Section Name' N`: Create broadcast section
-- `!start_broadcast`: Start audio broadcasting
-- `!stop_broadcast`: Stop audio broadcasting
-- `!broadcast_status`: Get section status
-- `!cleanup_setup`: Remove entire section
-- `!system_status`: Get system status
-
-### Configuration API
-
-```python
-from bots.config.simple_config import config_manager
-
-config = config_manager.get_config()
-print(config.main_bot_token)
-print(config.listener_bot_tokens)
-```
-
-### Process Management API
-
-```python
-from bots.core.process_manager import ProcessManager
-
-pm = ProcessManager(config)
-bot_id = await pm.start_speaker_bot(channel_id, guild_id)
-await pm.stop_bot(bot_id)
-```
-
-## 🔗 External Dependencies
-
-- **discord.py**: Discord API wrapper
-- **discord-ext-voice-recv**: Voice receiving extension
-- **websockets**: WebSocket communication
-- **aiohttp**: HTTP client/server
-- **python-dotenv**: Environment variable management
-- **numpy**: Numerical computing
-- **ffmpeg-python**: Audio processing
+4. Test thoroughly
+5. Submit a pull request
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🆘 Support
-
-For development support:
-
-1. Check the logs for error messages
-2. Review the architecture documentation
-3. Test with minimal configuration
-4. Open an issue with detailed information
+This project is licensed under the MIT License.
 
 ---
 
-**Happy Coding! 🎵**
+**Need Help?** Check the troubleshooting section or create an issue in the repository.

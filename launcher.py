@@ -194,8 +194,8 @@ class ProcessManager:
                 break
     
     def start_main_bot(self) -> bool:
-        """Start the main bot."""
-        return self.start_component("main_bot", ["start_bot.py"])
+        """Start the AudioBroadcast bot."""
+        return self.start_component("audiobroadcast_bot", ["start_bot.py"])
     
     def start_relay_server(self) -> bool:
         """Start the WebSocket relay server."""
@@ -250,7 +250,7 @@ def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(description="Discord Audio Router Launcher")
     parser.add_argument("--config", "-c", default=".env", help="Configuration file path")
-    parser.add_argument("--component", help="Start specific component (main_bot, relay_server)")
+    parser.add_argument("--component", help="Start specific component (audiobroadcast_bot, relay_server)")
     parser.add_argument("--no-relay", action="store_true", help="Don't start relay server")
     parser.add_argument("--monitor", action="store_true", help="Enable health monitoring")
     parser.add_argument("--status", action="store_true", help="Show component status")
@@ -274,7 +274,7 @@ def main():
         
         if args.component:
             # Start specific component
-            if args.component == "main_bot":
+            if args.component == "audiobroadcast_bot":
                 success = manager.start_main_bot()
             elif args.component == "relay_server":
                 success = manager.start_relay_server()

@@ -20,14 +20,15 @@ class SimpleConfig:
     """Simple configuration class for the audio router bot."""
 
     # Required configuration
-    main_bot_token: str
+    audio_broadcast_token: str
+    audio_forwarder_token: str
 
     # Optional configuration with defaults
     command_prefix: str = "!"
     log_level: str = "INFO"
 
-    # Listener bot tokens (for multiple bot instances)
-    listener_bot_tokens: List[str] = None
+    # AudioReceiver bot tokens (for multiple bot instances)
+    audio_receiver_tokens: List[str] = None
 
     # Access control configuration (simplified)
     speaker_role_name: str = "Speaker"
@@ -36,8 +37,8 @@ class SimpleConfig:
 
     def __post_init__(self):
         """Post-initialization processing."""
-        if self.listener_bot_tokens is None:
-            self.listener_bot_tokens = []
+        if self.audio_receiver_tokens is None:
+            self.audio_receiver_tokens = []
 
 
 class SimpleConfigManager:
@@ -92,52 +93,39 @@ class SimpleConfigManager:
         """
         return os.getenv(key, default)
 
-    def _get_listener_tokens(self) -> List[str]:
+    def _get_audio_receiver_tokens(self) -> List[str]:
         """
-        Get listener bot tokens from environment variables.
+        Get AudioReceiver bot tokens from environment variables.
 
-        Supports multiple formats:
-        - LISTENER_BOT_TOKEN: Single token
-        - LISTENER_BOT_TOKENS: Comma-separated tokens
-        - LISTENER_BOT_TOKEN_1, LISTENER_BOT_TOKEN_2, etc.: Numbered tokens
+        Uses AUDIO_RECEIVER_TOKENS with comma-separated tokens.
 
         Returns:
-            List of listener bot tokens
+            List of AudioReceiver bot tokens
+
+        Raises:
+            ValueError: If no AudioReceiver tokens are configured
         """
         tokens = []
 
-        # Try single token first
-        single_token = self._get_optional_env("LISTENER_BOT_TOKEN")
-        if single_token:
-            tokens.append(single_token)
-
-        # Try comma-separated tokens
-        multiple_tokens = self._get_optional_env("LISTENER_BOT_TOKENS")
+        # Get comma-separated tokens
+        multiple_tokens = self._get_optional_env("AUDIO_RECEIVER_TOKENS")
         if multiple_tokens:
             for token in multiple_tokens.split(","):
                 token = token.strip()
                 if token and token not in tokens:
                     tokens.append(token)
 
-        # Try numbered tokens
-        token_index = 1
-        while True:
-            numbered_token = self._get_optional_env(f"LISTENER_BOT_TOKEN_{token_index}")
-            if not numbered_token:
-                break
-            if numbered_token not in tokens:
-                tokens.append(numbered_token)
-            token_index += 1
-
-        # If no listener tokens found, use main token for all bots
+        # AudioReceiver tokens are required - Discord doesn't allow multiple
+        # instances with same token
         if not tokens:
-            logger.warning(
-                "No listener bot tokens found, will use main token for all bots"
+            raise ValueError(
+                "AUDIO_RECEIVER_TOKENS is required. Each AudioReceiver bot "
+                "needs its own unique token. Create additional bots in "
+                "Discord Developer Portal and add their tokens to "
+                "AUDIO_RECEIVER_TOKENS."
             )
-            main_token = self._get_required_env("MAIN_BOT_TOKEN")
-            tokens = [main_token] * 10  # Support up to 10 listener bots
 
-        logger.info(f"Loaded {len(tokens)} listener bot tokens")
+        logger.info(f"Loaded {len(tokens)} AudioReceiver bot tokens")
         return tokens
 
     def _get_speaker_role_name(self) -> str:
@@ -146,11 +134,16 @@ class SimpleConfigManager:
 
     def _get_broadcast_admin_role_name(self) -> str:
         """Get broadcast admin role name from environment variables."""
-        return self._get_optional_env("BROADCAST_ADMIN_ROLE_NAME", "Broadcast Admin")
+        return self._get_optional_env(
+            "BROADCAST_ADMIN_ROLE_NAME", "Broadcast Admin"
+        )
 
     def _get_auto_create_roles(self) -> bool:
         """Get auto-create roles setting from environment variables."""
-        return self._get_optional_env("AUTO_CREATE_ROLES", "true").lower() == "true"
+        return (
+            self._get_optional_env("AUTO_CREATE_ROLES", "true").lower()
+            == "true"
+        )
 
     def get_config(self) -> SimpleConfig:
         """
@@ -163,14 +156,20 @@ class SimpleConfigManager:
             ValueError: If required configuration is missing
         """
         try:
-            main_bot_token = self._get_required_env("MAIN_BOT_TOKEN")
-            listener_tokens = self._get_listener_tokens()
+            audio_broadcast_token = self._get_required_env(
+                "AUDIO_BROADCAST_TOKEN"
+            )
+            audio_forwarder_token = self._get_required_env(
+                "AUDIO_FORWARDER_TOKEN"
+            )
+            audio_receiver_tokens = self._get_audio_receiver_tokens()
 
             config = SimpleConfig(
-                main_bot_token=main_bot_token,
+                audio_broadcast_token=audio_broadcast_token,
+                audio_forwarder_token=audio_forwarder_token,
                 command_prefix=self._get_optional_env("BOT_PREFIX", "!"),
                 log_level=self._get_optional_env("LOG_LEVEL", "INFO"),
-                listener_bot_tokens=listener_tokens,
+                audio_receiver_tokens=audio_receiver_tokens,
                 speaker_role_name=self._get_speaker_role_name(),
                 broadcast_admin_role_name=self._get_broadcast_admin_role_name(),
                 auto_create_roles=self._get_auto_create_roles(),

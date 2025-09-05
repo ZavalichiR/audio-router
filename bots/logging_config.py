@@ -15,7 +15,7 @@ from typing import Optional
 
 def setup_logging(
     component_name: str,
-    log_level: str = "INFO",
+    log_level: Optional[str] = None,
     log_file: Optional[str] = None,
     max_file_size: int = 10 * 1024 * 1024,  # 10MB
     backup_count: int = 5,
@@ -25,7 +25,7 @@ def setup_logging(
 
     Args:
         component_name: Name of the component (e.g., 'main_bot', 'speaker_bot')
-        log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL). If None, reads from LOG_LEVEL env var
         log_file: Optional log file path (if None, uses YAML config)
         max_file_size: Maximum size of log file before rotation
         backup_count: Number of backup log files to keep
@@ -33,6 +33,19 @@ def setup_logging(
     Returns:
         logging.Logger: Configured logger instance
     """
+    # Get log level from environment if not provided
+    if log_level is None:
+        log_level = os.getenv("LOG_LEVEL", "INFO")
+    
+    # Get verbose logging setting
+    verbose_logging = os.getenv("VERBOSE_LOGGING", "false").lower() == "true"
+    debug_mode = os.getenv("DEBUG", "false").lower() == "true"
+    
+    # Adjust log level based on debug/verbose settings
+    if debug_mode:
+        log_level = "DEBUG"
+    elif verbose_logging and log_level == "INFO":
+        log_level = "DEBUG"
     # Try to load YAML configuration first
     yaml_config_path = Path(__file__).parent.parent / "logging.yaml"
     if yaml_config_path.exists():
@@ -58,7 +71,9 @@ def setup_logging(
             return logger
 
         except ImportError:
-            print("Warning: PyYAML not available, falling back to basic logging")
+            print(
+                "Warning: PyYAML not available, falling back to basic logging"
+            )
         except Exception as e:
             print(
                 f"Warning: Failed to load YAML logging config: {e}, falling back to basic logging"
@@ -105,7 +120,10 @@ def _setup_basic_logging(
             os.makedirs(log_dir, exist_ok=True)
 
         file_handler = logging.handlers.RotatingFileHandler(
-            log_file, maxBytes=max_file_size, backupCount=backup_count, encoding="utf-8"
+            log_file,
+            maxBytes=max_file_size,
+            backupCount=backup_count,
+            encoding="utf-8",
         )
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)

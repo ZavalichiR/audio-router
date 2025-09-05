@@ -31,8 +31,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # Default command runs the main bot
 # Override with docker run for different components:
-# - Main bot: docker run <image> python start_bot.py
-# - Speaker bot: docker run <image> python bots/speaker_bot.py
-# - Listener bot: docker run <image> python bots/listener_bot.py
+# - AudioBroadcast bot: docker run <image> python start_bot.py
+# - AudioForwarder bot: docker run <image> python bots/audioforwarder_bot.py
+# - AudioReceiver bot: docker run <image> python bots/audioreceiver_bot.py
 # - Relay server: docker run <image> python websocket_relay.py
 CMD ["python", "start_bot.py"]

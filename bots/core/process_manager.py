@@ -59,9 +59,13 @@ class BotProcess:
 
             # Determine which script to run
             if self.bot_type == "speaker":
-                script_path = Path(__file__).parent.parent / "speaker_bot.py"
+                script_path = (
+                    Path(__file__).parent.parent / "audioforwarder_bot.py"
+                )
             elif self.bot_type == "listener":
-                script_path = Path(__file__).parent.parent / "listener_bot.py"
+                script_path = (
+                    Path(__file__).parent.parent / "audioreceiver_bot.py"
+                )
             else:
                 logger.error(f"Unknown bot type: {self.bot_type}")
                 return False
@@ -80,7 +84,9 @@ class BotProcess:
             )
 
             # For listener bots, add speaker channel ID if available
-            if self.bot_type == "listener" and hasattr(self, "speaker_channel_id"):
+            if self.bot_type == "listener" and hasattr(
+                self, "speaker_channel_id"
+            ):
                 env["SPEAKER_CHANNEL_ID"] = str(self.speaker_channel_id)
 
             # Start the process
@@ -183,7 +189,9 @@ class ProcessManager:
         self.available_tokens.extend(tokens)
         logger.info(f"Added {len(tokens)} available bot tokens")
 
-    async def start_speaker_bot(self, channel_id: int, guild_id: int) -> Optional[str]:
+    async def start_speaker_bot(
+        self, channel_id: int, guild_id: int
+    ) -> Optional[str]:
         """
         Start a speaker bot process.
 
@@ -195,15 +203,18 @@ class ProcessManager:
             Bot ID if successful, None otherwise
         """
         try:
-            bot_id = f"speaker_{channel_id}"
+            bot_id = f"audioforwarder_{channel_id}"
 
             # Check if already running
-            if bot_id in self.bot_processes and self.bot_processes[bot_id].is_alive():
-                logger.info(f"Speaker bot {bot_id} is already running")
+            if (
+                bot_id in self.bot_processes
+                and self.bot_processes[bot_id].is_alive()
+            ):
+                logger.info(f"AudioForwarder bot {bot_id} is already running")
                 return bot_id
 
-            # Use main bot token for speaker
-            token = self.config.main_bot_token
+            # Use AudioForwarder token for speaker
+            token = self.config.audio_forwarder_token
 
             # Create bot process
             bot_process = BotProcess(
@@ -217,14 +228,16 @@ class ProcessManager:
             # Start the process
             if bot_process.start():
                 self.bot_processes[bot_id] = bot_process
-                logger.info(f"Started speaker bot process: {bot_id}")
+                logger.info(f"Started AudioForwarder bot process: {bot_id}")
                 return bot_id
             else:
-                logger.error(f"Failed to start speaker bot process: {bot_id}")
+                logger.error(
+                    f"Failed to start AudioForwarder bot process: {bot_id}"
+                )
                 return None
 
         except Exception as e:
-            logger.error(f"Error starting speaker bot: {e}")
+            logger.error(f"Error starting AudioForwarder bot: {e}")
             return None
 
     async def start_listener_bot(
@@ -242,16 +255,19 @@ class ProcessManager:
             Bot ID if successful, None otherwise
         """
         try:
-            bot_id = f"listener_{channel_id}"
+            bot_id = f"audioreceiver_{channel_id}"
 
             # Check if already running
-            if bot_id in self.bot_processes and self.bot_processes[bot_id].is_alive():
-                logger.info(f"Listener bot {bot_id} is already running")
+            if (
+                bot_id in self.bot_processes
+                and self.bot_processes[bot_id].is_alive()
+            ):
+                logger.info(f"AudioReceiver bot {bot_id} is already running")
                 return bot_id
 
             # Get available token
             if not self.available_tokens:
-                logger.error("No available tokens for listener bot")
+                logger.error("No available tokens for AudioReceiver bot")
                 return None
 
             # Use the first available token
@@ -274,17 +290,19 @@ class ProcessManager:
             # Start the process
             if bot_process.start():
                 self.bot_processes[bot_id] = bot_process
-                logger.info(f"Started listener bot process: {bot_id}")
+                logger.info(f"Started AudioReceiver bot process: {bot_id}")
                 return bot_id
             else:
                 # Return token to available list if startup failed
                 self.available_tokens.insert(0, token)
                 self.used_tokens.discard(token)
-                logger.error(f"Failed to start listener bot process: {bot_id}")
+                logger.error(
+                    f"Failed to start AudioReceiver bot process: {bot_id}"
+                )
                 return None
 
         except Exception as e:
-            logger.error(f"Error starting listener bot: {e}")
+            logger.error(f"Error starting AudioReceiver bot: {e}")
             return None
 
     async def stop_bot(self, bot_id: str) -> bool:

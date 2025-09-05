@@ -1,6 +1,5 @@
 # Core Discord and Audio Dependencies
 discord.py==2.4.0
-discord-ext-voice-recv>=0.4.2
 
 # WebSocket and HTTP Communication
 websockets>=10.4

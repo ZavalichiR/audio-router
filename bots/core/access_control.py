@@ -34,15 +34,21 @@ class AccessControl:
             config: Bot configuration containing access control settings
         """
         self.config = config
-        
-        # Role names (configurable)
-        self.speaker_role_name = getattr(config, 'speaker_role_name', 'Speaker')
-        self.broadcast_admin_role_name = getattr(config, 'broadcast_admin_role_name', 'Broadcast Admin')
-        
-        # Auto-create roles if they don't exist
-        self.auto_create_roles = getattr(config, 'auto_create_roles', True)
 
-        logger.info(f"Access control initialized - Speaker: '{self.speaker_role_name}', Admin: '{self.broadcast_admin_role_name}'")
+        # Role names (configurable)
+        self.speaker_role_name = getattr(
+            config, "speaker_role_name", "Speaker"
+        )
+        self.broadcast_admin_role_name = getattr(
+            config, "broadcast_admin_role_name", "Broadcast Admin"
+        )
+
+        # Auto-create roles if they don't exist
+        self.auto_create_roles = getattr(config, "auto_create_roles", True)
+
+        logger.info(
+            f"Access control initialized - Speaker: '{self.speaker_role_name}', Admin: '{self.broadcast_admin_role_name}'"
+        )
 
     def is_broadcast_admin(self, member: discord.Member) -> bool:
         """
@@ -90,19 +96,23 @@ class AccessControl:
             Dict with role information: {'speaker_role': role, 'broadcast_admin_role': role}
         """
         if not self.auto_create_roles:
-            return {'speaker_role': None, 'broadcast_admin_role': None}
+            return {"speaker_role": None, "broadcast_admin_role": None}
 
-        result = {'speaker_role': None, 'broadcast_admin_role': None}
+        result = {"speaker_role": None, "broadcast_admin_role": None}
 
         try:
             # Check if bot has necessary permissions
             bot_member = guild.me
             if not bot_member.guild_permissions.manage_roles:
-                logger.warning(f"Bot lacks 'Manage Roles' permission in {guild.name}")
+                logger.warning(
+                    f"Bot lacks 'Manage Roles' permission in {guild.name}"
+                )
                 return result
 
             # Ensure speaker role exists
-            speaker_role = discord.utils.get(guild.roles, name=self.speaker_role_name)
+            speaker_role = discord.utils.get(
+                guild.roles, name=self.speaker_role_name
+            )
             if not speaker_role:
                 try:
                     speaker_role = await guild.create_role(
@@ -110,26 +120,39 @@ class AccessControl:
                         color=discord.Color.green(),
                         reason="Created for speaker channel access",
                     )
-                    logger.info(f"Created speaker role: {self.speaker_role_name}")
+                    logger.info(
+                        f"Created speaker role: {self.speaker_role_name}"
+                    )
                 except Exception as e:
                     logger.error(f"Failed to create speaker role: {e}")
             else:
-                logger.info(f"Speaker role '{self.speaker_role_name}' already exists")
-            result['speaker_role'] = speaker_role
+                logger.info(
+                    f"Speaker role '{self.speaker_role_name}' already exists"
+                )
+            result["speaker_role"] = speaker_role
 
             # Give the bot the speaker role so it can join speaker channels
             if speaker_role and bot_member:
                 try:
                     if speaker_role not in bot_member.roles:
-                        await bot_member.add_roles(speaker_role, reason="Bot needs speaker role to join speaker channels")
-                        logger.info(f"Added speaker role to bot: {self.speaker_role_name}")
+                        await bot_member.add_roles(
+                            speaker_role,
+                            reason="Bot needs speaker role to join speaker channels",
+                        )
+                        logger.info(
+                            f"Added speaker role to bot: {self.speaker_role_name}"
+                        )
                     else:
-                        logger.info(f"Bot already has speaker role: {self.speaker_role_name}")
+                        logger.info(
+                            f"Bot already has speaker role: {self.speaker_role_name}"
+                        )
                 except Exception as e:
                     logger.warning(f"Could not add speaker role to bot: {e}")
 
             # Ensure broadcast admin role exists
-            admin_role = discord.utils.get(guild.roles, name=self.broadcast_admin_role_name)
+            admin_role = discord.utils.get(
+                guild.roles, name=self.broadcast_admin_role_name
+            )
             if not admin_role:
                 try:
                     admin_role = await guild.create_role(
@@ -137,12 +160,16 @@ class AccessControl:
                         color=discord.Color.red(),
                         reason="Created for broadcast control access",
                     )
-                    logger.info(f"Created broadcast admin role: {self.broadcast_admin_role_name}")
+                    logger.info(
+                        f"Created broadcast admin role: {self.broadcast_admin_role_name}"
+                    )
                 except Exception as e:
                     logger.error(f"Failed to create broadcast admin role: {e}")
             else:
-                logger.info(f"Broadcast admin role '{self.broadcast_admin_role_name}' already exists")
-            result['broadcast_admin_role'] = admin_role
+                logger.info(
+                    f"Broadcast admin role '{self.broadcast_admin_role_name}' already exists"
+                )
+            result["broadcast_admin_role"] = admin_role
 
         except Exception as e:
             logger.error(f"Error ensuring roles exist: {e}")
@@ -186,7 +213,7 @@ class AccessControl:
                         connect=False,
                         view_channel=True,  # Allow viewing but not connecting
                     )
-                    
+
                     # Allow speaker role to connect
                     await speaker_channel.set_permissions(
                         speaker_role,
@@ -194,7 +221,7 @@ class AccessControl:
                         speak=True,
                         view_channel=True,
                     )
-                    
+
                     # Allow broadcast admin role to connect (for management)
                     if broadcast_admin_role:
                         await speaker_channel.set_permissions(
@@ -203,10 +230,14 @@ class AccessControl:
                             speak=True,
                             view_channel=True,
                         )
-                    
-                    logger.info(f"Set speaker channel permissions for: {speaker_channel.name}")
+
+                    logger.info(
+                        f"Set speaker channel permissions for: {speaker_channel.name}"
+                    )
                 except discord.Forbidden as e:
-                    logger.warning(f"Cannot set speaker channel permissions: {e}")
+                    logger.warning(
+                        f"Cannot set speaker channel permissions: {e}"
+                    )
 
             # Set up listener channel permissions (open to everyone, can speak)
             for listener_channel in listener_channels:
@@ -218,10 +249,14 @@ class AccessControl:
                         speak=True,  # Listeners can speak in their channels
                         view_channel=True,
                     )
-                    
-                    logger.info(f"Set listener channel permissions for: {listener_channel.name}")
+
+                    logger.info(
+                        f"Set listener channel permissions for: {listener_channel.name}"
+                    )
                 except discord.Forbidden as e:
-                    logger.warning(f"Cannot set listener channel permissions: {e}")
+                    logger.warning(
+                        f"Cannot set listener channel permissions: {e}"
+                    )
 
             return True
 
@@ -230,23 +265,25 @@ class AccessControl:
             return False
 
 
-def is_broadcast_admin():
+def is_broadcast_admin(role_name: str = "Broadcast Admin"):
     """
     Decorator to check if user is authorized to use bot commands.
-    
+
     Allows users with:
     - Administrator permission
-    - Broadcast Admin role
+    - Broadcast Admin role (or specified role name)
+
+    Args:
+        role_name: Name of the broadcast admin role (defaults to "Broadcast Admin")
     """
 
     def predicate(ctx):
-        # Import here to avoid circular imports
-        from main_bot import audio_router
+        # Check if user has administrator permissions (always allowed)
+        if ctx.author.guild_permissions.administrator:
+            return True
 
-        if not audio_router or not hasattr(audio_router, "access_control"):
-            # Fallback to admin check if access control not available
-            return ctx.author.guild_permissions.administrator
-
-        return audio_router.access_control.is_broadcast_admin(ctx.author)
+        # Check if user has the broadcast admin role
+        member_role_names = {role.name for role in ctx.author.roles}
+        return role_name in member_role_names
 
     return commands.check(predicate)

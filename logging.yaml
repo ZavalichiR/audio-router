@@ -21,29 +21,29 @@ handlers:
     formatter: standard
     stream: ext://sys.stdout
   
-  file_main:
+  file_audiobroadcast:
     class: logging.handlers.RotatingFileHandler
     level: DEBUG
     formatter: detailed
-    filename: logs/main_bot.log
+    filename: logs/audiobroadcast_bot.log
     maxBytes: 10485760  # 10MB
     backupCount: 5
     encoding: utf-8
   
-  file_speaker:
+  file_audioforwarder:
     class: logging.handlers.RotatingFileHandler
     level: DEBUG
     formatter: detailed
-    filename: logs/speaker_bot.log
+    filename: logs/audioforwarder_bot.log
     maxBytes: 10485760  # 10MB
     backupCount: 5
     encoding: utf-8
   
-  file_listener:
+  file_audioreceiver:
     class: logging.handlers.RotatingFileHandler
     level: DEBUG
     formatter: detailed
-    filename: logs/listener_bot.log
+    filename: logs/audioreceiver_bot.log
     maxBytes: 10485760  # 10MB
     backupCount: 5
     encoding: utf-8
@@ -68,19 +68,19 @@ handlers:
 
 loggers:
   # Main application loggers
-  main_bot:
+  audiobroadcast_bot:
     level: INFO
-    handlers: [console, file_main]
+    handlers: [console, file_audiobroadcast]
     propagate: false
   
-  speaker_bot:
+  audioforwarder_bot:
     level: INFO
-    handlers: [console, file_speaker]
+    handlers: [console, file_audioforwarder]
     propagate: false
   
-  listener_bot:
+  audioreceiver_bot:
     level: INFO
-    handlers: [console, file_listener]
+    handlers: [console, file_audioreceiver]
     propagate: false
   
   websocket_relay:
@@ -91,48 +91,48 @@ loggers:
   # Core component loggers
   bots.core:
     level: INFO
-    handlers: [console, file_main]
+    handlers: [console, file_audiobroadcast]
     propagate: false
   
   bots.config:
     level: INFO
-    handlers: [console, file_main]
+    handlers: [console, file_audiobroadcast]
     propagate: false
   
   bots.audio_handler:
     level: INFO
-    handlers: [console, file_main]
+    handlers: [console, file_audiobroadcast]
     propagate: false
   
   # Third-party library loggers (suppress noisy ones)
   discord.voice_state:
     level: WARNING
-    handlers: [file_main]
+    handlers: [file_audiobroadcast]
     propagate: false
   
   discord.gateway:
     level: WARNING
-    handlers: [file_main]
+    handlers: [file_audiobroadcast]
     propagate: false
   
   discord.client:
     level: WARNING
-    handlers: [file_main]
+    handlers: [file_audiobroadcast]
     propagate: false
   
   websockets:
     level: WARNING
-    handlers: [file_main]
+    handlers: [file_audiobroadcast]
     propagate: false
   
   aiohttp.access:
     level: WARNING
-    handlers: [file_main]
+    handlers: [file_audiobroadcast]
     propagate: false
   
   aiohttp.client:
     level: WARNING
-    handlers: [file_main]
+    handlers: [file_audiobroadcast]
     propagate: false
 
 root:

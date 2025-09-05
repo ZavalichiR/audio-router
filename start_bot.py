@@ -15,8 +15,8 @@ from pathlib import Path
 bots_dir = Path(__file__).parent / "bots"
 sys.path.insert(0, str(bots_dir))
 
-# Import the main bot
-from bots.main_bot import main
+# Import the AudioBroadcast bot
+from bots.audiobroadcast_bot import main
 
 # Configure logging
 logging.basicConfig(
@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 async def startup():
     """Startup function with error handling."""
     try:
-        logger.info("Starting Discord Audio Router Bot...")
+        logger.info("Starting AudioBroadcast Bot...")
         
         # Check if .env file exists
         env_file = Path(".env")

@@ -30,11 +30,13 @@ class AudioBuffer:
         # Also add to sync queue for synchronous access
         try:
             self._sync_queue.put_nowait(data)
+            logger.debug(f"Audio buffer: Added {len(data)} bytes to sync queue")
         except queue.Full:
             # Remove oldest item and add new one
             try:
                 self._sync_queue.get_nowait()
                 self._sync_queue.put_nowait(data)
+                logger.debug(f"Audio buffer: Replaced packet in full queue with {len(data)} bytes")
             except queue.Empty:
                 pass
 
@@ -101,7 +103,9 @@ class OpusAudioSink(voice_recv.AudioSink):
         self._is_active = False
         logger.debug("OpusAudioSink stopped")
 
-    def write(self, user: discord.Member, voice_data: voice_recv.VoiceData) -> None:
+    def write(
+        self, user: discord.Member, voice_data: voice_recv.VoiceData
+    ) -> None:
         """
         Process incoming audio data from Discord.
 
@@ -112,6 +116,16 @@ class OpusAudioSink(voice_recv.AudioSink):
         if not self._is_active or voice_data.packet is None:
             return
 
+        # Filter out invalid packets (ssrc=0 or no user)
+        if user is None or voice_data.packet.ssrc == 0:
+            logger.debug("Ignoring invalid audio packet (ssrc=0 or no user)")
+            return
+        
+        # Filter out silence/keep-alive packets (very small packets with no sequence)
+        if voice_data.packet.sequence == 0 and voice_data.packet.timestamp == 0:
+            logger.debug("Ignoring silence/keep-alive packet")
+            return
+
         try:
             opus_audio_data = voice_data.packet.decrypted_data
             if opus_audio_data:
@@ -119,13 +133,17 @@ class OpusAudioSink(voice_recv.AudioSink):
                     f"🎤 Captured audio from {user.display_name}: {len(opus_audio_data)} bytes"
                 )
                 # Schedule callback execution on the event loop
-                self.event_loop.create_task(self.audio_callback_func(opus_audio_data))
+                self.event_loop.create_task(
+                    self.audio_callback_func(opus_audio_data)
+                )
             else:
                 logger.debug(
                     f"Received voice data from {user.display_name} but no audio content"
                 )
         except Exception as e:
-            logger.error(f"Error processing audio data from {user.display_name}: {e}")
+            logger.error(
+                f"Error processing audio data from {user.display_name}: {e}"
+            )
 
     def cleanup(self):
         """Clean up resources and stop processing."""
@@ -152,7 +170,9 @@ async def setup_audio_receiver(
         RuntimeError: If voice client is not connected or setup fails
     """
     if not isinstance(voice_client, voice_recv.VoiceRecvClient):
-        raise ValueError("Voice client must be VoiceRecvClient for audio receive")
+        raise ValueError(
+            "Voice client must be VoiceRecvClient for audio receive"
+        )
     if not voice_client.is_connected():
         logger.error("VoiceRecvClient is not connected")
         raise RuntimeError("Voice client not connected")
@@ -181,7 +201,9 @@ async def setup_audio_receiver(
             try:
                 audio_sink.cleanup()
             except Exception as cleanup_error:
-                logger.error(f"Error during audio sink cleanup: {cleanup_error}")
+                logger.error(
+                    f"Error during audio sink cleanup: {cleanup_error}"
+                )
         raise
 
 
@@ -202,6 +224,7 @@ class OpusAudioSource(discord.AudioSource):
         """
         self.audio_buffer = audio_buffer
         self._is_playing = False
+        self._read_count = 0
 
     def is_opus(self) -> bool:
         """Return True to indicate we provide Opus-encoded audio."""
@@ -210,7 +233,7 @@ class OpusAudioSource(discord.AudioSource):
     def start(self):
         """Start playing audio packets."""
         self._is_playing = True
-        logger.debug("OpusAudioSource started")
+        logger.info("OpusAudioSource started - ready to play audio")
 
     def stop(self):
         """Stop playing audio packets."""
@@ -224,12 +247,29 @@ class OpusAudioSource(discord.AudioSource):
         Returns:
             bytes: Opus audio packet or silence frame if no data available
         """
+        self._read_count += 1
+        if self._read_count <= 5:  # Log first 5 calls to see if it's being called at all
+            logger.info(f"Audio source read() called {self._read_count} times")
+        elif self._read_count % 1000 == 0:  # Then log every 1000th call to avoid spam
+            logger.info(f"Audio source read() called {self._read_count} times")
+        
         if not self._is_playing:
+            logger.debug(f"Audio source not playing, returning empty")
             return b""
 
         # Use thread-safe synchronous access to avoid deadlocks
         audio_packet = self.audio_buffer.get_sync(timeout=0.01)  # 10ms timeout
-        return audio_packet if audio_packet else b"\xf8\xff\xfe"  # Opus silence frame
+        if audio_packet:
+            if self._read_count <= 5:  # Only log first 5 audio packets
+                logger.info(f"🎵 Playing audio packet: {len(audio_packet)} bytes")
+            else:
+                logger.debug(f"🎵 Playing audio packet: {len(audio_packet)} bytes")
+        else:
+            if self._read_count <= 5:  # Only log silence for first 5 calls
+                logger.info(f"Audio source returning silence frame (no data available)")
+        return (
+            audio_packet if audio_packet else b"\xf8\xff\xfe"
+        )  # Opus silence frame
 
 
 class SilentSource(discord.AudioSource):
