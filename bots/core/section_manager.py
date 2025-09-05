@@ -242,6 +242,13 @@ class SectionManager:
             Dict with creation results
         """
         try:
+            # Create control text channel
+            control_channel = await category.create_text_channel(
+                name="broadcast-control",
+                topic=f"Control channel for {section_name} broadcast section",
+                reason="Creating control channel",
+            )
+
             # Create speaker channel
             speaker_channel = await category.create_voice_channel(
                 name="Speaker",
@@ -260,13 +267,6 @@ class SectionManager:
                     reason=f"Creating listener channel {i}",
                 )
                 listener_channel_ids.append(listener_channel.id)
-
-            # Create control text channel
-            control_channel = await category.create_text_channel(
-                name="broadcast-control",
-                topic=f"Control channel for {section_name} broadcast section",
-                reason="Creating control channel",
-            )
 
             # Set up private channel permissions using access control
             permission_setup_success = False
