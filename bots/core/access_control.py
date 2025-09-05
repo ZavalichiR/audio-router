@@ -1,12 +1,14 @@
 """
-Access Control System for Discord Audio Router Bot.
+Simplified Access Control System for Discord Audio Router Bot.
 
-This module provides role-based access control for managing who can
-start broadcasts and access private control channels.
+This module provides a clean role-based access control system:
+- Speaker role: Required to join speaker channels
+- Broadcast Admin role: Required to use bot commands
+- Listener channels: Open to everyone
 """
 
 import logging
-from typing import List, Optional, Set
+from typing import Optional
 
 import discord
 from discord.ext import commands
@@ -16,12 +18,12 @@ logger = logging.getLogger(__name__)
 
 class AccessControl:
     """
-    Manages access control for broadcast sections.
+    Simplified access control system for broadcast sections.
 
-    This class handles role-based permissions for:
-    - Who can start/stop broadcasts
-    - Who can access private control channels
-    - Who can manage broadcast sections
+    This class handles:
+    - Speaker role management (who can join speaker channels)
+    - Broadcast admin role management (who can use bot commands)
+    - Automatic role creation (but not assignment)
     """
 
     def __init__(self, config):
@@ -32,41 +34,19 @@ class AccessControl:
             config: Bot configuration containing access control settings
         """
         self.config = config
+        
+        # Role names (configurable)
+        self.speaker_role_name = getattr(config, 'speaker_role_name', 'Speaker')
+        self.broadcast_admin_role_name = getattr(config, 'broadcast_admin_role_name', 'Broadcast Admin')
+        
+        # Auto-create roles if they don't exist
+        self.auto_create_roles = getattr(config, 'auto_create_roles', True)
 
-        # Default authorized roles (can be configured via environment)
-        self.authorized_roles: Set[str] = set()
-        self.authorized_users: Set[int] = set()
+        logger.info(f"Access control initialized - Speaker: '{self.speaker_role_name}', Admin: '{self.broadcast_admin_role_name}'")
 
-        # Load configuration
-        self._load_access_config()
-
-    def _load_access_config(self):
-        """Load access control configuration from environment."""
-        import os
-
-        # Load authorized roles
-        roles_env = os.getenv("AUTHORIZED_ROLES", "")
-        if roles_env:
-            self.authorized_roles = set(
-                role.strip() for role in roles_env.split(",") if role.strip()
-            )
-
-        # Load authorized user IDs
-        users_env = os.getenv("AUTHORIZED_USERS", "")
-        if users_env:
-            self.authorized_users = set(
-                int(user_id.strip())
-                for user_id in users_env.split(",")
-                if user_id.strip()
-            )
-
-        logger.info(
-            f"Loaded access control: {len(self.authorized_roles)} roles, {len(self.authorized_users)} users"
-        )
-
-    def is_authorized(self, member: discord.Member) -> bool:
+    def is_broadcast_admin(self, member: discord.Member) -> bool:
         """
-        Check if a member is authorized to control broadcasts.
+        Check if a member is authorized to use bot commands.
 
         Args:
             member: Discord member to check
@@ -74,179 +54,189 @@ class AccessControl:
         Returns:
             True if member is authorized, False otherwise
         """
-        # Check if user has administrator permissions
+        # Check if user has administrator permissions (always allowed)
         if member.guild_permissions.administrator:
             return True
 
-        # Check if user ID is in authorized users list
-        if member.id in self.authorized_users:
-            return True
-
-        # Check if user has any authorized roles
+        # Check if user has the broadcast admin role
         member_role_names = {role.name for role in member.roles}
-        if self.authorized_roles.intersection(member_role_names):
+        if self.broadcast_admin_role_name in member_role_names:
             return True
 
         return False
 
-    def get_authorized_members(self, guild: discord.Guild) -> List[discord.Member]:
+    def has_speaker_role(self, member: discord.Member) -> bool:
         """
-        Get all authorized members in a guild.
+        Check if a member has the speaker role.
 
         Args:
-            guild: Discord guild to check
+            member: Discord member to check
 
         Returns:
-            List of authorized members
+            True if member has speaker role, False otherwise
         """
-        authorized = []
+        member_role_names = {role.name for role in member.roles}
+        return self.speaker_role_name in member_role_names
 
-        for member in guild.members:
-            if self.is_authorized(member):
-                authorized.append(member)
-
-        return authorized
-
-    async def create_authorized_role(
-        self, guild: discord.Guild, role_name: str = "Broadcast Controller"
-    ) -> Optional[discord.Role]:
+    async def ensure_roles_exist(self, guild: discord.Guild) -> dict:
         """
-        Create an authorized role for broadcast control.
+        Ensure that required roles exist in the guild.
+        Creates roles if they don't exist but doesn't assign them to anyone.
 
         Args:
             guild: Discord guild
-            role_name: Name for the new role
 
         Returns:
-            Created role or None if failed
+            Dict with role information: {'speaker_role': role, 'broadcast_admin_role': role}
         """
+        if not self.auto_create_roles:
+            return {'speaker_role': None, 'broadcast_admin_role': None}
+
+        result = {'speaker_role': None, 'broadcast_admin_role': None}
+
         try:
-            # Check if role already exists
-            existing_role = discord.utils.get(guild.roles, name=role_name)
-            if existing_role:
-                logger.info(f"Role '{role_name}' already exists")
-                return existing_role
+            # Check if bot has necessary permissions
+            bot_member = guild.me
+            if not bot_member.guild_permissions.manage_roles:
+                logger.warning(f"Bot lacks 'Manage Roles' permission in {guild.name}")
+                return result
 
-            # Create new role
-            role = await guild.create_role(
-                name=role_name,
-                color=discord.Color.blue(),
-                reason="Created for broadcast control access",
-            )
+            # Ensure speaker role exists
+            speaker_role = discord.utils.get(guild.roles, name=self.speaker_role_name)
+            if not speaker_role:
+                try:
+                    speaker_role = await guild.create_role(
+                        name=self.speaker_role_name,
+                        color=discord.Color.green(),
+                        reason="Created for speaker channel access",
+                    )
+                    logger.info(f"Created speaker role: {self.speaker_role_name}")
+                except Exception as e:
+                    logger.error(f"Failed to create speaker role: {e}")
+            else:
+                logger.info(f"Speaker role '{self.speaker_role_name}' already exists")
+            result['speaker_role'] = speaker_role
 
-            logger.info(f"Created authorized role: {role_name}")
-            return role
+            # Give the bot the speaker role so it can join speaker channels
+            if speaker_role and bot_member:
+                try:
+                    if speaker_role not in bot_member.roles:
+                        await bot_member.add_roles(speaker_role, reason="Bot needs speaker role to join speaker channels")
+                        logger.info(f"Added speaker role to bot: {self.speaker_role_name}")
+                    else:
+                        logger.info(f"Bot already has speaker role: {self.speaker_role_name}")
+                except Exception as e:
+                    logger.warning(f"Could not add speaker role to bot: {e}")
+
+            # Ensure broadcast admin role exists
+            admin_role = discord.utils.get(guild.roles, name=self.broadcast_admin_role_name)
+            if not admin_role:
+                try:
+                    admin_role = await guild.create_role(
+                        name=self.broadcast_admin_role_name,
+                        color=discord.Color.red(),
+                        reason="Created for broadcast control access",
+                    )
+                    logger.info(f"Created broadcast admin role: {self.broadcast_admin_role_name}")
+                except Exception as e:
+                    logger.error(f"Failed to create broadcast admin role: {e}")
+            else:
+                logger.info(f"Broadcast admin role '{self.broadcast_admin_role_name}' already exists")
+            result['broadcast_admin_role'] = admin_role
 
         except Exception as e:
-            logger.error(f"Failed to create authorized role: {e}")
-            return None
+            logger.error(f"Error ensuring roles exist: {e}")
 
-    async def setup_private_channel_permissions(
+        return result
+
+    async def setup_voice_channel_permissions(
         self,
-        channel: discord.TextChannel,
-        authorized_role: Optional[discord.Role] = None,
+        speaker_channel: discord.VoiceChannel,
+        listener_channels: list[discord.VoiceChannel],
+        broadcast_admin_role: Optional[discord.Role] = None,
+        speaker_role: Optional[discord.Role] = None,
     ) -> bool:
         """
-        Set up private channel permissions for authorized users only.
+        Set up voice channel permissions for speaker and listener channels.
 
         Args:
-            channel: Channel to set permissions for
-            authorized_role: Role to give access (optional)
+            speaker_channel: Speaker voice channel (restricted to speaker role)
+            listener_channels: List of listener voice channels (open to everyone)
+            broadcast_admin_role: Role for broadcast admins
+            speaker_role: Role for speakers
 
         Returns:
             True if successful, False otherwise
         """
         try:
             # Check if bot has necessary permissions
-            bot_member = channel.guild.me
+            bot_member = speaker_channel.guild.me
             if not bot_member.guild_permissions.manage_channels:
                 logger.warning(
-                    f"Bot lacks 'Manage Channels' permission in {channel.guild.name}"
+                    f"Bot lacks 'Manage Channels' permission in {speaker_channel.guild.name}"
                 )
                 return False
 
-            # Deny access to @everyone (this should always work)
-            try:
-                await channel.set_permissions(
-                    channel.guild.default_role, read_messages=False, send_messages=False
-                )
-            except discord.Forbidden:
-                logger.warning(
-                    f"Cannot modify @everyone permissions for {channel.name}"
-                )
-                return False
-
-            # Give bot full access (this should always work)
-            try:
-                await channel.set_permissions(
-                    bot_member,
-                    read_messages=True,
-                    send_messages=True,
-                    manage_messages=True,
-                    embed_links=True,
-                )
-            except discord.Forbidden:
-                logger.warning(f"Cannot set bot permissions for {channel.name}")
-                return False
-
-            # If authorized role provided, give it access (only if bot can modify it)
-            if authorized_role:
+            # Set up speaker channel permissions (restricted to speaker role)
+            if speaker_role:
                 try:
-                    # Check if bot's role is higher than the target role
-                    if bot_member.top_role > authorized_role:
-                        await channel.set_permissions(
-                            authorized_role,
-                            read_messages=True,
-                            send_messages=True,
-                            embed_links=True,
-                        )
-                        logger.info(f"Set permissions for role: {authorized_role.name}")
-                    else:
-                        logger.warning(
-                            f"Cannot modify role {authorized_role.name} - bot role too low"
-                        )
-                except discord.Forbidden:
-                    logger.warning(
-                        f"Cannot set permissions for role: {authorized_role.name}"
+                    # Deny access to @everyone
+                    await speaker_channel.set_permissions(
+                        speaker_channel.guild.default_role,
+                        connect=False,
+                        view_channel=True,  # Allow viewing but not connecting
                     )
+                    
+                    # Allow speaker role to connect
+                    await speaker_channel.set_permissions(
+                        speaker_role,
+                        connect=True,
+                        speak=True,
+                        view_channel=True,
+                    )
+                    
+                    # Allow broadcast admin role to connect (for management)
+                    if broadcast_admin_role:
+                        await speaker_channel.set_permissions(
+                            broadcast_admin_role,
+                            connect=True,
+                            speak=True,
+                            view_channel=True,
+                        )
+                    
+                    logger.info(f"Set speaker channel permissions for: {speaker_channel.name}")
+                except discord.Forbidden as e:
+                    logger.warning(f"Cannot set speaker channel permissions: {e}")
 
-            # Give access to all authorized members (only if bot can modify them)
-            authorized_members = self.get_authorized_members(channel.guild)
-            for member in authorized_members:
+            # Set up listener channel permissions (open to everyone, can speak)
+            for listener_channel in listener_channels:
                 try:
-                    # Check if bot's role is higher than the member's top role
-                    if bot_member.top_role > member.top_role:
-                        await channel.set_permissions(
-                            member,
-                            read_messages=True,
-                            send_messages=True,
-                            embed_links=True,
-                        )
-                        logger.info(
-                            f"Set permissions for member: {member.display_name}"
-                        )
-                    else:
-                        logger.warning(
-                            f"Cannot modify permissions for {member.display_name} - bot role too low"
-                        )
-                except discord.Forbidden:
-                    logger.warning(
-                        f"Cannot set permissions for member: {member.display_name}"
+                    # Allow everyone to connect and speak in listener channels
+                    await listener_channel.set_permissions(
+                        listener_channel.guild.default_role,
+                        connect=True,
+                        speak=True,  # Listeners can speak in their channels
+                        view_channel=True,
                     )
+                    
+                    logger.info(f"Set listener channel permissions for: {listener_channel.name}")
+                except discord.Forbidden as e:
+                    logger.warning(f"Cannot set listener channel permissions: {e}")
 
-            logger.info(f"Set up private permissions for channel: {channel.name}")
             return True
 
         except Exception as e:
-            logger.error(f"Failed to set up private channel permissions: {e}")
+            logger.error(f"Failed to set up voice channel permissions: {e}")
             return False
 
 
-def is_broadcast_authorized():
+def is_broadcast_admin():
     """
-    Decorator to check if user is authorized to control broadcasts.
-
-    This replaces the simple is_admin() check with role-based access control.
+    Decorator to check if user is authorized to use bot commands.
+    
+    Allows users with:
+    - Administrator permission
+    - Broadcast Admin role
     """
 
     def predicate(ctx):
@@ -257,29 +247,6 @@ def is_broadcast_authorized():
             # Fallback to admin check if access control not available
             return ctx.author.guild_permissions.administrator
 
-        return audio_router.access_control.is_authorized(ctx.author)
-
-    return commands.check(predicate)
-
-
-def is_admin_or_authorized():
-    """
-    Decorator that allows both administrators and authorized users.
-
-    This provides backward compatibility while adding role-based access.
-    """
-
-    def predicate(ctx):
-        # Check admin permissions first (backward compatibility)
-        if ctx.author.guild_permissions.administrator:
-            return True
-
-        # Import here to avoid circular imports
-        from main_bot import audio_router
-
-        if not audio_router or not hasattr(audio_router, "access_control"):
-            return False
-
-        return audio_router.access_control.is_authorized(ctx.author)
+        return audio_router.access_control.is_broadcast_admin(ctx.author)
 
     return commands.check(predicate)

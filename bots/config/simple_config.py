@@ -29,20 +29,15 @@ class SimpleConfig:
     # Listener bot tokens (for multiple bot instances)
     listener_bot_tokens: List[str] = None
 
-    # Access control configuration
-    authorized_roles: List[str] = None
-    authorized_users: List[int] = None
-    create_authorized_role: bool = True
-    authorized_role_name: str = "Broadcast Controller"
+    # Access control configuration (simplified)
+    speaker_role_name: str = "Speaker"
+    broadcast_admin_role_name: str = "Broadcast Admin"
+    auto_create_roles: bool = True
 
     def __post_init__(self):
         """Post-initialization processing."""
         if self.listener_bot_tokens is None:
             self.listener_bot_tokens = []
-        if self.authorized_roles is None:
-            self.authorized_roles = []
-        if self.authorized_users is None:
-            self.authorized_users = []
 
 
 class SimpleConfigManager:
@@ -145,26 +140,17 @@ class SimpleConfigManager:
         logger.info(f"Loaded {len(tokens)} listener bot tokens")
         return tokens
 
-    def _get_authorized_roles(self) -> List[str]:
-        """Get authorized roles from environment variables."""
-        roles_env = self._get_optional_env("AUTHORIZED_ROLES", "")
-        if roles_env:
-            return [role.strip() for role in roles_env.split(",") if role.strip()]
-        return []
+    def _get_speaker_role_name(self) -> str:
+        """Get speaker role name from environment variables."""
+        return self._get_optional_env("SPEAKER_ROLE_NAME", "Speaker")
 
-    def _get_authorized_users(self) -> List[int]:
-        """Get authorized user IDs from environment variables."""
-        users_env = self._get_optional_env("AUTHORIZED_USERS", "")
-        if users_env:
-            try:
-                return [
-                    int(user_id.strip())
-                    for user_id in users_env.split(",")
-                    if user_id.strip()
-                ]
-            except ValueError:
-                logger.warning("Invalid user IDs in AUTHORIZED_USERS, ignoring")
-        return []
+    def _get_broadcast_admin_role_name(self) -> str:
+        """Get broadcast admin role name from environment variables."""
+        return self._get_optional_env("BROADCAST_ADMIN_ROLE_NAME", "Broadcast Admin")
+
+    def _get_auto_create_roles(self) -> bool:
+        """Get auto-create roles setting from environment variables."""
+        return self._get_optional_env("AUTO_CREATE_ROLES", "true").lower() == "true"
 
     def get_config(self) -> SimpleConfig:
         """
@@ -179,23 +165,15 @@ class SimpleConfigManager:
         try:
             main_bot_token = self._get_required_env("MAIN_BOT_TOKEN")
             listener_tokens = self._get_listener_tokens()
-            authorized_roles = self._get_authorized_roles()
-            authorized_users = self._get_authorized_users()
 
             config = SimpleConfig(
                 main_bot_token=main_bot_token,
                 command_prefix=self._get_optional_env("BOT_PREFIX", "!"),
                 log_level=self._get_optional_env("LOG_LEVEL", "INFO"),
                 listener_bot_tokens=listener_tokens,
-                authorized_roles=authorized_roles,
-                authorized_users=authorized_users,
-                create_authorized_role=self._get_optional_env(
-                    "CREATE_AUTHORIZED_ROLE", "true"
-                ).lower()
-                == "true",
-                authorized_role_name=self._get_optional_env(
-                    "AUTHORIZED_ROLE_NAME", "Broadcast Controller"
-                ),
+                speaker_role_name=self._get_speaker_role_name(),
+                broadcast_admin_role_name=self._get_broadcast_admin_role_name(),
+                auto_create_roles=self._get_auto_create_roles(),
             )
 
             logger.info("Configuration loaded successfully")

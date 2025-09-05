@@ -159,26 +159,52 @@ class SectionManager:
 
                 self.active_sections[guild.id] = section
 
-                # Set up private channel permissions if we have a control channel
-                if control_channel and self.access_control:
-                    authorized_role = None
-                    if self.access_control.config.create_authorized_role:
-                        authorized_role = (
-                            await self.access_control.create_authorized_role(
-                                guild, self.access_control.config.authorized_role_name
+                # Set up permissions for adopted channels
+                if self.access_control:
+                    # Ensure required roles exist
+                    roles = await self.access_control.ensure_roles_exist(guild)
+                    speaker_role = roles.get('speaker_role')
+                    broadcast_admin_role = roles.get('broadcast_admin_role')
+
+                    # Set up voice channel permissions
+                    if speaker_channel:
+                        permission_success = (
+                            await self.access_control.setup_voice_channel_permissions(
+                                speaker_channel, 
+                                listener_channels,
+                                broadcast_admin_role,
+                                speaker_role
                             )
                         )
+                        if not permission_success:
+                            logger.warning(
+                                f"Could not set up voice channel permissions for adopted channels"
+                            )
 
-                    # Try to set up permissions, but don't fail if it doesn't work
-                    permission_success = (
-                        await self.access_control.setup_private_channel_permissions(
-                            control_channel, authorized_role
-                        )
-                    )
-                    if not permission_success:
-                        logger.warning(
-                            f"Could not set up private permissions for adopted channel: {control_channel.name}"
-                        )
+                    # Set up control channel permissions
+                    if control_channel:
+                        try:
+                            if guild.me.guild_permissions.manage_channels:
+                                await control_channel.set_permissions(
+                                    guild.default_role, read_messages=False, send_messages=False
+                                )
+                                await control_channel.set_permissions(
+                                    guild.me,
+                                    read_messages=True,
+                                    send_messages=True,
+                                    manage_messages=True,
+                                    embed_links=True,
+                                )
+                                if broadcast_admin_role:
+                                    await control_channel.set_permissions(
+                                        broadcast_admin_role,
+                                        read_messages=True,
+                                        send_messages=True,
+                                        embed_links=True,
+                                    )
+                                logger.info(f"Set up control channel permissions for adopted channel: {control_channel.name}")
+                        except discord.Forbidden:
+                            logger.warning(f"Could not set up control channel permissions for adopted channel: {control_channel.name}")
 
                 logger.info(
                     f"Adopted existing category '{section_name}' in {guild.name}"
@@ -268,40 +294,54 @@ class SectionManager:
                 )
                 listener_channel_ids.append(listener_channel.id)
 
-            # Set up private channel permissions using access control
+            # Set up voice channel permissions using access control
             permission_setup_success = False
             if self.access_control:
-                # Create authorized role if configured
-                authorized_role = None
-                if self.access_control.config.create_authorized_role:
-                    authorized_role = await self.access_control.create_authorized_role(
-                        guild, self.access_control.config.authorized_role_name
-                    )
+                # Ensure required roles exist
+                roles = await self.access_control.ensure_roles_exist(guild)
+                speaker_role = roles.get('speaker_role')
+                broadcast_admin_role = roles.get('broadcast_admin_role')
 
-                # Set up private permissions
+                # Set up voice channel permissions
                 permission_setup_success = (
-                    await self.access_control.setup_private_channel_permissions(
-                        control_channel, authorized_role
+                    await self.access_control.setup_voice_channel_permissions(
+                        speaker_channel, 
+                        [guild.get_channel(cid) for cid in listener_channel_ids if guild.get_channel(cid)],
+                        broadcast_admin_role,
+                        speaker_role
                     )
                 )
 
-            # Fallback to basic permissions if access control setup failed
-            if not permission_setup_success:
+            # Set up control channel permissions (restricted to broadcast admins)
+            if self.access_control and permission_setup_success:
                 try:
                     # Check if bot has manage channels permission before attempting
                     if guild.me.guild_permissions.manage_channels:
-                        # Basic admin-only permissions
+                        # Deny access to @everyone
                         await control_channel.set_permissions(
                             guild.default_role, read_messages=False, send_messages=False
                         )
+                        
+                        # Allow bot full access
                         await control_channel.set_permissions(
                             guild.me,
                             read_messages=True,
                             send_messages=True,
                             manage_messages=True,
+                            embed_links=True,
                         )
+                        
+                        # Allow broadcast admin role access
+                        if broadcast_admin_role:
+                            await control_channel.set_permissions(
+                                broadcast_admin_role,
+                                read_messages=True,
+                                send_messages=True,
+                                embed_links=True,
+                            )
+                        
                         logger.info(
-                            f"Set up basic permissions for control channel: {control_channel.name}"
+                            f"Set up control channel permissions for: {control_channel.name}"
                         )
                     else:
                         logger.warning(
@@ -309,7 +349,7 @@ class SectionManager:
                         )
                 except discord.Forbidden:
                     logger.warning(
-                        f"Cannot set basic permissions for control channel: {control_channel.name}"
+                        f"Cannot set control channel permissions: {control_channel.name}"
                     )
                     # Channel will remain public - not ideal but functional
 
@@ -355,6 +395,33 @@ class SectionManager:
                     "• `!cleanup_setup` - Remove entire section",
                     inline=False,
                 )
+                
+                # Add role information and setup guidance
+                if self.access_control and permission_setup_success:
+                    role_info = []
+                    if speaker_role:
+                        role_info.append(f"• **{speaker_role.name}** - Required to join speaker channel")
+                    if broadcast_admin_role:
+                        role_info.append(f"• **{broadcast_admin_role.name}** - Required to use bot commands")
+                    
+                    if role_info:
+                        embed.add_field(
+                            name="👥 Role Information",
+                            value="\n".join(role_info),
+                            inline=False,
+                        )
+                        
+                        embed.add_field(
+                            name="📝 Setup Instructions",
+                            value="**To get started:**\n"
+                            "1. **Assign Roles:** Give users the appropriate roles\n"
+                            "2. **Start Broadcast:** Run `!start_broadcast` in this channel\n"
+                            "3. **Join Channels:**\n"
+                            f"   • Speakers join: <#{speaker_channel.id}>\n"
+                            f"   • Listeners join: <#{listener_channel_ids[0] if listener_channel_ids else 'N/A'}> (and others)\n"
+                            "4. **Need Help?** Run `!help_audio_router` for full setup guide",
+                            inline=False,
+                        )
 
                 await control_channel.send(embed=embed)
                 logger.info(

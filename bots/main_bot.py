@@ -11,7 +11,7 @@ from typing import Optional
 
 import discord
 from config.simple_config import config_manager
-from core.access_control import is_admin_or_authorized
+from core.access_control import is_broadcast_admin
 from core.audio_router import AudioRouter
 from discord.ext import commands
 from logging_config import setup_logging
@@ -114,7 +114,7 @@ async def on_command_error(ctx: commands.Context, error: Exception) -> None:
 
 
 @bot.command(name="setup_broadcast")
-@is_admin_or_authorized()
+@is_broadcast_admin()
 async def setup_broadcast_command(ctx: commands.Context, *, args: str) -> None:
     """
     🏗️ Setup a broadcast section with speaker and listener channels.
@@ -206,7 +206,7 @@ async def setup_broadcast_command(ctx: commands.Context, *, args: str) -> None:
 
 
 @bot.command(name="start_broadcast")
-@is_admin_or_authorized()
+@is_broadcast_admin()
 async def start_broadcast_command(ctx):
     """🎵 Start audio broadcasting for the current section."""
     try:
@@ -247,7 +247,7 @@ async def start_broadcast_command(ctx):
 
 
 @bot.command(name="stop_broadcast")
-@is_admin_or_authorized()
+@is_broadcast_admin()
 async def stop_broadcast_command(ctx):
     """⏹️ Stop audio broadcasting for the current section."""
     try:
@@ -288,7 +288,7 @@ async def stop_broadcast_command(ctx):
 
 
 @bot.command(name="broadcast_status")
-@is_admin_or_authorized()
+@is_broadcast_admin()
 async def broadcast_status_command(ctx):
     """📊 Get the status of the current broadcast section."""
     try:
@@ -342,7 +342,7 @@ async def broadcast_status_command(ctx):
 
 
 @bot.command(name="cleanup_setup")
-@is_admin_or_authorized()
+@is_broadcast_admin()
 async def cleanup_setup_command(ctx):
     """🗑️ Clean up the entire broadcast section."""
     try:
@@ -418,10 +418,10 @@ async def cleanup_setup_command(ctx):
             logger.warning(f"Could not send error message: {send_error}")
 
 
-@bot.command(name="authorize")
+@bot.command(name="create_roles")
 @is_admin()
-async def authorize_command(ctx, member: discord.Member):
-    """Add a user to the authorized broadcast controllers."""
+async def create_roles_command(ctx):
+    """Create the required roles for the audio router system."""
     try:
         if not audio_router or not hasattr(audio_router, "access_control"):
             embed = discord.Embed(
@@ -432,52 +432,55 @@ async def authorize_command(ctx, member: discord.Member):
             await ctx.send(embed=embed)
             return
 
-        # Add user to authorized list
-        audio_router.access_control.authorized_users.add(member.id)
+        # Ensure roles exist
+        roles = await audio_router.access_control.ensure_roles_exist(ctx.guild)
+        speaker_role = roles.get('speaker_role')
+        broadcast_admin_role = roles.get('broadcast_admin_role')
 
         embed = discord.Embed(
-            title="✅ User Authorized",
-            description=f"{member.mention} can now control broadcasts!",
+            title="✅ Roles Created/Verified",
+            description="Required roles have been created or verified:",
             color=discord.Color.green(),
         )
-        await ctx.send(embed=embed)
 
-    except Exception as e:
-        logger.error(f"Error in authorize command: {e}")
-        embed = discord.Embed(
-            title="❌ Command Error",
-            description=f"An error occurred: {str(e)}",
-            color=discord.Color.red(),
-        )
-        await ctx.send(embed=embed)
-
-
-@bot.command(name="unauthorize")
-@is_admin()
-async def unauthorize_command(ctx, member: discord.Member):
-    """Remove a user from the authorized broadcast controllers."""
-    try:
-        if not audio_router or not hasattr(audio_router, "access_control"):
-            embed = discord.Embed(
-                title="❌ System Error",
-                description="Access control system not available.",
-                color=discord.Color.red(),
+        if speaker_role:
+            embed.add_field(
+                name="🎤 Speaker Role",
+                value=f"✅ {speaker_role.mention} - Required to join speaker channels",
+                inline=False,
             )
-            await ctx.send(embed=embed)
-            return
+        else:
+            embed.add_field(
+                name="🎤 Speaker Role",
+                value="❌ Failed to create speaker role",
+                inline=False,
+            )
 
-        # Remove user from authorized list
-        audio_router.access_control.authorized_users.discard(member.id)
+        if broadcast_admin_role:
+            embed.add_field(
+                name="🎛️ Broadcast Admin Role",
+                value=f"✅ {broadcast_admin_role.mention} - Required to use bot commands",
+                inline=False,
+            )
+        else:
+            embed.add_field(
+                name="🎛️ Broadcast Admin Role",
+                value="❌ Failed to create broadcast admin role",
+                inline=False,
+            )
 
-        embed = discord.Embed(
-            title="✅ User Unauthorized",
-            description=f"{member.mention} can no longer control broadcasts.",
-            color=discord.Color.green(),
+        embed.add_field(
+            name="📝 Next Steps",
+            value="• Assign the **Speaker** role to users who should be able to speak\n"
+                  "• Assign the **Broadcast Admin** role to users who should control broadcasts\n"
+                  "• Create a broadcast section with `!setup_broadcast 'Name' N`",
+            inline=False,
         )
+
         await ctx.send(embed=embed)
 
     except Exception as e:
-        logger.error(f"Error in unauthorize command: {e}")
+        logger.error(f"Error in create_roles command: {e}")
         embed = discord.Embed(
             title="❌ Command Error",
             description=f"An error occurred: {str(e)}",
@@ -487,7 +490,7 @@ async def unauthorize_command(ctx, member: discord.Member):
 
 
 @bot.command(name="check_setup")
-@is_admin_or_authorized()
+@is_broadcast_admin()
 async def check_setup_command(ctx, *, section_name: str):
     """🔍 Check if a broadcast section already exists."""
     try:
@@ -720,10 +723,10 @@ async def check_permissions_command(ctx):
         await ctx.send(embed=embed)
 
 
-@bot.command(name="list_authorized")
-@is_admin()
-async def list_authorized_command(ctx):
-    """List all authorized broadcast controllers."""
+@bot.command(name="role_info")
+@is_broadcast_admin()
+async def role_info_command(ctx):
+    """Show information about the audio router roles."""
     try:
         if not audio_router or not hasattr(audio_router, "access_control"):
             embed = discord.Embed(
@@ -734,36 +737,67 @@ async def list_authorized_command(ctx):
             await ctx.send(embed=embed)
             return
 
-        authorized_members = audio_router.access_control.get_authorized_members(
-            ctx.guild
+        # Get role information
+        speaker_role = discord.utils.get(ctx.guild.roles, name=audio_router.access_control.speaker_role_name)
+        broadcast_admin_role = discord.utils.get(ctx.guild.roles, name=audio_router.access_control.broadcast_admin_role_name)
+
+        embed = discord.Embed(
+            title="👥 Audio Router Role Information",
+            description="Information about the roles used by the audio router system:",
+            color=discord.Color.blue(),
         )
 
-        if not authorized_members:
-            embed = discord.Embed(
-                title="📋 Authorized Users",
-                description="No authorized users found.",
-                color=discord.Color.orange(),
-            )
-        else:
-            embed = discord.Embed(
-                title="📋 Authorized Broadcast Controllers", color=discord.Color.blue()
-            )
-
-            member_list = []
-            for member in authorized_members:
-                member_list.append(f"• {member.mention} ({member.display_name})")
-
-            embed.description = "\n".join(member_list)
+        # Speaker role info
+        if speaker_role:
+            speaker_members = [member for member in ctx.guild.members if speaker_role in member.roles]
             embed.add_field(
-                name="Total",
-                value=f"{len(authorized_members)} authorized users",
+                name="🎤 Speaker Role",
+                value=f"**Role:** {speaker_role.mention}\n"
+                      f"**Purpose:** Required to join speaker channels\n"
+                      f"**Members:** {len(speaker_members)} users",
                 inline=False,
             )
+        else:
+            embed.add_field(
+                name="🎤 Speaker Role",
+                value=f"**Role:** {audio_router.access_control.speaker_role_name} (not found)\n"
+                      f"**Purpose:** Required to join speaker channels\n"
+                      f"**Action:** Use `!create_roles` to create this role",
+                inline=False,
+            )
+
+        # Broadcast admin role info
+        if broadcast_admin_role:
+            admin_members = [member for member in ctx.guild.members if broadcast_admin_role in member.roles]
+            embed.add_field(
+                name="🎛️ Broadcast Admin Role",
+                value=f"**Role:** {broadcast_admin_role.mention}\n"
+                      f"**Purpose:** Required to use bot commands\n"
+                      f"**Members:** {len(admin_members)} users",
+                inline=False,
+            )
+        else:
+            embed.add_field(
+                name="🎛️ Broadcast Admin Role",
+                value=f"**Role:** {audio_router.access_control.broadcast_admin_role_name} (not found)\n"
+                      f"**Purpose:** Required to use bot commands\n"
+                      f"**Action:** Use `!create_roles` to create this role",
+                inline=False,
+            )
+
+        embed.add_field(
+            name="📝 How to Use",
+            value="• **Listeners:** Anyone can join listener channels and speak (no role required)\n"
+                  "• **Speakers:** Must have the Speaker role to join speaker channels\n"
+                  "• **Admins:** Must have the Broadcast Admin role to use bot commands\n"
+                  "• **Server Admins:** Can always use bot commands and join any channel",
+            inline=False,
+        )
 
         await ctx.send(embed=embed)
 
     except Exception as e:
-        logger.error(f"Error in list_authorized command: {e}")
+        logger.error(f"Error in role_info command: {e}")
         embed = discord.Embed(
             title="❌ Command Error",
             description=f"An error occurred: {str(e)}",
@@ -773,7 +807,7 @@ async def list_authorized_command(ctx):
 
 
 @bot.command(name="system_status")
-@is_admin_or_authorized()
+@is_broadcast_admin()
 async def system_status_command(ctx):
     """🔍 Get detailed system status including all bot processes."""
     try:
@@ -842,54 +876,97 @@ async def system_status_command(ctx):
 
 
 @bot.command(name="help_audio_router")
+@is_admin()
 async def help_command(ctx):
-    """Show help information for the Audio Router Bot."""
+    """Show admin-only help and setup tutorial for the Audio Router Bot."""
     embed = discord.Embed(
-        title="🎵 Audio Router Bot - Help",
-        description="Professional audio routing system for Discord voice channels.",
+        title="🎵 Audio Router Bot - Admin Setup Guide",
+        description="**Welcome to the Audio Router Bot!** This guide will help you set up the system step by step.",
         color=discord.Color.blue(),
     )
 
+    # Check if roles exist
+    speaker_role = discord.utils.get(ctx.guild.roles, name="Speaker")
+    broadcast_admin_role = discord.utils.get(ctx.guild.roles, name="Broadcast Admin")
+    
+    # Step 1: Create roles
     embed.add_field(
-        name="🏗️ Setup Commands",
-        value="• `!setup_broadcast 'Section Name' N` - Create broadcast section\n"
-        "  Example: `!setup_broadcast 'War Room' 5`\n"
-        "  Creates 1 Speaker + 5 Listener channels\n"
-        "• `!check_setup 'Name'` - Check if section exists\n"
-        "• `!cleanup_setup` - Remove entire section",
+        name="📋 Step 1: Create Required Roles",
+        value="**First, you need to create the required roles:**\n"
+        f"• **Speaker Role:** {'✅ Exists' if speaker_role else '❌ Missing'}\n"
+        f"• **Broadcast Admin Role:** {'✅ Exists' if broadcast_admin_role else '❌ Missing'}\n\n"
+        "**Action Required:** Run `!create_roles` to create missing roles",
         inline=False,
     )
 
+    # Step 2: Assign roles
     embed.add_field(
-        name="🎛️ Control Commands",
-        value="• `!start_broadcast` - Start audio forwarding\n"
+        name="👥 Step 2: Assign Roles to Users",
+        value="**After creating roles, assign them to users:**\n"
+        "• Give **Speaker** role to users who should be able to speak in broadcasts\n"
+        "• Give **Broadcast Admin** role to users who should control broadcasts\n"
+        "• Server administrators can always use bot commands",
+        inline=False,
+    )
+
+    # Step 3: Create broadcast section
+    embed.add_field(
+        name="🏗️ Step 3: Create Your First Broadcast Section",
+        value="**Create a broadcast section with:**\n"
+        "• `!setup_broadcast 'Section Name' N`\n"
+        "• Example: `!setup_broadcast 'War Room' 5`\n"
+        "• This creates 1 Speaker channel + 5 Listener channels",
+        inline=False,
+    )
+
+    # Step 4: Start broadcasting
+    embed.add_field(
+        name="🎵 Step 4: Start Broadcasting",
+        value="**Once your section is created:**\n"
+        "• Go to the control channel that was created\n"
+        "• Run `!start_broadcast` to begin audio forwarding\n"
+        "• Users with Speaker role can join the Speaker channel\n"
+        "• Everyone else can join Listener channels",
+        inline=False,
+    )
+
+    # Quick commands reference
+    embed.add_field(
+        name="⚡ Quick Commands Reference",
+        value="• `!create_roles` - Create required roles\n"
+        "• `!setup_broadcast 'Name' N` - Create broadcast section\n"
+        "• `!start_broadcast` - Start audio forwarding\n"
         "• `!stop_broadcast` - Stop audio forwarding\n"
-        "• `!broadcast_status` - Check broadcast status\n"
-        "• `!system_status` - Check all bot processes and system status",
+        "• `!broadcast_status` - Check status\n"
+        "• `!role_info` - Show role information",
         inline=False,
     )
 
+    # System explanation
     embed.add_field(
-        name="👥 Access Control (Admin Only)",
-        value="• `!authorize @user` - Authorize user to control broadcasts\n"
-        "• `!unauthorize @user` - Remove user authorization\n"
-        "• `!list_authorized` - List all authorized users\n"
-        "• `!check_permissions` - Check bot permissions and role hierarchy\n"
-        "• `!fix_permissions` - Get step-by-step permission fix instructions",
+        name="🔧 How the System Works",
+        value="• **Speaker Channel:** Only users with Speaker role can join\n"
+        "• **Listener Channels:** Everyone can join and speak freely\n"
+        "• **Control Channel:** Only Broadcast Admin role can access\n"
+        "• **Audio Flow:** Speaker channel audio is forwarded to all listener channels",
         inline=False,
     )
 
-    embed.add_field(
-        name="✨ Features",
-        value="• Automatic channel creation\n"
-        "• Real-time audio forwarding\n"
-        "• Multiple listener channels\n"
-        "• Multi-bot architecture\n"
-        "• Admin-friendly interface",
-        inline=False,
-    )
+    # Next steps based on current state
+    if not speaker_role or not broadcast_admin_role:
+        embed.add_field(
+            name="🚀 Next Step",
+            value="**Run `!create_roles` to get started!**",
+            inline=False,
+        )
+    else:
+        embed.add_field(
+            name="🚀 Next Step",
+            value="**You're ready! Run `!setup_broadcast 'Test Room' 3` to create your first broadcast section.**",
+            inline=False,
+        )
 
-    embed.set_footer(text="All commands require Administrator permissions")
+    embed.set_footer(text="This help command is only visible to server administrators")
     await ctx.send(embed=embed)
 
 
