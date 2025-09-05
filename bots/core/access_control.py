@@ -124,7 +124,7 @@ class AccessControl:
                         f"Created speaker role: {self.speaker_role_name}"
                     )
                 except Exception as e:
-                    logger.error(f"Failed to create speaker role: {e}")
+                    logger.error(f"Failed to create speaker role: {e}", exc_info=True)
             else:
                 logger.info(
                     f"Speaker role '{self.speaker_role_name}' already exists"
@@ -164,7 +164,7 @@ class AccessControl:
                         f"Created broadcast admin role: {self.broadcast_admin_role_name}"
                     )
                 except Exception as e:
-                    logger.error(f"Failed to create broadcast admin role: {e}")
+                    logger.error(f"Failed to create broadcast admin role: {e}", exc_info=True)
             else:
                 logger.info(
                     f"Broadcast admin role '{self.broadcast_admin_role_name}' already exists"
@@ -172,7 +172,7 @@ class AccessControl:
             result["broadcast_admin_role"] = admin_role
 
         except Exception as e:
-            logger.error(f"Error ensuring roles exist: {e}")
+            logger.error(f"Error ensuring roles exist: {e}", exc_info=True)
 
         return result
 
@@ -261,7 +261,7 @@ class AccessControl:
             return True
 
         except Exception as e:
-            logger.error(f"Failed to set up voice channel permissions: {e}")
+            logger.error(f"Failed to set up voice channel permissions: {e}", exc_info=True)
             return False
 
 

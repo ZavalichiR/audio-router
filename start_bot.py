@@ -47,7 +47,7 @@ async def startup():
     except KeyboardInterrupt:
         logger.info("Bot shutdown requested by user")
     except Exception as e:
-        logger.critical(f"Fatal error during startup: {e}")
+        logger.critical(f"Fatal error during startup: {e}", exc_info=True)
         raise
 
 

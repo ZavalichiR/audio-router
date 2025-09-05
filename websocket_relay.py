@@ -49,7 +49,7 @@ async def main():
             logger.info("WebSocket Relay Server stopped")
         
     except Exception as e:
-        logger.critical(f"Failed to start WebSocket Relay Server: {e}")
+        logger.critical(f"Failed to start WebSocket Relay Server: {e}", exc_info=True)
         raise
 
 

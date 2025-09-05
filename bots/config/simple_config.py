@@ -179,7 +179,7 @@ class SimpleConfigManager:
             return config
 
         except Exception as e:
-            logger.error(f"Failed to load configuration: {e}")
+            logger.error(f"Failed to load configuration: {e}", exc_info=True)
             raise
 
 

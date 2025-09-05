@@ -172,4 +172,4 @@ class AudioRouter:
             logger.info("Audio router shutdown complete")
 
         except Exception as e:
-            logger.error(f"Error during audio router shutdown: {e}")
+            logger.error(f"Error during audio router shutdown: {e}", exc_info=True)

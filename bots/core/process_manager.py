@@ -108,7 +108,7 @@ class BotProcess:
             return True
 
         except Exception as e:
-            logger.error(f"Failed to start bot process {self.bot_id}: {e}")
+            logger.error(f"Failed to start bot process {self.bot_id}: {e}", exc_info=True)
             self.is_running = False
             return False
 
@@ -139,7 +139,7 @@ class BotProcess:
             return True
 
         except Exception as e:
-            logger.error(f"Error stopping bot process {self.bot_id}: {e}")
+            logger.error(f"Error stopping bot process {self.bot_id}: {e}", exc_info=True)
             return False
 
     def is_alive(self) -> bool:
@@ -237,7 +237,7 @@ class ProcessManager:
                 return None
 
         except Exception as e:
-            logger.error(f"Error starting AudioForwarder bot: {e}")
+            logger.error(f"Error starting AudioForwarder bot: {e}", exc_info=True)
             return None
 
     async def start_listener_bot(
@@ -302,7 +302,7 @@ class ProcessManager:
                 return None
 
         except Exception as e:
-            logger.error(f"Error starting AudioReceiver bot: {e}")
+            logger.error(f"Error starting AudioReceiver bot: {e}", exc_info=True)
             return None
 
     async def stop_bot(self, bot_id: str) -> bool:
@@ -338,7 +338,7 @@ class ProcessManager:
                 return False
 
         except Exception as e:
-            logger.error(f"Error stopping bot {bot_id}: {e}")
+            logger.error(f"Error stopping bot {bot_id}: {e}", exc_info=True)
             return False
 
     async def stop_all_bots(self) -> bool:
@@ -355,7 +355,7 @@ class ProcessManager:
             return success
 
         except Exception as e:
-            logger.error(f"Error stopping all bots: {e}")
+            logger.error(f"Error stopping all bots: {e}", exc_info=True)
             return False
 
     async def stop_bots_by_guild(self, guild_id: int) -> bool:
@@ -384,7 +384,7 @@ class ProcessManager:
             return success
 
         except Exception as e:
-            logger.error(f"Error stopping bots for guild {guild_id}: {e}")
+            logger.error(f"Error stopping bots for guild {guild_id}: {e}", exc_info=True)
             return False
 
     def get_status(self) -> Dict[str, Any]:
@@ -412,4 +412,4 @@ class ProcessManager:
             asyncio.create_task(self.stop_all_bots())
             logger.info("Process manager cleaned up")
         except Exception as e:
-            logger.error(f"Error during process manager cleanup: {e}")
+            logger.error(f"Error during process manager cleanup: {e}", exc_info=True)

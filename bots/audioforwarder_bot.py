@@ -114,14 +114,6 @@ class AudioForwarderBot:
             """Handle voice state updates to prevent bot from leaving when users mute/unmute."""
             # Only care about voice state changes for our bot
             if member.id == self.bot.user.id:
-                logger.debug(f"Bot voice state update: {member.display_name}")
-                logger.debug(
-                    f"Before: channel={before.channel.name if before.channel else None}, muted={before.self_mute}, deafened={before.self_deaf}"
-                )
-                logger.debug(
-                    f"After: channel={after.channel.name if after.channel else None}, muted={after.self_mute}, deafened={after.self_deaf}"
-                )
-
                 # Check if the bot was actually disconnected (moved to no channel)
                 if before.channel and after.channel is None:
                     logger.warning("Bot was disconnected from voice channel!")
@@ -147,18 +139,9 @@ class AudioForwarderBot:
                     ):
                         await asyncio.sleep(2)
                         await self.connect_to_channel()
-                # If the bot is still in the same channel, it's just a mute/deafen state change
-                elif (
-                    before.channel
-                    and after.channel
-                    and before.channel.id == after.channel.id
-                ):
-                    logger.debug(
-                        "Bot voice state changed in same channel (mute/deafen)"
-                    )
                 # If bot just connected (before.channel is None, after.channel exists)
                 elif not before.channel and after.channel:
-                    logger.debug(
+                    logger.info(
                         f"Bot connected to channel: {after.channel.name}"
                     )
 
@@ -200,7 +183,7 @@ class AudioForwarderBot:
             asyncio.create_task(self._monitor_voice_connection())
 
         except Exception as e:
-            logger.error(f"Failed to start WebSocket server: {e}")
+            logger.error(f"Failed to start WebSocket server: {e}", exc_info=True)
 
     def _create_websocket_handler(self):
         """Create a WebSocket handler that's compatible with different websockets versions."""
@@ -239,10 +222,10 @@ class AudioForwarderBot:
                         f"AudioReceiver bot disconnected: {websocket.remote_address}"
                     )
                 except Exception as e:
-                    logger.error(f"Error in listener connection: {e}")
+                    logger.error(f"Error in listener connection: {e}", exc_info=True)
 
             except Exception as e:
-                logger.error(f"Error handling listener connection: {e}")
+                logger.error(f"Error handling listener connection: {e}", exc_info=True)
             finally:
                 self.connected_listeners.discard(websocket)
         
@@ -283,24 +266,17 @@ class AudioForwarderBot:
                     f"AudioReceiver bot disconnected: {websocket.remote_address}"
                 )
             except Exception as e:
-                logger.error(f"Error in listener connection: {e}")
+                logger.error(f"Error in listener connection: {e}", exc_info=True)
 
         except Exception as e:
-            logger.error(f"Error handling listener connection: {e}")
+            logger.error(f"Error handling listener connection: {e}", exc_info=True)
         finally:
             self.connected_listeners.discard(websocket)
 
     async def _forward_audio(self, audio_data: bytes):
         """Forward audio data to all connected listener bots."""
-        logger.debug(f"🎵 Audio captured: {len(audio_data)} bytes")
-
         if not self.connected_listeners:
-            logger.debug("No connected listeners to forward audio to")
             return
-
-        logger.debug(
-            f"Forwarding audio to {len(self.connected_listeners)} listeners"
-        )
 
         # Create audio message
         message = json.dumps(
@@ -317,18 +293,18 @@ class AudioForwarderBot:
         for websocket in self.connected_listeners:
             try:
                 await websocket.send(message)
-                logger.debug("Audio sent to listener successfully")
+                pass
             except websockets.exceptions.ConnectionClosed:
-                logger.debug("Listener disconnected while sending audio")
+                pass
                 disconnected.add(websocket)
             except Exception as e:
-                logger.error(f"Error sending audio to listener: {e}")
+                logger.error(f"Failed to send audio to listener: {e}")
                 disconnected.add(websocket)
 
         # Remove disconnected listeners
         if disconnected:
             self.connected_listeners -= disconnected
-            logger.info(f"Removed {len(disconnected)} disconnected listeners")
+            logger.warning(f"Removed {len(disconnected)} disconnected listeners")
 
     async def _monitor_connections(self):
         """Monitor WebSocket connections for health."""
@@ -346,7 +322,7 @@ class AudioForwarderBot:
                 )
 
             except Exception as e:
-                logger.error(f"Error in connection monitoring: {e}")
+                logger.error(f"Error in connection monitoring: {e}", exc_info=True)
                 await asyncio.sleep(30)  # Wait before retrying
 
     async def _monitor_voice_connection(self):
@@ -377,7 +353,7 @@ class AudioForwarderBot:
                         )
 
             except Exception as e:
-                logger.error(f"Error in voice connection monitoring: {e}")
+                logger.error(f"Error in voice connection monitoring: {e}", exc_info=True)
                 await asyncio.sleep(15)  # Wait before retrying
 
     async def _ensure_speaker_role(self):
@@ -414,10 +390,10 @@ class AudioForwarderBot:
             except discord.Forbidden:
                 logger.warning("Cannot add Speaker role to AudioForwarder bot - insufficient permissions")
             except Exception as e:
-                logger.error(f"Error adding Speaker role to AudioForwarder bot: {e}")
+                logger.error(f"Error adding Speaker role to AudioForwarder bot: {e}", exc_info=True)
 
         except Exception as e:
-            logger.error(f"Error ensuring Speaker role for AudioForwarder bot: {e}")
+            logger.error(f"Error ensuring Speaker role for AudioForwarder bot: {e}", exc_info=True)
 
     async def connect_to_channel(self) -> bool:
         """Connect to the speaker channel and start audio capture."""
@@ -518,7 +494,7 @@ class AudioForwarderBot:
                 self._connecting = False
 
         except Exception as e:
-            logger.error(f"Failed to connect to speaker channel: {e}")
+            logger.error(f"Failed to connect to speaker channel: {e}", exc_info=True)
             self._connecting = False
             return False
 
@@ -542,7 +518,7 @@ class AudioForwarderBot:
             logger.info("AudioForwarder bot disconnected and cleaned up")
 
         except Exception as e:
-            logger.error(f"Error during disconnect: {e}")
+            logger.error(f"Error during disconnect: {e}", exc_info=True)
 
     async def start(self):
         """Start the audio forwarder bot."""
@@ -553,7 +529,7 @@ class AudioForwarderBot:
             await self.bot.start(self.bot_token)
 
         except Exception as e:
-            logger.error(f"Failed to start AudioForwarder bot: {e}")
+            logger.error(f"Failed to start AudioForwarder bot: {e}", exc_info=True)
             raise
 
     async def stop(self):
@@ -571,7 +547,7 @@ class AudioForwarderBot:
             logger.info("AudioForwarder bot stopped")
 
         except Exception as e:
-            logger.error(f"Error stopping AudioForwarder bot: {e}")
+            logger.error(f"Error stopping AudioForwarder bot: {e}", exc_info=True)
 
 
 async def main():

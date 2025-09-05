@@ -250,7 +250,7 @@ class SectionManager:
             )
 
         except Exception as e:
-            logger.error(f"Error adopting existing category: {e}")
+            logger.error(f"Error adopting existing category: {e}", exc_info=True)
             return {
                 "success": False,
                 "message": f"Failed to adopt existing category: {str(e)}",
@@ -377,7 +377,7 @@ class SectionManager:
                     )
                     # Channel will remain public - not ideal but functional
                 except Exception as e:
-                    logger.error(f"Unexpected error setting control channel permissions: {e}")
+                    logger.error(f"Unexpected error setting control channel permissions: {e}", exc_info=True)
             else:
                 logger.warning("No access control configured - control channel will remain public")
             
@@ -508,7 +508,7 @@ class SectionManager:
             }
 
         except Exception as e:
-            logger.error(f"Error creating new section: {e}")
+            logger.error(f"Error creating new section: {e}", exc_info=True)
             return {
                 "success": False,
                 "message": f"Failed to create broadcast section: {str(e)}",
@@ -564,7 +564,7 @@ class SectionManager:
 
         except Exception as e:
             logger.error(
-                f"Error creating broadcast section in {guild.name}: {e}"
+                f"Error creating broadcast section in {guild.name}: {e}", exc_info=True
             )
             return {
                 "success": False,
@@ -647,7 +647,7 @@ class SectionManager:
             }
 
         except Exception as e:
-            logger.error(f"Error starting broadcast in {guild.name}: {e}")
+            logger.error(f"Error starting broadcast in {guild.name}: {e}", exc_info=True)
             return {
                 "success": False,
                 "message": f"Failed to start broadcast: {str(e)}",
@@ -701,7 +701,7 @@ class SectionManager:
             }
 
         except Exception as e:
-            logger.error(f"Error stopping broadcast in {guild.name}: {e}")
+            logger.error(f"Error stopping broadcast in {guild.name}: {e}", exc_info=True)
             return {
                 "success": False,
                 "message": f"Failed to stop broadcast: {str(e)}",
@@ -758,7 +758,7 @@ class SectionManager:
             }
 
         except Exception as e:
-            logger.error(f"Error cleaning up section in {guild.name}: {e}")
+            logger.error(f"Error cleaning up section in {guild.name}: {e}", exc_info=True)
             return {
                 "success": False,
                 "message": f"Failed to cleanup section: {str(e)}",

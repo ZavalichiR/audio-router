@@ -235,14 +235,14 @@ class AudioReceiverBot:
                         logger.debug("Connection closed while sending ping")
                         break
                     except Exception as e:
-                        logger.error(f"Error sending ping: {e}")
+                        logger.error(f"Error sending ping: {e}", exc_info=True)
                         break
                 else:
                     logger.debug("WebSocket not available for ping")
                     break
 
             except Exception as e:
-                logger.error(f"Error in ping task: {e}")
+                logger.error(f"Error in ping task: {e}", exc_info=True)
                 break
 
     async def _connect_to_channel_with_retry(self):
@@ -296,9 +296,7 @@ class AudioReceiverBot:
                                 # Convert hex string back to bytes
                                 audio_data = bytes.fromhex(audio_hex)
                                 await self.audio_buffer.put(audio_data)
-                                logger.debug(
-                                    f"🎧 Received and buffered audio: {len(audio_data)} bytes"
-                                )
+                                pass
                             else:
                                 logger.warning(
                                     "Received audio message but no audio data or buffer"
@@ -306,12 +304,12 @@ class AudioReceiverBot:
 
                         elif data.get("type") == "pong":
                             # Handle pong responses
-                            logger.debug("Received pong from AudioForwarder")
+                            pass
 
                     except json.JSONDecodeError as e:
-                        logger.error(f"Failed to parse WebSocket message: {e}")
+                        logger.error(f"Failed to parse WebSocket message: {e}", exc_info=True)
                     except Exception as e:
-                        logger.error(f"Error processing audio message: {e}")
+                        logger.error(f"Error processing audio message: {e}", exc_info=True)
 
                 # If we exit the async for loop, the connection was closed
                 logger.warning(
@@ -325,7 +323,7 @@ class AudioReceiverBot:
                 )
                 break
             except Exception as e:
-                logger.error(f"Error listening for audio: {e}")
+                logger.error(f"Error listening for audio: {e}", exc_info=True)
                 break
 
             # Try to reconnect (prevent multiple simultaneous attempts)
@@ -444,7 +442,7 @@ class AudioReceiverBot:
             return True
 
         except Exception as e:
-            logger.error(f"Failed to connect to listener channel: {e}")
+            logger.error(f"Failed to connect to listener channel: {e}", exc_info=True)
             return False
 
     async def disconnect(self):
@@ -469,7 +467,7 @@ class AudioReceiverBot:
             logger.info("AudioReceiver bot disconnected and cleaned up")
 
         except Exception as e:
-            logger.error(f"Error during disconnect: {e}")
+            logger.error(f"Error during disconnect: {e}", exc_info=True)
 
     async def start(self):
         """Start the audio receiver bot."""
@@ -480,7 +478,7 @@ class AudioReceiverBot:
             await self.bot.start(self.bot_token)
 
         except Exception as e:
-            logger.error(f"Failed to start AudioReceiver bot: {e}")
+            logger.error(f"Failed to start AudioReceiver bot: {e}", exc_info=True)
             raise
 
     async def stop(self):
@@ -498,7 +496,7 @@ class AudioReceiverBot:
             logger.info("AudioReceiver bot stopped")
 
         except Exception as e:
-            logger.error(f"Error stopping AudioReceiver bot: {e}")
+            logger.error(f"Error stopping AudioReceiver bot: {e}", exc_info=True)
 
 
 async def main():

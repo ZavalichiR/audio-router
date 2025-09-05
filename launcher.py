@@ -56,7 +56,7 @@ class ProcessManager:
             self.logger.error("python-dotenv not installed. Please install it with: pip install python-dotenv")
             return False
         except Exception as e:
-            self.logger.error(f"Failed to load configuration: {e}")
+            self.logger.error(f"Failed to load configuration: {e}", exc_info=True)
             return False
     
     def _check_dependencies(self) -> bool:
@@ -123,7 +123,7 @@ class ProcessManager:
             return True
             
         except Exception as e:
-            self.logger.error(f"Failed to start {component}: {e}")
+            self.logger.error(f"Failed to start {component}: {e}", exc_info=True)
             return False
     
     def stop_component(self, component: str, timeout: int = 10) -> bool:
@@ -153,7 +153,7 @@ class ProcessManager:
             return True
             
         except Exception as e:
-            self.logger.error(f"Failed to stop {component}: {e}")
+            self.logger.error(f"Failed to stop {component}: {e}", exc_info=True)
             return False
     
     def stop_all(self, timeout: int = 15) -> bool:
@@ -304,7 +304,7 @@ def main():
                 pass
         
     except Exception as e:
-        manager.logger.error(f"Fatal error: {e}")
+        manager.logger.error(f"Fatal error: {e}", exc_info=True)
         sys.exit(1)
     finally:
         manager.stop_all()

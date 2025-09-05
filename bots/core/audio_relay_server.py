@@ -99,7 +99,7 @@ class AudioRelayServer:
             )
             return True
         except Exception as e:
-            logger.error(f"Failed to start audio relay server: {e}")
+            logger.error(f"Failed to start audio relay server: {e}", exc_info=True)
             return False
 
     async def stop(self):
@@ -129,7 +129,7 @@ class AudioRelayServer:
             logger.info(f"Connection closed: {client_address}")
         except Exception as e:
             logger.error(
-                f"Error handling connection from {client_address}: {e}"
+                f"Error handling connection from {client_address}: {e}", exc_info=True
             )
         finally:
             await self._cleanup_connection(websocket)
@@ -154,9 +154,9 @@ class AudioRelayServer:
                 logger.warning(f"Unknown message type: {message_type}")
 
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse message: {e}")
+            logger.error(f"Failed to parse message: {e}", exc_info=True)
         except Exception as e:
-            logger.error(f"Error processing message: {e}")
+            logger.error(f"Error processing message: {e}", exc_info=True)
 
     async def _handle_speaker_register(self, websocket, data):
         """Handle speaker bot registration."""
@@ -317,7 +317,7 @@ class AudioRelayServer:
         except websockets.exceptions.ConnectionClosed:
             raise
         except Exception as e:
-            logger.error(f"Error sending audio to {listener_id}: {e}")
+            logger.error(f"Error sending audio to {listener_id}: {e}", exc_info=True)
             raise
 
     async def _handle_ping(self, websocket, data):

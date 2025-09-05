@@ -26,7 +26,7 @@ logger = setup_logging(
 try:
     config = config_manager.get_config()
 except Exception as e:
-    logger.error(f"Failed to load configuration: {e}")
+    logger.error(f"Failed to load configuration: {e}", exc_info=True)
     exit(1)
 
 # Discord bot setup
@@ -79,14 +79,14 @@ async def on_ready() -> None:
         logger.info("Audio router initialized successfully")
 
     except Exception as e:
-        logger.error(f"Failed to initialize audio router: {e}")
+        logger.error(f"Failed to initialize audio router: {e}", exc_info=True)
 
     # Sync slash commands
     try:
         synced = await bot.tree.sync()
         logger.info(f"Synced {len(synced)} slash commands")
     except Exception as e:
-        logger.error(f"Command sync failed: {e}")
+        logger.error(f"Command sync failed: {e}", exc_info=True)
 
 
 @bot.event
@@ -210,7 +210,7 @@ async def setup_broadcast_command(ctx: commands.Context, *, args: str) -> None:
         await ctx.send(embed=embed)
 
     except Exception as e:
-        logger.error(f"Error in start_broadcast command: {e}")
+        logger.error(f"Error in start_broadcast command: {e}", exc_info=True)
         embed = discord.Embed(
             title="❌ Command Error",
             description=f"An error occurred: {str(e)}",
@@ -251,7 +251,7 @@ async def start_broadcast_command(ctx):
         await ctx.send(embed=embed)
 
     except Exception as e:
-        logger.error(f"Error in start_broadcast command: {e}")
+        logger.error(f"Error in start_broadcast command: {e}", exc_info=True)
         embed = discord.Embed(
             title="❌ Command Error",
             description=f"An error occurred: {str(e)}",
@@ -292,7 +292,7 @@ async def stop_broadcast_command(ctx):
         await ctx.send(embed=embed)
 
     except Exception as e:
-        logger.error(f"Error in stop_broadcast command: {e}")
+        logger.error(f"Error in stop_broadcast command: {e}", exc_info=True)
         embed = discord.Embed(
             title="❌ Command Error",
             description=f"An error occurred: {str(e)}",
@@ -349,7 +349,7 @@ async def broadcast_status_command(ctx):
         await ctx.send(embed=embed)
 
     except Exception as e:
-        logger.error(f"Error in status command: {e}")
+        logger.error(f"Error in status command: {e}", exc_info=True)
         embed = discord.Embed(
             title="❌ Command Error",
             description=f"An error occurred: {str(e)}",
@@ -420,7 +420,7 @@ async def cleanup_setup_command(ctx):
             )
 
     except Exception as e:
-        logger.error(f"Error in cleanup_setup command: {e}")
+        logger.error(f"Error in cleanup_setup command: {e}", exc_info=True)
         embed = discord.Embed(
             title="❌ Command Error",
             description=f"An error occurred: {str(e)}",
@@ -491,7 +491,7 @@ async def setup_roles_command(ctx):
             except discord.Forbidden:
                 logger.warning("Could not move roles - insufficient permissions")
             except Exception as e:
-                logger.error(f"Error moving roles: {e}")
+                logger.error(f"Error moving roles: {e}", exc_info=True)
 
         # Create result embed
         result_embed = discord.Embed(
@@ -570,7 +570,7 @@ async def setup_roles_command(ctx):
         await ctx.send(embed=result_embed)
 
     except Exception as e:
-        logger.error(f"Error in setup_roles command: {e}")
+        logger.error(f"Error in setup_roles command: {e}", exc_info=True)
         embed = discord.Embed(
             title="❌ Command Error",
             description=f"An error occurred: {str(e)}",
@@ -719,7 +719,7 @@ async def check_setup_command(ctx):
         await ctx.send(embed=embed)
 
     except Exception as e:
-        logger.error(f"Error in check_setup command: {e}")
+        logger.error(f"Error in check_setup command: {e}", exc_info=True)
         embed = discord.Embed(
             title="❌ Command Error",
             description=f"An error occurred: {str(e)}",
@@ -843,7 +843,7 @@ async def check_permissions_command(ctx):
         await ctx.send(embed=embed)
 
     except Exception as e:
-        logger.error(f"Error in check_permissions command: {e}")
+        logger.error(f"Error in check_permissions command: {e}", exc_info=True)
         embed = discord.Embed(
             title="❌ Command Error",
             description=f"An error occurred: {str(e)}",
@@ -971,7 +971,7 @@ async def role_info_command(ctx):
         await ctx.send(embed=embed)
 
     except Exception as e:
-        logger.error(f"Error in role_info command: {e}")
+        logger.error(f"Error in role_info command: {e}", exc_info=True)
         embed = discord.Embed(
             title="❌ Command Error",
             description=f"An error occurred: {str(e)}",
@@ -1095,7 +1095,7 @@ async def debug_control_channel_command(ctx):
         await ctx.send(embed=embed)
         
     except Exception as e:
-        logger.error(f"Error in debug_control_channel command: {e}")
+        logger.error(f"Error in debug_control_channel command: {e}", exc_info=True)
         embed = discord.Embed(
             title="❌ Command Error",
             description=f"An error occurred: {str(e)}",
@@ -1168,7 +1168,7 @@ async def system_status_command(ctx):
         await ctx.send(embed=embed)
 
     except Exception as e:
-        logger.error(f"Error in system_status command: {e}")
+        logger.error(f"Error in system_status command: {e}", exc_info=True)
         embed = discord.Embed(
             title="❌ Command Error",
             description=f"An error occurred: {str(e)}",
