@@ -15,7 +15,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List
 
 
 class ProcessManager:
@@ -98,7 +98,12 @@ class ProcessManager:
         try:
             # Prepare environment
             env = os.environ.copy()
-            env["PYTHONPATH"] = str(Path.cwd())
+            src_path = str(Path.cwd() / "src")
+            current_pythonpath = env.get("PYTHONPATH", "")
+            if current_pythonpath:
+                env["PYTHONPATH"] = f"{src_path}:{current_pythonpath}"
+            else:
+                env["PYTHONPATH"] = src_path
             
             # Start the process
             cmd = [sys.executable] + (args or [])
@@ -195,11 +200,11 @@ class ProcessManager:
     
     def start_main_bot(self) -> bool:
         """Start the AudioBroadcast bot."""
-        return self.start_component("audiobroadcast_bot", ["start_bot.py"])
+        return self.start_component("audiobroadcast_bot", ["-m", "discord_audio_router.bots.main_bot"])
     
     def start_relay_server(self) -> bool:
         """Start the WebSocket relay server."""
-        return self.start_component("relay_server", ["websocket_relay.py"])
+        return self.start_component("relay_server", ["-m", "discord_audio_router.networking.websocket_server"])
     
     def start_all(self) -> bool:
         """Start all components."""

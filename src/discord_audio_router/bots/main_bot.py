@@ -7,14 +7,23 @@ proper multi-bot architecture for handling multiple listener channels.
 
 import asyncio
 import re
+import sys
+from pathlib import Path
 from typing import Optional
 
+# Add src directory to Python path for direct execution
+if __name__ == "__main__":
+    src_path = Path(__file__).parent.parent.parent.parent / "src"
+    if str(src_path) not in sys.path:
+        sys.path.insert(0, str(src_path))
+
 import discord
-from config.simple_config import config_manager
-from core.access_control import is_broadcast_admin
-from core.audio_router import AudioRouter
 from discord.ext import commands
-from logging_config import setup_logging
+
+from discord_audio_router.config.settings import config_manager
+
+from discord_audio_router.core import AudioRouter, is_broadcast_admin
+from discord_audio_router.infrastructure import setup_logging
 
 # Configure logging
 logger = setup_logging(

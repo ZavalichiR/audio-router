@@ -34,7 +34,7 @@ classifiers = [
 requires-python = ">=3.9"
 dependencies = [
     "discord.py==2.4.0",
-    "discord-ext-voice-recv>=0.4.2",
+    "discord-ext-voice-recv>=0.4.2a145",
     "websockets>=10.4",
     "aiohttp>=3.8.0",
     "python-dotenv>=1.0.0",
@@ -66,15 +66,17 @@ Repository = "https://github.com/discord-audio-router/discord-audio-router.git"
 Issues = "https://github.com/discord-audio-router/discord-audio-router/issues"
 
 [project.scripts]
-discord-audio-router = "start_bot:startup"
-discord-audio-relay = "websocket_relay:main"
+discord-audio-router = "discord_audio_router.bots.main_bot:main"
+discord-audio-forwarder = "discord_audio_router.bots.forwarder_bot:main"
+discord-audio-receiver = "discord_audio_router.bots.receiver_bot:main"
+discord-audio-relay = "discord_audio_router.networking.websocket_server:main"
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["bots*"]
+where = ["src"]
+include = ["discord_audio_router*"]
 
 [tool.setuptools.package-data]
-"bots" = ["py.typed"]
+"discord_audio_router" = ["py.typed"]
 
 [tool.black]
 line-length = 88
@@ -98,7 +100,7 @@ extend-exclude = '''
 profile = "black"
 multi_line_output = 3
 line_length = 88
-known_first_party = ["bots"]
+known_first_party = ["discord_audio_router"]
 
 [tool.mypy]
 python_version = "3.9"

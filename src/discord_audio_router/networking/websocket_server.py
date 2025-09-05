@@ -9,9 +9,17 @@ better scalability and fault tolerance.
 import asyncio
 import json
 import logging
+import sys
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Dict, Optional, Set, Any
+
+# Add src directory to Python path for direct execution
+if __name__ == "__main__":
+    src_path = Path(__file__).parent.parent.parent.parent / "src"
+    if str(src_path) not in sys.path:
+        sys.path.insert(0, str(src_path))
 
 import websockets
 

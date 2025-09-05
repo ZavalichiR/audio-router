@@ -13,22 +13,19 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+# Add src directory to Python path for direct execution
+if __name__ == "__main__":
+    src_path = Path(__file__).parent.parent.parent.parent / "src"
+    if str(src_path) not in sys.path:
+        sys.path.insert(0, str(src_path))
+
 import discord
 import websockets
 import websockets.exceptions
 from discord.ext import commands, voice_recv
 
-# Add the bots directory to the Python path
-bots_dir = Path(__file__).parent
-sys.path.insert(0, str(bots_dir))
-
-try:
-    from .audio_handler import setup_audio_receiver
-    from .logging_config import setup_logging
-except ImportError:
-    # Fallback for when running as script
-    from audio_handler import setup_audio_receiver
-    from logging_config import setup_logging
+from discord_audio_router.audio import setup_audio_receiver
+from discord_audio_router.infrastructure import setup_logging
 
 # Configure logging
 logger = setup_logging(
@@ -149,12 +146,11 @@ class AudioForwarderBot:
         """Start WebSocket server for audio forwarding."""
         try:
             # Use a unique port for this speaker bot
-            # Extract channel ID from bot_id (format: "audioforwarder_{channel_id}")
-            channel_id_str = self.bot_id.replace("audioforwarder_", "")
-            port = 8000 + (int(channel_id_str) % 1000)
+            # Use the actual channel_id for port calculation
+            port = 8000 + (self.channel_id % 1000)
 
             logger.info(
-                f"Starting WebSocket server on port {port} for AudioForwarder bot {self.bot_id} (channel_id: {channel_id_str})"
+                f"Starting WebSocket server on port {port} for AudioForwarder bot {self.bot_id} (channel_id: {self.channel_id})"
             )
 
             # Start WebSocket server with better error handling

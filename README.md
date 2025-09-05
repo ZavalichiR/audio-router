@@ -1,8 +1,19 @@
-# 🎵 Discord Audio Router Bot
+# 🎵 Discord Audio Router
 
 **Professional audio routing system for Discord voice channels**
 
-Transform your Discord server into a professional broadcasting platform! The Discord Audio Router Bot allows you to route audio from one voice channel to multiple listener channels simultaneously, perfect for presentations, meetings, events, and more.
+Transform your Discord server into a professional broadcasting platform! The Discord Audio Router allows you to route audio from one voice channel to multiple listener channels simultaneously, perfect for presentations, meetings, events, and more.
+
+## 🏗️ Architecture
+
+This project uses a clean, modular architecture with proper separation of concerns:
+
+- **Core Logic**: Business logic and orchestration (`src/discord_audio_router/core/`)
+- **Audio Processing**: Audio capture, buffering, and playback (`src/discord_audio_router/audio/`)
+- **Networking**: WebSocket communication and relay servers (`src/discord_audio_router/networking/`)
+- **Bot Implementations**: Discord bot instances (`src/discord_audio_router/bots/`)
+- **Configuration**: Settings and environment management (`src/discord_audio_router/config/`)
+- **Infrastructure**: Logging, exceptions, and utilities (`src/discord_audio_router/infrastructure/`)
 
 ## ✨ Features
 
@@ -99,9 +110,9 @@ For each bot, create an invite link:
 #### Option B: Python Installation
 
 1. **Install Python 3.11+** and FFmpeg
-2. **Install dependencies**
+2. **Install the package**
    ```bash
-   pip install -r requirements.txt
+   pip install -e .
    ```
 
 3. **Configure and run**

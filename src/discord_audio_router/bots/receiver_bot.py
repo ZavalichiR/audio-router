@@ -13,22 +13,19 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+# Add src directory to Python path for direct execution
+if __name__ == "__main__":
+    src_path = Path(__file__).parent.parent.parent.parent / "src"
+    if str(src_path) not in sys.path:
+        sys.path.insert(0, str(src_path))
+
 import discord
 import websockets
 import websockets.exceptions
 from discord.ext import commands, voice_recv
 
-# Add the bots directory to the Python path
-bots_dir = Path(__file__).parent
-sys.path.insert(0, str(bots_dir))
-
-try:
-    from .audio_handler import AudioBuffer, OpusAudioSource
-    from .logging_config import setup_logging
-except ImportError:
-    # Fallback for when running as script
-    from audio_handler import AudioBuffer, OpusAudioSource
-    from logging_config import setup_logging
+from discord_audio_router.audio import AudioBuffer, OpusAudioSource
+from discord_audio_router.infrastructure import setup_logging
 
 # Configure logging
 logger = setup_logging(

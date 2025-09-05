@@ -60,11 +60,11 @@ class BotProcess:
             # Determine which script to run
             if self.bot_type == "speaker":
                 script_path = (
-                    Path(__file__).parent.parent / "audioforwarder_bot.py"
+                    Path(__file__).parent.parent / "bots" / "forwarder_bot.py"
                 )
             elif self.bot_type == "listener":
                 script_path = (
-                    Path(__file__).parent.parent / "audioreceiver_bot.py"
+                    Path(__file__).parent.parent / "bots" / "receiver_bot.py"
                 )
             else:
                 logger.error(f"Unknown bot type: {self.bot_type}")
@@ -79,7 +79,7 @@ class BotProcess:
                     "BOT_TYPE": self.bot_type,
                     "CHANNEL_ID": str(self.channel_id),
                     "GUILD_ID": str(self.guild_id),
-                    "PYTHONPATH": str(Path(__file__).parent.parent),
+                    "PYTHONPATH": str(Path(__file__).parent.parent.parent),
                 }
             )
 

@@ -1,67 +1,20 @@
+"""
+Audio handling components for the Discord Audio Router system.
+
+This module provides audio capture and playback handlers for Discord voice channels,
+including Opus audio sink and source implementations.
+"""
+
 import asyncio
 import logging
-import queue
-import threading
 from typing import Any, Callable, Optional
 
 import discord
 from discord.ext import voice_recv
 
+from .buffers import AudioBuffer
+
 logger = logging.getLogger(__name__)
-
-
-class AudioBuffer:
-    """Thread-safe buffer for Opus packets using both async and sync interfaces."""
-
-    def __init__(self, max_size: int = 100):
-        self._async_buffer: list[bytes] = []
-        self._sync_queue: queue.Queue[bytes] = queue.Queue(maxsize=max_size)
-        self.max_size = max_size
-        self._async_lock = asyncio.Lock()
-        self._sync_lock = threading.Lock()
-
-    async def put(self, data: bytes):
-        """Add an Opus packet to the buffer (async interface)."""
-        async with self._async_lock:
-            if len(self._async_buffer) >= self.max_size:
-                self._async_buffer.pop(0)
-            self._async_buffer.append(data)
-
-        # Also add to sync queue for synchronous access
-        try:
-            self._sync_queue.put_nowait(data)
-        except queue.Full:
-            # Remove oldest item and add new one
-            try:
-                self._sync_queue.get_nowait()
-                self._sync_queue.put_nowait(data)
-                logger.warning("Audio buffer queue full, dropped oldest packet")
-            except queue.Empty:
-                pass
-
-    async def get(self) -> Optional[bytes]:
-        """Retrieve the oldest Opus packet, or None if empty (async interface)."""
-        async with self._async_lock:
-            return self._async_buffer.pop(0) if self._async_buffer else None
-
-    def get_sync(self, timeout: float = 0.01) -> Optional[bytes]:
-        """Retrieve the oldest Opus packet synchronously (for discord.py)."""
-        try:
-            return self._sync_queue.get(timeout=timeout)
-        except queue.Empty:
-            return None
-
-    async def clear(self):
-        """Clear all buffered packets."""
-        async with self._async_lock:
-            self._async_buffer.clear()
-
-        with self._sync_lock:
-            while not self._sync_queue.empty():
-                try:
-                    self._sync_queue.get_nowait()
-                except queue.Empty:
-                    break
 
 
 class OpusAudioSink(voice_recv.AudioSink):
@@ -250,30 +203,3 @@ class OpusAudioSource(discord.AudioSource):
         return (
             audio_packet if audio_packet else b"\xf8\xff\xfe"
         )  # Opus silence frame
-
-
-class SilentSource(discord.AudioSource):
-    """
-    Generates Opus silence frames to keep Discord voice connections alive.
-
-    This source continuously provides silence frames to prevent Discord from
-    disconnecting the bot due to inactivity.
-    """
-
-    def __init__(self):
-        """Initialize the silent source."""
-        self.frame_count = 0
-
-    def is_opus(self) -> bool:
-        """Return True to indicate we provide Opus-encoded audio."""
-        return True
-
-    def read(self) -> bytes:
-        """
-        Generate the next silence frame.
-
-        Returns:
-            bytes: Opus silence frame
-        """
-        self.frame_count += 1
-        return b"\xf8\xff\xfe"  # Standard Opus silence frame
