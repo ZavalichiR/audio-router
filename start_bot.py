@@ -16,7 +16,7 @@ bots_dir = Path(__file__).parent / "bots"
 sys.path.insert(0, str(bots_dir))
 
 # Import the main bot
-from main_bot import main
+from bots.main_bot import main
 
 # Configure logging
 logging.basicConfig(

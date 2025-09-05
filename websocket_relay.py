@@ -16,8 +16,8 @@ from pathlib import Path
 bots_dir = Path(__file__).parent / "bots"
 sys.path.insert(0, str(bots_dir))
 
-from core.audio_relay_server import AudioRelayServer
-from logging_config import setup_logging
+from bots.core.audio_relay_server import AudioRelayServer
+from bots.logging_config import setup_logging
 
 # Configure logging
 logger = setup_logging(
