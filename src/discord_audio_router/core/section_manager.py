@@ -295,7 +295,7 @@ class SectionManager:
             listener_channel_ids = []
             for i in range(1, listener_count + 1):
                 listener_channel = await category.create_voice_channel(
-                    name=f"{i}-listener",
+                    name=f"group-{i}",
                     bitrate=96000,  # Discord's maximum bitrate
                     user_limit=0,
                     reason=f"Creating listener channel {i}",

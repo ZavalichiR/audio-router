@@ -133,7 +133,7 @@ For each bot, create an invite link:
    This creates:
    - 📁 **War Room** category
    - 🎤 **Speaker** channel (for presenters)
-   - 📢 **1-listener** through **5-listener** channels (for audience)
+   - 📢 **group-1** through **group-5** channels (for audience)
    - 🎛️ **broadcast-control** channel (for commands)
 
 2. **Start broadcasting**:
@@ -164,7 +164,7 @@ For each bot, create an invite link:
 # Starts audio routing from speaker to all listeners
 
 # Presenter joins "Speaker" channel
-# Audience joins "1-listener", "2-listener", etc.
+# Audience joins "group-1", "group-2", etc.
 
 !stop_broadcast
 # Stops audio routing
