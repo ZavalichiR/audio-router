@@ -29,10 +29,10 @@ EXPOSE 8000-8100
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import asyncio; import websockets; print('Health check passed')" || exit 1
 
-# Default command runs the main bot
+# Default command runs the launcher for all components
 # Override with docker run for different components:
-# - AudioBroadcast bot: docker run <image> python start_bot.py
-# - AudioForwarder bot: docker run <image> python bots/audioforwarder_bot.py
-# - AudioReceiver bot: docker run <image> python bots/audioreceiver_bot.py
-# - Relay server: docker run <image> python websocket_relay.py
-CMD ["python", "start_bot.py"]
+# - All components: docker run <image>
+# - Main bot only: docker run <image> python launcher.py --component audiobroadcast_bot
+# - Relay server only: docker run <image> python launcher.py --component relay_server
+# - With monitoring: docker run <image> python launcher.py --monitor
+CMD ["python", "launcher.py"]

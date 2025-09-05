@@ -54,16 +54,16 @@ clean:
 
 # Code quality
 test:
-	python test_audio_router.py
+	python -m pytest tests/ -v
 
 test-pytest:
-	pytest
+	python -m pytest tests/ -v
 
 lint:
-	flake8 bots/ --max-line-length=88 --ignore=E203,W503
+	flake8 src/ tests/ scripts/ --max-line-length=88 --ignore=E203,W503
 
 format:
-	black bots/ --line-length=88
+	black src/ tests/ scripts/ --line-length=88
 	isort src/ tests/ scripts/
 
 # Documentation
@@ -81,7 +81,7 @@ dist: build
 
 # Running
 run-bot:
-	python launcher.py --component main_bot
+	python launcher.py --component audiobroadcast_bot
 
 run-relay:
 	python launcher.py --component relay_server
@@ -118,10 +118,10 @@ docker-build:
 docker-run:
 	docker-compose up
 
-# Database
-db-init:
-	@echo "Initializing database..."
-	python -c "from src.discord_audio_router.utils.database import init_database; init_database()"
+# Database (placeholder - no database currently used)
+# db-init:
+# 	@echo "Initializing database..."
+# 	python -c "from src.discord_audio_router.utils.database import init_database; init_database()"
 
 # Logs
 logs:

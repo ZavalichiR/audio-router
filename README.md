@@ -331,7 +331,7 @@ The bot supports flexible access control:
 
 ### Process Management with Launcher
 
-The new launcher provides robust process management:
+The launcher provides robust process management:
 
 ```bash
 # Start all components
@@ -344,11 +344,50 @@ python launcher.py --component relay_server
 # Start with health monitoring
 python launcher.py --monitor
 
-# Start without relay server
-python launcher.py --no-relay
-
 # Check component status
 python launcher.py --status
+```
+
+### Configuration Management
+
+The system uses a centralized configuration approach following 12-factor app principles:
+
+- **Environment Variables**: All configuration via environment variables
+- **Validation**: Comprehensive configuration validation
+- **Documentation**: Clear documentation for all settings
+- **Examples**: Multiple example configurations for different environments
+
+#### Configuration Files
+
+- `env.example` - Complete configuration template with documentation
+- `examples/basic_setup.env` - Basic setup for development
+- `examples/production.env` - Production-ready configuration
+
+#### Environment Variables
+
+All configuration is managed through environment variables:
+
+```env
+# Required Bot Tokens
+AUDIO_BROADCAST_TOKEN=your_main_bot_token
+AUDIO_FORWARDER_TOKEN=your_forwarder_bot_token
+AUDIO_RECEIVER_TOKENS=token1,token2,token3
+
+# Optional Configuration
+BOT_PREFIX=!
+LOG_LEVEL=INFO
+SPEAKER_ROLE_NAME=Speaker
+BROADCAST_ADMIN_ROLE_NAME=Broadcast Admin
+AUTO_CREATE_ROLES=true
+
+# WebSocket Relay Server
+START_RELAY_SERVER=true
+RELAY_SERVER_HOST=localhost
+RELAY_SERVER_PORT=8765
+
+# Development Settings
+DEBUG=false
+VERBOSE_LOGGING=false
 ```
 
 ### Docker Deployment
@@ -411,6 +450,45 @@ For high-traffic scenarios:
 - **Dedicated Resources**: Allocate sufficient RAM and CPU
 - **Network Optimization**: Use low-latency hosting
 
+## 🧪 Testing
+
+### Running Tests
+
+The project includes comprehensive tests to ensure reliability:
+
+```bash
+# Run all tests
+make test
+
+# Run specific test categories
+python -m pytest tests/unit/ -v
+python -m pytest tests/integration/ -v
+python -m pytest tests/e2e/ -v
+
+# Run configuration audit tests
+python -m pytest tests/test_configuration_audit.py -v
+
+# Run with coverage
+python -m pytest tests/ --cov=src/discord_audio_router --cov-report=html
+```
+
+### Test Categories
+
+- **Unit Tests**: Individual component testing
+- **Integration Tests**: Component interaction testing
+- **End-to-End Tests**: Full workflow testing
+- **Configuration Audit**: Configuration consistency testing
+
+### Configuration Validation
+
+The system includes comprehensive configuration validation:
+
+- Environment variable validation
+- Bot token format validation
+- Channel ID validation
+- Role name validation
+- Port number validation
+
 ## 🤝 Support
 
 ### Getting Help
@@ -422,6 +500,7 @@ For high-traffic scenarios:
    - `!broadcast_status`
 3. **Review this documentation**
 4. **Check Discord bot permissions**
+5. **Run configuration audit tests**
 
 ### Common Solutions
 
@@ -429,6 +508,7 @@ For high-traffic scenarios:
 - **Check Discord server permissions**
 - **Verify bot token configuration**
 - **Ensure FFmpeg is installed**
+- **Run tests to verify configuration**
 
 ## 📄 License
 
