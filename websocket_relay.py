@@ -33,11 +33,11 @@ async def main():
         logger.info("Starting WebSocket Relay Server...")
         
         # Create and start the relay server
-        relay_server = AudioRelayServer(host="localhost", port=8765)
+        port = 8765
+        relay_server = AudioRelayServer(host="localhost", port=port)
         await relay_server.start()
         
-        logger.info("WebSocket Relay Server started on localhost:8765")
-        logger.info("Press Ctrl+C to stop the server")
+        logger.info(f"WebSocket Relay Server started on localhost:{port}")
         
         # Keep the server running
         try:

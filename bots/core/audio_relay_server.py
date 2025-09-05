@@ -9,8 +9,9 @@ better scalability and fault tolerance.
 import asyncio
 import json
 import logging
-from dataclasses import dataclass
-from typing import Dict, Optional, Set
+import time
+from dataclasses import dataclass, field
+from typing import Dict, Optional, Set, Any
 
 import websockets
 
@@ -20,11 +21,11 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AudioRoute:
     """Represents an audio routing path."""
-
     speaker_id: str
     speaker_channel_id: int
-    listener_ids: Set[str]
+    listener_ids: Set[str] = field(default_factory=set)
     is_active: bool = True
+    last_audio_ts: float = field(default_factory=time.time)
 
 
 class AudioRelayServer:
@@ -35,22 +36,26 @@ class AudioRelayServer:
     speaker bots to broadcast to multiple listener bots.
     """
 
-    def __init__(self, host: str = "localhost", port: int = 8765):
+    def __init__(self, host: str = "localhost", port: int = 8765, ping_interval: int = 30):
         """
         Initialize the audio relay server.
 
         Args:
             host: Host address to bind to
             port: Port to listen on
+            ping_interval: Interval in seconds to send pings to clients
         """
         self.host = host
         self.port = port
-        self.server: Optional[websockets.WebSocketServerProtocol] = None
+        self.server: Optional[websockets.WebSocketServer] = None
 
         # Audio routing state
         self.audio_routes: Dict[str, AudioRoute] = {}  # speaker_id -> route
         self.connected_speakers: Dict[str, websockets.WebSocketServerProtocol] = {}
         self.connected_listeners: Dict[str, websockets.WebSocketServerProtocol] = {}
+
+        # Reverse lookup for fast cleanup
+        self.websocket_to_id: Dict[websockets.WebSocketServerProtocol, str] = {}
 
         # Statistics
         self.stats = {
@@ -60,13 +65,22 @@ class AudioRelayServer:
             "bytes_forwarded": 0,
         }
 
+        self.ping_interval = ping_interval
+        self._health_task: Optional[asyncio.Task] = None
+
     async def start(self):
         """Start the audio relay server."""
         try:
             self.server = await websockets.serve(
-                self._handle_connection, self.host, self.port
+                self._handle_connection,
+                self.host,
+                self.port,
+                ping_interval=None,  # We'll handle pings manually
+                max_size=2**20,      # 1MB max message size
+                compression=None,    # Disable compression for lower latency
             )
             logger.info(f"Audio relay server started on {self.host}:{self.port}")
+            self._health_task = asyncio.create_task(self._monitor_connections())
             return True
         except Exception as e:
             logger.error(f"Failed to start audio relay server: {e}")
@@ -78,6 +92,12 @@ class AudioRelayServer:
             self.server.close()
             await self.server.wait_closed()
             logger.info("Audio relay server stopped")
+        if self._health_task:
+            self._health_task.cancel()
+            try:
+                await self._health_task
+            except asyncio.CancelledError:
+                pass
 
     async def _handle_connection(self, websocket, path):
         """Handle incoming WebSocket connections."""
@@ -110,6 +130,8 @@ class AudioRelayServer:
                 await self._handle_audio_data(websocket, data)
             elif message_type == "ping":
                 await self._handle_ping(websocket, data)
+            elif message_type == "stats":
+                await self._handle_stats_request(websocket, data)
             else:
                 logger.warning(f"Unknown message type: {message_type}")
 
@@ -133,6 +155,7 @@ class AudioRelayServer:
 
         # Register speaker
         self.connected_speakers[speaker_id] = websocket
+        self.websocket_to_id[websocket] = speaker_id
 
         # Create or update audio route
         if speaker_id not in self.audio_routes:
@@ -140,6 +163,9 @@ class AudioRelayServer:
                 speaker_id=speaker_id, speaker_channel_id=channel_id, listener_ids=set()
             )
             self.stats["active_routes"] += 1
+        else:
+            self.audio_routes[speaker_id].is_active = True
+            self.audio_routes[speaker_id].speaker_channel_id = channel_id
 
         logger.info(f"Speaker registered: {speaker_id} (channel: {channel_id})")
 
@@ -173,6 +199,7 @@ class AudioRelayServer:
 
         # Register listener
         self.connected_listeners[listener_id] = websocket
+        self.websocket_to_id[websocket] = listener_id
 
         # Add to audio route
         if speaker_id in self.audio_routes:
@@ -216,36 +243,51 @@ class AudioRelayServer:
         if not route.is_active:
             return
 
-        # Forward to all connected listeners
-        disconnected_listeners = set()
-        for listener_id in route.listener_ids:
-            if listener_id in self.connected_listeners:
-                try:
-                    listener_websocket = self.connected_listeners[listener_id]
-                    await listener_websocket.send(
-                        json.dumps(
-                            {
-                                "type": "audio",
-                                "speaker_id": speaker_id,
-                                "audio_data": audio_data,
-                            }
-                        )
-                    )
+        route.last_audio_ts = time.time()
 
-                    self.stats["audio_packets_forwarded"] += 1
-                    self.stats["bytes_forwarded"] += len(audio_data)
+        # Forward to all connected listeners concurrently for performance
+        listeners_to_send = [
+            (listener_id, self.connected_listeners[listener_id])
+            for listener_id in list(route.listener_ids)
+            if listener_id in self.connected_listeners
+        ]
 
-                except websockets.exceptions.ConnectionClosed:
-                    disconnected_listeners.add(listener_id)
-                except Exception as e:
-                    logger.error(f"Error forwarding audio to {listener_id}: {e}")
-                    disconnected_listeners.add(listener_id)
+        if not listeners_to_send:
+            return
+
+        message = json.dumps(
+            {
+                "type": "audio",
+                "speaker_id": speaker_id,
+                "audio_data": audio_data,
+            }
+        )
+
+        send_tasks = []
+        for listener_id, listener_websocket in listeners_to_send:
+            send_tasks.append(self._safe_send_audio(listener_websocket, message, listener_id))
+
+        results = await asyncio.gather(*send_tasks, return_exceptions=True)
 
         # Clean up disconnected listeners
-        for listener_id in disconnected_listeners:
-            route.listener_ids.discard(listener_id)
-            self.connected_listeners.pop(listener_id, None)
-            logger.info(f"Removed disconnected listener: {listener_id}")
+        for idx, result in enumerate(results):
+            if isinstance(result, Exception):
+                listener_id = listeners_to_send[idx][0]
+                route.listener_ids.discard(listener_id)
+                self.connected_listeners.pop(listener_id, None)
+                logger.info(f"Removed disconnected listener: {listener_id}")
+
+        self.stats["audio_packets_forwarded"] += len(listeners_to_send)
+        self.stats["bytes_forwarded"] += len(audio_data) * len(listeners_to_send)
+
+    async def _safe_send_audio(self, websocket, message, listener_id):
+        try:
+            await websocket.send(message)
+        except websockets.exceptions.ConnectionClosed:
+            raise
+        except Exception as e:
+            logger.error(f"Error sending audio to {listener_id}: {e}")
+            raise
 
     async def _handle_ping(self, websocket, data):
         """Handle ping messages for connection health checks."""
@@ -253,28 +295,50 @@ class AudioRelayServer:
             json.dumps({"type": "pong", "timestamp": data.get("timestamp")})
         )
 
+    async def _handle_stats_request(self, websocket, data):
+        """Handle stats request from client."""
+        await websocket.send(json.dumps({
+            "type": "stats",
+            "stats": self.get_stats(),
+            "routes": self.get_route_info(),
+        }))
+
     async def _cleanup_connection(self, websocket):
         """Clean up when a connection is closed."""
         # Remove from speakers
-        for speaker_id, ws in list(self.connected_speakers.items()):
-            if ws == websocket:
-                del self.connected_speakers[speaker_id]
-                if speaker_id in self.audio_routes:
-                    self.audio_routes[speaker_id].is_active = False
-                logger.info(f"Speaker disconnected: {speaker_id}")
-                break
-
-        # Remove from listeners
-        for listener_id, ws in list(self.connected_listeners.items()):
-            if ws == websocket:
-                del self.connected_listeners[listener_id]
+        id_ = self.websocket_to_id.pop(websocket, None)
+        if id_:
+            if id_ in self.connected_speakers and self.connected_speakers[id_] == websocket:
+                del self.connected_speakers[id_]
+                if id_ in self.audio_routes:
+                    self.audio_routes[id_].is_active = False
+                logger.info(f"Speaker disconnected: {id_}")
+            elif id_ in self.connected_listeners and self.connected_listeners[id_] == websocket:
+                del self.connected_listeners[id_]
                 # Remove from all routes
                 for route in self.audio_routes.values():
-                    route.listener_ids.discard(listener_id)
-                logger.info(f"Listener disconnected: {listener_id}")
-                break
+                    route.listener_ids.discard(id_)
+                logger.info(f"Listener disconnected: {id_}")
 
-    def get_stats(self) -> Dict:
+    async def _monitor_connections(self):
+        """Periodically check connection health and clean up stale routes."""
+        while True:
+            await asyncio.sleep(self.ping_interval)
+            now = time.time()
+            # Remove inactive routes (no audio for 5 minutes)
+            for speaker_id, route in list(self.audio_routes.items()):
+                if route.is_active and now - route.last_audio_ts > 300:
+                    logger.info(f"Route {speaker_id} inactive for 5 minutes, marking as inactive.")
+                    route.is_active = False
+            # Optionally, send pings to all clients to keep connections alive
+            for ws in list(self.websocket_to_id.keys()):
+                try:
+                    await ws.ping()
+                except Exception:
+                    # Will be cleaned up on next message or disconnect
+                    pass
+
+    def get_stats(self) -> Dict[str, Any]:
         """Get server statistics."""
         return {
             **self.stats,
@@ -285,7 +349,7 @@ class AudioRelayServer:
             ),
         }
 
-    def get_route_info(self) -> Dict:
+    def get_route_info(self) -> Dict[str, Any]:
         """Get detailed route information."""
         routes = {}
         for speaker_id, route in self.audio_routes.items():
@@ -294,6 +358,7 @@ class AudioRelayServer:
                 "listener_count": len(route.listener_ids),
                 "listener_ids": list(route.listener_ids),
                 "is_active": route.is_active,
+                "last_audio_ts": route.last_audio_ts,
             }
         return routes
 
