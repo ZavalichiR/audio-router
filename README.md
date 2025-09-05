@@ -80,7 +80,7 @@ Transform your Discord server into a professional broadcasting platform! The Dis
    ```bash
    cp env.example .env
    # Edit .env with your bot token
-   python start_bot.py
+   python launcher.py
    ```
 
 ## 🎛️ How to Use
@@ -289,6 +289,28 @@ The bot supports flexible access control:
 
 ## 🚀 Advanced Features
 
+### Process Management with Launcher
+
+The new launcher provides robust process management:
+
+```bash
+# Start all components
+python launcher.py
+
+# Start specific component
+python launcher.py --component main_bot
+python launcher.py --component relay_server
+
+# Start with health monitoring
+python launcher.py --monitor
+
+# Start without relay server
+python launcher.py --no-relay
+
+# Check component status
+python launcher.py --status
+```
+
 ### Docker Deployment
 
 For production deployment, use Docker:
@@ -376,7 +398,7 @@ This project is licensed under the MIT License.
 1. **Create your Discord bot** in the Developer Portal
 2. **Invite it to your server** with proper permissions
 3. **Configure your `.env` file** with bot tokens
-4. **Run the bot** using Docker or Python
+4. **Run the bot** using Docker or Python: `python launcher.py`
 5. **Create your first broadcast section** with `!setup_broadcast 'My Event' 5`
 6. **Start broadcasting** with `!start_broadcast`
 

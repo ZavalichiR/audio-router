@@ -1,0 +1,140 @@
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  standard:
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+  
+  detailed:
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(funcName)s - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+  
+  json:
+    format: '{"timestamp": "%(asctime)s", "logger": "%(name)s", "level": "%(levelname)s", "message": "%(message)s", "module": "%(filename)s", "line": %(lineno)d}'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: standard
+    stream: ext://sys.stdout
+  
+  file_main:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: logs/main_bot.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+    encoding: utf-8
+  
+  file_speaker:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: logs/speaker_bot.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+    encoding: utf-8
+  
+  file_listener:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: logs/listener_bot.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+    encoding: utf-8
+  
+  file_relay:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: logs/websocket_relay.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+    encoding: utf-8
+  
+  file_startup:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: logs/bot_startup.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+    encoding: utf-8
+
+loggers:
+  # Main application loggers
+  main_bot:
+    level: INFO
+    handlers: [console, file_main]
+    propagate: false
+  
+  speaker_bot:
+    level: INFO
+    handlers: [console, file_speaker]
+    propagate: false
+  
+  listener_bot:
+    level: INFO
+    handlers: [console, file_listener]
+    propagate: false
+  
+  websocket_relay:
+    level: INFO
+    handlers: [console, file_relay]
+    propagate: false
+  
+  # Core component loggers
+  bots.core:
+    level: INFO
+    handlers: [console, file_main]
+    propagate: false
+  
+  bots.config:
+    level: INFO
+    handlers: [console, file_main]
+    propagate: false
+  
+  bots.audio_handler:
+    level: INFO
+    handlers: [console, file_main]
+    propagate: false
+  
+  # Third-party library loggers (suppress noisy ones)
+  discord.voice_state:
+    level: WARNING
+    handlers: [file_main]
+    propagate: false
+  
+  discord.gateway:
+    level: WARNING
+    handlers: [file_main]
+    propagate: false
+  
+  discord.client:
+    level: WARNING
+    handlers: [file_main]
+    propagate: false
+  
+  websockets:
+    level: WARNING
+    handlers: [file_main]
+    propagate: false
+  
+  aiohttp.access:
+    level: WARNING
+    handlers: [file_main]
+    propagate: false
+  
+  aiohttp.client:
+    level: WARNING
+    handlers: [file_main]
+    propagate: false
+
+root:
+  level: INFO
+  handlers: [console, file_startup]

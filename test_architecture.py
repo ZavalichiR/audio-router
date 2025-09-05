@@ -30,7 +30,7 @@ async def test_imports():
         logger.info("Testing module imports...")
         
         # Test core imports
-        from core.bot_manager import BotManager, BotInstance
+        from core.process_manager import ProcessManager, BotProcess
         from core.section_manager import SectionManager, BroadcastSection
         from core.audio_router import AudioRouter
         
@@ -84,7 +84,7 @@ async def test_core_components():
     try:
         logger.info("Testing core components...")
         
-        from core.bot_manager import BotManager, BotInstance
+        from core.process_manager import ProcessManager, BotProcess
         from core.section_manager import SectionManager, BroadcastSection
         from core.audio_router import AudioRouter
         from config.simple_config import SimpleConfig
@@ -97,19 +97,19 @@ async def test_core_components():
             listener_bot_tokens=["token1", "token2", "token3"]
         )
         
-        # Test BotManager
-        bot_manager = BotManager(config)
-        bot_manager.add_available_tokens(config.listener_bot_tokens)
+        # Test ProcessManager
+        process_manager = ProcessManager(config)
+        process_manager.add_available_tokens(config.listener_bot_tokens)
         
-        # Test BotInstance
-        speaker_bot = BotInstance("test_token", "speaker", 123456)
-        listener_bot = BotInstance("test_token", "listener", 789012)
+        # Test BotProcess
+        speaker_bot = BotProcess("test_speaker", "speaker", "test_token", 123456, 789012)
+        listener_bot = BotProcess("test_listener", "listener", "test_token", 111111, 789012)
         
         assert speaker_bot.bot_type == "speaker"
         assert listener_bot.bot_type == "listener"
         
         # Test SectionManager
-        section_manager = SectionManager(bot_manager)
+        section_manager = SectionManager(process_manager)
         
         # Test BroadcastSection
         section = BroadcastSection(
@@ -129,7 +129,7 @@ async def test_core_components():
         # Test system status
         status = await audio_router.get_system_status()
         assert 'active_sections' in status
-        assert 'bot_instances' in status
+        assert 'process_status' in status
         
         logger.info("✅ Core components working")
         return True

@@ -1,0 +1,9 @@
+2025-09-05 13:56:52,621 - launcher - INFO - Starting Discord Audio Router...
+2025-09-05 13:56:52,626 - launcher - INFO - Loaded configuration from .env
+2025-09-05 13:56:52,797 - launcher - INFO - Started relay_server (PID: 93311)
+2025-09-05 13:56:52,798 - launcher - INFO - Started main_bot (PID: 93312)
+2025-09-05 13:56:52,798 - launcher - INFO - All components started successfully
+2025-09-05 14:01:45,099 - launcher - INFO - Stopping all components...
+2025-09-05 14:01:45,103 - launcher - INFO - Stopped relay_server
+2025-09-05 14:01:45,105 - launcher - INFO - Stopped main_bot
+2025-09-05 14:01:45,105 - launcher - INFO - Stopping all components...

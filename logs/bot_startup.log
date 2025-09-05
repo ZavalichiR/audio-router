@@ -1,149 +1,24 @@
-2025-09-04 22:06:48,162 - __main__ - INFO - Starting Discord Audio Router Bot...
-2025-09-04 22:06:48,162 - main_bot - INFO - Starting Audio Router Bot...
-2025-09-04 22:06:51,246 - main_bot - INFO - Audio Router Bot online: AudioRouterMain#1961
-2025-09-04 22:06:51,247 - core.access_control - INFO - Loaded access control: 3 roles, 0 users
-2025-09-04 22:06:51,247 - core.process_manager - INFO - Added 1 available bot tokens
-2025-09-04 22:06:51,247 - core.audio_router - INFO - Added 1 listener bot tokens
-2025-09-04 22:06:51,247 - core.audio_router - INFO - Using process-based bot manager for true multi-channel audio
-2025-09-04 22:06:51,247 - core.audio_router - INFO - Audio router initialized
-2025-09-04 22:06:51,247 - main_bot - INFO - Audio router initialized successfully
-2025-09-04 22:06:51,524 - discord.http - WARNING - We are being rate limited. PUT https://discord.com/api/v10/applications/1412872316244984069/commands responded with 429. Retrying in 7.47 seconds.
-2025-09-04 22:07:26,915 - core.section_manager - INFO - Created category 'dd' in Zava
-2025-09-04 22:07:27,816 - core.access_control - INFO - Role 'Broadcast Controller' already exists
-2025-09-04 22:07:28,331 - core.access_control - WARNING - Cannot modify role Broadcast Controller - bot role too low
-2025-09-04 22:07:28,331 - core.access_control - WARNING - Cannot modify permissions for AudioRouterMain - bot role too low
-2025-09-04 22:07:28,568 - core.access_control - INFO - Set permissions for member: くZava
-2025-09-04 22:07:28,569 - core.access_control - WARNING - Cannot modify permissions for AudioRouterReceiver - bot role too low
-2025-09-04 22:07:28,569 - core.access_control - INFO - Set up private permissions for channel: broadcast-control
-2025-09-04 22:07:28,903 - core.section_manager - INFO - Sent welcome message to control channel: broadcast-control
-2025-09-04 22:07:28,903 - core.section_manager - INFO - Created broadcast section 'dd' in Zava with 1 listeners
-2025-09-04 22:07:54,186 - core.process_manager - INFO - Started speaker bot process speaker_1413239053826003006 (PID: 70503)
-2025-09-04 22:07:54,187 - core.process_manager - INFO - Started speaker bot process: speaker_1413239053826003006
-2025-09-04 22:07:54,192 - core.process_manager - INFO - Started listener bot process listener_1413239054925041796 (PID: 70504)
-2025-09-04 22:07:54,192 - core.process_manager - INFO - Started listener bot process: listener_1413239054925041796
-2025-09-04 22:07:54,192 - core.section_manager - INFO - Started broadcast for section 'dd' in Zava
-2025-09-04 22:07:59,074 - main_bot - INFO - Synced 0 slash commands
-2025-09-04 22:18:34,738 - core.process_manager - INFO - Stopped bot process speaker_1413239053826003006
-2025-09-04 22:18:34,738 - core.process_manager - INFO - Stopped bot process: speaker_1413239053826003006
-2025-09-04 22:18:34,742 - core.process_manager - INFO - Stopped bot process listener_1413239054925041796
-2025-09-04 22:18:34,742 - core.process_manager - INFO - Stopped bot process: listener_1413239054925041796
-2025-09-04 22:18:34,742 - core.section_manager - INFO - Stopped broadcast for section 'dd' in Zava
-2025-09-04 22:18:34,742 - core.process_manager - INFO - Stopped all bot processes for guild 1412879510319272138
-2025-09-04 22:18:37,527 - core.section_manager - INFO - Cleaned up section 'dd' in Zava
-2025-09-04 22:18:37,723 - main_bot - INFO - Cleanup completed successfully, but control channel was deleted
-2025-09-04 22:18:46,232 - core.section_manager - INFO - Created category 'dd' in Zava
-2025-09-04 22:18:50,413 - core.access_control - INFO - Role 'Broadcast Controller' already exists
-2025-09-04 22:18:51,002 - core.access_control - WARNING - Cannot modify role Broadcast Controller - bot role too low
-2025-09-04 22:18:51,002 - core.access_control - WARNING - Cannot modify permissions for AudioRouterMain - bot role too low
-2025-09-04 22:18:51,296 - core.access_control - INFO - Set permissions for member: くZava
-2025-09-04 22:18:51,296 - core.access_control - WARNING - Cannot modify permissions for AudioRouterReceiver - bot role too low
-2025-09-04 22:18:51,296 - core.access_control - INFO - Set up private permissions for channel: broadcast-control
-2025-09-04 22:18:51,525 - core.section_manager - INFO - Sent welcome message to control channel: broadcast-control
-2025-09-04 22:18:51,526 - core.section_manager - INFO - Created broadcast section 'dd' in Zava with 5 listeners
-2025-09-04 22:18:59,676 - core.process_manager - INFO - Started speaker bot process speaker_1413241903083819008 (PID: 73198)
-2025-09-04 22:18:59,677 - core.process_manager - INFO - Started speaker bot process: speaker_1413241903083819008
-2025-09-04 22:18:59,682 - core.process_manager - INFO - Started listener bot process listener_1413241904472129626 (PID: 73199)
-2025-09-04 22:18:59,682 - core.process_manager - INFO - Started listener bot process: listener_1413241904472129626
-2025-09-04 22:18:59,682 - core.process_manager - ERROR - No available tokens for listener bot
-2025-09-04 22:18:59,682 - core.section_manager - WARNING - Failed to start listener bot for channel 1413241905839476888
-2025-09-04 22:18:59,682 - core.process_manager - ERROR - No available tokens for listener bot
-2025-09-04 22:18:59,683 - core.section_manager - WARNING - Failed to start listener bot for channel 1413241907684839454
-2025-09-04 22:18:59,683 - core.process_manager - ERROR - No available tokens for listener bot
-2025-09-04 22:18:59,683 - core.section_manager - WARNING - Failed to start listener bot for channel 1413241910671183953
-2025-09-04 22:18:59,683 - core.process_manager - ERROR - No available tokens for listener bot
-2025-09-04 22:18:59,683 - core.section_manager - WARNING - Failed to start listener bot for channel 1413241912332128276
-2025-09-04 22:18:59,683 - core.section_manager - INFO - Started broadcast for section 'dd' in Zava
-2025-09-04 22:19:31,827 - core.process_manager - INFO - Stopped bot process speaker_1413241903083819008
-2025-09-04 22:19:31,827 - core.process_manager - INFO - Stopped bot process: speaker_1413241903083819008
-2025-09-04 22:19:31,836 - core.process_manager - INFO - Stopped bot process listener_1413241904472129626
-2025-09-04 22:19:31,836 - core.process_manager - INFO - Stopped bot process: listener_1413241904472129626
-2025-09-04 22:19:31,837 - core.section_manager - INFO - Stopped broadcast for section 'dd' in Zava
-2025-09-04 22:19:31,837 - core.process_manager - INFO - Stopped all bot processes for guild 1412879510319272138
-2025-09-04 22:19:34,253 - core.section_manager - INFO - Cleaned up section 'dd' in Zava
-2025-09-04 22:19:34,457 - main_bot - INFO - Cleanup completed successfully, but control channel was deleted
-2025-09-04 23:27:31,322 - main_bot - INFO - Audio Router Bot online: AudioRouterMain#1961
-2025-09-04 23:27:31,323 - core.access_control - INFO - Loaded access control: 3 roles, 0 users
-2025-09-04 23:27:31,323 - core.process_manager - INFO - Added 1 available bot tokens
-2025-09-04 23:27:31,323 - core.audio_router - INFO - Added 1 listener bot tokens
-2025-09-04 23:27:31,323 - core.audio_router - INFO - Using process-based bot manager for true multi-channel audio
-2025-09-04 23:27:31,323 - core.audio_router - INFO - Audio router initialized
-2025-09-04 23:27:31,324 - main_bot - INFO - Audio router initialized successfully
-2025-09-04 23:27:31,615 - main_bot - INFO - Synced 0 slash commands
-2025-09-05 01:17:13,580 - main_bot - INFO - Audio Router Bot online: AudioRouterMain#1961
-2025-09-05 01:17:13,582 - core.access_control - INFO - Loaded access control: 3 roles, 0 users
-2025-09-05 01:17:13,583 - core.process_manager - INFO - Added 1 available bot tokens
-2025-09-05 01:17:13,583 - core.audio_router - INFO - Added 1 listener bot tokens
-2025-09-05 01:17:13,583 - core.audio_router - INFO - Using process-based bot manager for true multi-channel audio
-2025-09-05 01:17:13,583 - core.audio_router - INFO - Audio router initialized
-2025-09-05 01:17:13,583 - main_bot - INFO - Audio router initialized successfully
-2025-09-05 01:17:13,870 - main_bot - INFO - Synced 0 slash commands
-2025-09-05 01:30:29,356 - main_bot - INFO - Audio Router Bot online: AudioRouterMain#1961
-2025-09-05 01:30:29,358 - core.access_control - INFO - Loaded access control: 3 roles, 0 users
-2025-09-05 01:30:29,358 - core.process_manager - INFO - Added 1 available bot tokens
-2025-09-05 01:30:29,358 - core.audio_router - INFO - Added 1 listener bot tokens
-2025-09-05 01:30:29,358 - core.audio_router - INFO - Using process-based bot manager for true multi-channel audio
-2025-09-05 01:30:29,358 - core.audio_router - INFO - Audio router initialized
-2025-09-05 01:30:29,358 - main_bot - INFO - Audio router initialized successfully
-2025-09-05 01:30:29,696 - main_bot - INFO - Synced 0 slash commands
-2025-09-05 02:31:19,252 - main_bot - INFO - Audio Router Bot online: AudioRouterMain#1961
-2025-09-05 02:31:19,252 - core.access_control - INFO - Loaded access control: 3 roles, 0 users
-2025-09-05 02:31:19,253 - core.process_manager - INFO - Added 1 available bot tokens
-2025-09-05 02:31:19,253 - core.audio_router - INFO - Added 1 listener bot tokens
-2025-09-05 02:31:19,254 - core.audio_router - INFO - Using process-based bot manager for true multi-channel audio
-2025-09-05 02:31:19,255 - core.audio_router - INFO - Audio router initialized
-2025-09-05 02:31:19,255 - main_bot - INFO - Audio router initialized successfully
-2025-09-05 02:55:48,003 - main_bot - INFO - Synced 0 slash commands
-2025-09-05 07:20:09,482 - main_bot - INFO - Audio Router Bot online: AudioRouterMain#1961
-2025-09-05 07:20:09,483 - core.access_control - INFO - Loaded access control: 3 roles, 0 users
-2025-09-05 07:20:09,483 - core.process_manager - INFO - Added 1 available bot tokens
-2025-09-05 07:20:09,483 - core.audio_router - INFO - Added 1 listener bot tokens
-2025-09-05 07:20:09,483 - core.audio_router - INFO - Using process-based bot manager for true multi-channel audio
-2025-09-05 07:20:09,484 - core.audio_router - INFO - Audio router initialized
-2025-09-05 07:20:09,484 - main_bot - INFO - Audio router initialized successfully
-2025-09-05 07:20:09,802 - main_bot - INFO - Synced 0 slash commands
-2025-09-05 10:19:39,337 - main_bot - INFO - Audio Router Bot online: AudioRouterMain#1961
-2025-09-05 10:19:39,337 - core.access_control - INFO - Loaded access control: 3 roles, 0 users
-2025-09-05 10:19:39,337 - core.process_manager - INFO - Added 1 available bot tokens
-2025-09-05 10:19:39,337 - core.audio_router - INFO - Added 1 listener bot tokens
-2025-09-05 10:19:39,337 - core.audio_router - INFO - Using process-based bot manager for true multi-channel audio
-2025-09-05 10:19:39,338 - core.audio_router - INFO - Audio router initialized
-2025-09-05 10:19:39,338 - main_bot - INFO - Audio router initialized successfully
-2025-09-05 10:19:39,763 - main_bot - INFO - Synced 0 slash commands
-2025-09-05 11:00:27,972 - main_bot - INFO - Audio Router Bot online: AudioRouterMain#1961
-2025-09-05 11:00:27,972 - core.access_control - INFO - Loaded access control: 3 roles, 0 users
-2025-09-05 11:00:27,973 - core.process_manager - INFO - Added 1 available bot tokens
-2025-09-05 11:00:27,973 - core.audio_router - INFO - Added 1 listener bot tokens
-2025-09-05 11:00:27,973 - core.audio_router - INFO - Using process-based bot manager for true multi-channel audio
-2025-09-05 11:00:27,973 - core.audio_router - INFO - Audio router initialized
-2025-09-05 11:00:27,973 - main_bot - INFO - Audio router initialized successfully
-2025-09-05 11:00:28,228 - main_bot - INFO - Synced 0 slash commands
-2025-09-05 12:16:43,730 - main_bot - INFO - Audio Router Bot online: AudioRouterMain#1961
-2025-09-05 12:16:43,730 - core.access_control - INFO - Loaded access control: 3 roles, 0 users
-2025-09-05 12:16:43,731 - core.process_manager - INFO - Added 1 available bot tokens
-2025-09-05 12:16:43,731 - core.audio_router - INFO - Added 1 listener bot tokens
-2025-09-05 12:16:43,731 - core.audio_router - INFO - Using process-based bot manager for true multi-channel audio
-2025-09-05 12:16:43,731 - core.audio_router - INFO - Audio router initialized
-2025-09-05 12:16:43,731 - main_bot - INFO - Audio router initialized successfully
-2025-09-05 12:16:44,003 - main_bot - INFO - Synced 0 slash commands
-2025-09-05 12:55:39,152 - __main__ - INFO - Starting Discord Audio Router Bot...
-2025-09-05 12:55:39,152 - main_bot - INFO - Starting Audio Router Bot...
-2025-09-05 12:55:42,510 - main_bot - INFO - Audio Router Bot online: AudioRouterMain#1961
-2025-09-05 12:55:42,510 - core.access_control - INFO - Loaded access control: 3 roles, 0 users
-2025-09-05 12:55:42,511 - core.process_manager - INFO - Added 1 available bot tokens
-2025-09-05 12:55:42,511 - core.audio_router - INFO - Added 1 listener bot tokens
-2025-09-05 12:55:42,511 - core.audio_router - INFO - Using process-based bot manager for true multi-channel audio
-2025-09-05 12:55:42,511 - core.audio_router - INFO - Audio router initialized
-2025-09-05 12:55:42,511 - main_bot - INFO - Audio router initialized successfully
-2025-09-05 12:55:42,856 - main_bot - INFO - Synced 0 slash commands
-2025-09-05 12:56:01,361 - core.section_manager - INFO - Created category 'dd' in Zava
-2025-09-05 12:56:02,978 - core.access_control - INFO - Role 'Broadcast Controller' already exists
-2025-09-05 12:56:03,559 - core.access_control - WARNING - Cannot modify role Broadcast Controller - bot role too low
-2025-09-05 12:56:03,560 - core.access_control - WARNING - Cannot modify permissions for AudioRouterMain - bot role too low
-2025-09-05 12:56:03,843 - core.access_control - INFO - Set permissions for member: くZava
-2025-09-05 12:56:03,844 - core.access_control - WARNING - Cannot modify permissions for AudioRouterReceiver - bot role too low
-2025-09-05 12:56:03,844 - core.access_control - INFO - Set up private permissions for channel: broadcast-control
-2025-09-05 12:56:04,217 - core.section_manager - INFO - Sent welcome message to control channel: broadcast-control
-2025-09-05 12:56:04,217 - core.section_manager - INFO - Created broadcast section 'dd' in Zava with 1 listeners
-2025-09-05 12:56:11,088 - core.process_manager - INFO - Stopped all bot processes for guild 1412879510319272138
-2025-09-05 12:56:12,807 - core.section_manager - INFO - Cleaned up section 'dd' in Zava
-2025-09-05 12:56:13,048 - main_bot - INFO - Cleanup completed successfully, but control channel was deleted
+2025-09-05 13:56:52,944 - __main__ - INFO - Starting Discord Audio Router Bot...
+2025-09-05 13:56:52,944 - main_bot - INFO - Starting Audio Router Bot...
+2025-09-05 13:56:56,119 - main_bot - INFO - Audio Router Bot online: AudioRouterMain#1961
+2025-09-05 13:56:56,119 - core.access_control - INFO - Loaded access control: 3 roles, 0 users
+2025-09-05 13:56:56,119 - core.process_manager - INFO - Added 1 available bot tokens
+2025-09-05 13:56:56,119 - core.audio_router - INFO - Added 1 listener bot tokens
+2025-09-05 13:56:56,119 - core.audio_router - INFO - Using process-based bot manager for true multi-channel audio
+2025-09-05 13:56:56,119 - core.audio_router - INFO - Audio router initialized
+2025-09-05 13:56:56,119 - main_bot - INFO - Audio router initialized successfully
+2025-09-05 13:56:56,349 - main_bot - INFO - Synced 0 slash commands
+2025-09-05 13:58:49,492 - core.section_manager - INFO - Created category 'dd' in Zava
+2025-09-05 13:58:50,399 - core.access_control - INFO - Role 'Broadcast Controller' already exists
+2025-09-05 13:58:50,897 - core.access_control - WARNING - Cannot modify role Broadcast Controller - bot role too low
+2025-09-05 13:58:50,897 - core.access_control - WARNING - Cannot modify permissions for AudioRouterMain - bot role too low
+2025-09-05 13:58:51,180 - core.access_control - INFO - Set permissions for member: くZava
+2025-09-05 13:58:51,180 - core.access_control - WARNING - Cannot modify permissions for AudioRouterReceiver - bot role too low
+2025-09-05 13:58:51,180 - core.access_control - INFO - Set up private permissions for channel: broadcast-control
+2025-09-05 13:58:51,433 - core.section_manager - INFO - Sent welcome message to control channel: broadcast-control
+2025-09-05 13:58:51,433 - core.section_manager - INFO - Created broadcast section 'dd' in Zava with 1 listeners
+2025-09-05 13:58:57,823 - core.process_manager - INFO - Started speaker bot process speaker_1413478475146465333 (PID: 93654)
+2025-09-05 13:58:57,824 - core.process_manager - INFO - Started speaker bot process: speaker_1413478475146465333
+2025-09-05 13:58:57,829 - core.process_manager - INFO - Started listener bot process listener_1413478476606079008 (PID: 93656)
+2025-09-05 13:58:57,829 - core.process_manager - INFO - Started listener bot process: listener_1413478476606079008
+2025-09-05 13:58:57,829 - core.section_manager - INFO - Started broadcast for section 'dd' in Zava

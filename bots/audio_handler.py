@@ -1,15 +1,18 @@
 import asyncio
 import logging
-import discord
 import queue
 import threading
+from typing import Any, Callable, Optional
+
+import discord
 from discord.ext import voice_recv
-from typing import Optional, Callable, Any
 
 logger = logging.getLogger(__name__)
 
+
 class AudioBuffer:
     """Thread-safe buffer for Opus packets using both async and sync interfaces."""
+
     def __init__(self, max_size: int = 100):
         self._async_buffer: list[bytes] = []
         self._sync_queue: queue.Queue[bytes] = queue.Queue(maxsize=max_size)
@@ -23,7 +26,7 @@ class AudioBuffer:
             if len(self._async_buffer) >= self.max_size:
                 self._async_buffer.pop(0)
             self._async_buffer.append(data)
-        
+
         # Also add to sync queue for synchronous access
         try:
             self._sync_queue.put_nowait(data)
@@ -51,7 +54,7 @@ class AudioBuffer:
         """Clear all buffered packets."""
         async with self._async_lock:
             self._async_buffer.clear()
-        
+
         with self._sync_lock:
             while not self._sync_queue.empty():
                 try:
@@ -59,18 +62,23 @@ class AudioBuffer:
                 except queue.Empty:
                     break
 
+
 class OpusAudioSink(voice_recv.AudioSink):
     """
     Captures Opus-encoded audio from Discord voice channels and forwards it via callback.
-    
+
     This sink receives raw Opus audio packets from Discord's voice system and passes
     them to a callback function for further processing (e.g., WebSocket forwarding).
     """
-    
-    def __init__(self, audio_callback_func: Callable[[bytes], Any], event_loop=None):
+
+    def __init__(
+        self,
+        audio_callback_func: Callable[[bytes], Any],
+        event_loop: Optional[asyncio.AbstractEventLoop] = None,
+    ):
         """
         Initialize the audio sink.
-        
+
         Args:
             audio_callback_func: Async function to call with audio data (bytes)
             event_loop: Asyncio event loop (defaults to current loop)
@@ -93,25 +101,29 @@ class OpusAudioSink(voice_recv.AudioSink):
         self._is_active = False
         logger.debug("OpusAudioSink stopped")
 
-    def write(self, user: discord.Member, voice_data: voice_recv.VoiceData):
+    def write(self, user: discord.Member, voice_data: voice_recv.VoiceData) -> None:
         """
         Process incoming audio data from Discord.
-        
+
         Args:
             user: Discord member who is speaking
             voice_data: Voice data containing audio packet
         """
         if not self._is_active or voice_data.packet is None:
             return
-            
+
         try:
             opus_audio_data = voice_data.packet.decrypted_data
             if opus_audio_data:
-                logger.info(f"🎤 Captured audio from {user.display_name}: {len(opus_audio_data)} bytes")
+                logger.debug(
+                    f"🎤 Captured audio from {user.display_name}: {len(opus_audio_data)} bytes"
+                )
                 # Schedule callback execution on the event loop
                 self.event_loop.create_task(self.audio_callback_func(opus_audio_data))
             else:
-                logger.warning(f"Received voice data from {user.display_name} but no audio content")
+                logger.debug(
+                    f"Received voice data from {user.display_name} but no audio content"
+                )
         except Exception as e:
             logger.error(f"Error processing audio data from {user.display_name}: {e}")
 
@@ -120,18 +132,21 @@ class OpusAudioSink(voice_recv.AudioSink):
         self.stop()
         logger.debug("OpusAudioSink cleaned up")
 
-async def setup_audio_receiver(voice_client: voice_recv.VoiceRecvClient,
-                               audio_callback_func: Callable[[bytes], Any]) -> OpusAudioSink:
+
+async def setup_audio_receiver(
+    voice_client: voice_recv.VoiceRecvClient,
+    audio_callback_func: Callable[[bytes], Any],
+) -> OpusAudioSink:
     """
     Set up Opus audio packet receiving from a Discord voice client.
-    
+
     Args:
         voice_client: Connected VoiceRecvClient instance
         audio_callback_func: Async function to call with received audio data (bytes)
-        
+
     Returns:
         OpusAudioSink: Configured audio sink for receiving packets
-        
+
     Raises:
         ValueError: If voice_client is not a VoiceRecvClient
         RuntimeError: If voice client is not connected or setup fails
@@ -142,43 +157,46 @@ async def setup_audio_receiver(voice_client: voice_recv.VoiceRecvClient,
         logger.error("VoiceRecvClient is not connected")
         raise RuntimeError("Voice client not connected")
 
-    audio_sink: OpusAudioSink | None = None
+    audio_sink: Optional[OpusAudioSink] = None
     try:
         event_loop = asyncio.get_running_loop()
-        audio_sink = OpusAudioSink(audio_callback_func=audio_callback_func, event_loop=event_loop)
-        
+        audio_sink = OpusAudioSink(
+            audio_callback_func=audio_callback_func, event_loop=event_loop
+        )
+
         logger.info(f"Created audio sink: {audio_sink}")
         logger.info(f"Audio sink wants Opus: {audio_sink.wants_opus()}")
-        
+
         voice_client.listen(audio_sink)
         logger.info("Audio sink registered with voice client")
-        
+
         audio_sink.start()
         logger.info("Audio sink started successfully")
-        
+
         logger.info("Successfully started receiving Opus audio packets")
         return audio_sink
     except Exception as e:
         logger.error(f"Failed to set up audio receiving: {e}")
         if audio_sink:
-            try: 
+            try:
                 audio_sink.cleanup()
             except Exception as cleanup_error:
                 logger.error(f"Error during audio sink cleanup: {cleanup_error}")
         raise
 
+
 class OpusAudioSource(discord.AudioSource):
     """
     Audio source that plays Opus packets to Discord voice channels.
-    
+
     This source reads Opus audio packets from an AudioBuffer and provides them
     to Discord's voice system, making the bot appear as if it's speaking.
     """
-    
+
     def __init__(self, audio_buffer: AudioBuffer):
         """
         Initialize the audio source.
-        
+
         Args:
             audio_buffer: AudioBuffer containing Opus packets to play
         """
@@ -202,25 +220,26 @@ class OpusAudioSource(discord.AudioSource):
     def read(self) -> bytes:
         """
         Called by discord.py to retrieve the next Opus packet.
-        
+
         Returns:
             bytes: Opus audio packet or silence frame if no data available
         """
         if not self._is_playing:
-            return b''
-        
+            return b""
+
         # Use thread-safe synchronous access to avoid deadlocks
         audio_packet = self.audio_buffer.get_sync(timeout=0.01)  # 10ms timeout
-        return audio_packet if audio_packet else b'\xf8\xff\xfe'  # Opus silence frame
+        return audio_packet if audio_packet else b"\xf8\xff\xfe"  # Opus silence frame
+
 
 class SilentSource(discord.AudioSource):
     """
     Generates Opus silence frames to keep Discord voice connections alive.
-    
+
     This source continuously provides silence frames to prevent Discord from
     disconnecting the bot due to inactivity.
     """
-    
+
     def __init__(self):
         """Initialize the silent source."""
         self.frame_count = 0
@@ -232,9 +251,9 @@ class SilentSource(discord.AudioSource):
     def read(self) -> bytes:
         """
         Generate the next silence frame.
-        
+
         Returns:
             bytes: Opus silence frame
         """
         self.frame_count += 1
-        return b'\xf8\xff\xfe'  # Standard Opus silence frame
+        return b"\xf8\xff\xfe"  # Standard Opus silence frame

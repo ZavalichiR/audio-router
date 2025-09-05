@@ -29,6 +29,8 @@ help:
 	@echo "  run-bot      Start the Discord bot"
 	@echo "  run-relay    Start the WebSocket relay server"
 	@echo "  run-all      Start both bot and relay server"
+	@echo "  run-monitor  Start with health monitoring"
+	@echo "  run-status   Check component status"
 	@echo ""
 	@echo "Setup:"
 	@echo "  setup        Initial project setup"
@@ -79,25 +81,26 @@ dist: build
 
 # Running
 run-bot:
-	python start_audio_router.py
+	python launcher.py --component main_bot
 
 run-relay:
-	python websocket_relay.py
+	python launcher.py --component relay_server
 
 run-all:
-	@echo "Starting both bot and relay server..."
-	@echo "Press Ctrl+C to stop both"
-	@trap 'kill %1 %2' INT; \
-	python websocket_relay.py & \
-	python start_audio_router.py & \
-	wait
+	python launcher.py
+
+run-monitor:
+	python launcher.py --monitor
+
+run-status:
+	python launcher.py --status
 
 # Setup
 setup: setup-env install-dev
 	@echo "Project setup complete!"
 	@echo "1. Edit .env file with your bot tokens"
-	@echo "2. Run 'make run-bot' to start the bot"
-	@echo "3. Run 'make run-relay' to start the relay server"
+	@echo "2. Run 'make run-all' to start all components"
+	@echo "3. Or use 'python launcher.py' for more control"
 
 setup-env:
 	@if [ ! -f .env ]; then \
