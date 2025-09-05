@@ -1,0 +1,87 @@
+2025-09-04 22:07:54 - speaker_bot - INFO - Starting speaker bot speaker_1413239053826003006...
+2025-09-04 22:07:55 - speaker_bot - INFO - Speaker bot speaker_1413239053826003006 connected to Discord
+2025-09-04 22:07:57 - speaker_bot - INFO - Speaker bot speaker_1413239053826003006 ready: AudioRouterMain#1961
+2025-09-04 22:07:57 - speaker_bot - INFO - Target channel: 1413239053826003006, Guild: 1412879510319272138
+2025-09-04 22:07:57 - speaker_bot - INFO - Started WebSocket server on port 8006 for speaker bot speaker_1413239053826003006
+2025-09-04 22:07:58 - speaker_bot - INFO - Voice client connected: <discord.ext.voice_recv.voice_client.VoiceRecvClient object at 0x1077df250>
+2025-09-04 22:07:58 - speaker_bot - INFO - Voice client type: <class 'discord.ext.voice_recv.voice_client.VoiceRecvClient'>
+2025-09-04 22:07:58 - speaker_bot - INFO - Voice client connected: True
+2025-09-04 22:07:58 - speaker_bot - INFO - Voice state updated: self-deafened
+2025-09-04 22:07:58 - speaker_bot - INFO - Connected to speaker channel: Speaker (self-deafened)
+2025-09-04 22:07:58 - speaker_bot - INFO - Audio sink setup complete: True
+2025-09-04 22:07:58 - speaker_bot - INFO - Voice state update in speaker channel: AudioRouterMain
+2025-09-04 22:07:58 - speaker_bot - INFO - Before: muted=False, deafened=False
+2025-09-04 22:07:58 - speaker_bot - INFO - After: muted=False, deafened=True
+2025-09-04 22:07:59 - speaker_bot - INFO - Listener bot connected: ('::1', 53617, 0, 0)
+2025-09-04 22:08:57 - speaker_bot - INFO - Voice connection healthy, 1 listeners connected
+2025-09-04 22:09:35 - speaker_bot - INFO - Voice state update in speaker channel: くZava
+2025-09-04 22:09:35 - speaker_bot - INFO - Before: muted=False, deafened=False
+2025-09-04 22:09:35 - speaker_bot - INFO - After: muted=True, deafened=False
+2025-09-04 22:09:57 - speaker_bot - INFO - Voice connection healthy, 1 listeners connected
+2025-09-04 22:10:57 - speaker_bot - INFO - Voice connection healthy, 1 listeners connected
+2025-09-04 22:11:57 - speaker_bot - INFO - Voice connection healthy, 1 listeners connected
+2025-09-04 22:12:57 - speaker_bot - INFO - Voice connection healthy, 1 listeners connected
+2025-09-04 22:13:57 - speaker_bot - INFO - Voice connection healthy, 1 listeners connected
+2025-09-04 22:14:02 - speaker_bot - INFO - Voice state update in speaker channel: くZava
+2025-09-04 22:14:02 - speaker_bot - INFO - Before: muted=True, deafened=False
+2025-09-04 22:14:02 - speaker_bot - INFO - After: muted=False, deafened=False
+2025-09-04 22:14:20 - speaker_bot - INFO - Voice state update in speaker channel: くZava
+2025-09-04 22:14:20 - speaker_bot - INFO - Before: muted=False, deafened=False
+2025-09-04 22:14:20 - speaker_bot - INFO - After: muted=True, deafened=False
+2025-09-04 22:14:23 - speaker_bot - INFO - Voice state update in speaker channel: くZava
+2025-09-04 22:14:23 - speaker_bot - INFO - Before: muted=True, deafened=False
+2025-09-04 22:14:23 - speaker_bot - INFO - After: muted=False, deafened=False
+2025-09-04 22:14:25 - speaker_bot - INFO - Voice state update in speaker channel: くZava
+2025-09-04 22:14:25 - speaker_bot - INFO - Before: muted=False, deafened=False
+2025-09-04 22:14:25 - speaker_bot - INFO - After: muted=True, deafened=False
+2025-09-04 22:14:31 - speaker_bot - INFO - Voice state update in speaker channel: くZava
+2025-09-04 22:14:31 - speaker_bot - INFO - Before: muted=True, deafened=False
+2025-09-04 22:14:31 - speaker_bot - INFO - After: muted=False, deafened=False
+2025-09-04 22:14:47 - speaker_bot - INFO - Voice state update in speaker channel: くZava
+2025-09-04 22:14:47 - speaker_bot - INFO - Before: muted=False, deafened=False
+2025-09-04 22:14:47 - speaker_bot - INFO - After: muted=True, deafened=False
+2025-09-04 22:14:50 - speaker_bot - INFO - Voice state update in speaker channel: くZava
+2025-09-04 22:14:50 - speaker_bot - INFO - Before: muted=True, deafened=False
+2025-09-04 22:14:50 - speaker_bot - INFO - After: muted=False, deafened=False
+2025-09-04 22:14:57 - speaker_bot - INFO - Voice connection healthy, 1 listeners connected
+2025-09-04 22:15:15 - speaker_bot - INFO - Voice state update in speaker channel: くZava
+2025-09-04 22:15:15 - speaker_bot - INFO - Before: muted=False, deafened=False
+2025-09-04 22:15:15 - speaker_bot - INFO - After: muted=True, deafened=False
+2025-09-04 22:15:20 - speaker_bot - INFO - Voice state update in speaker channel: くZava
+2025-09-04 22:15:20 - speaker_bot - INFO - Before: muted=True, deafened=False
+2025-09-04 22:15:20 - speaker_bot - INFO - After: muted=False, deafened=False
+2025-09-04 22:15:23 - speaker_bot - INFO - Voice state update in speaker channel: くZava
+2025-09-04 22:15:23 - speaker_bot - INFO - Before: muted=False, deafened=False
+2025-09-04 22:15:23 - speaker_bot - INFO - After: muted=True, deafened=False
+2025-09-04 22:15:37 - speaker_bot - INFO - Voice state update in speaker channel: くZava
+2025-09-04 22:15:37 - speaker_bot - INFO - Before: muted=True, deafened=False
+2025-09-04 22:15:37 - speaker_bot - INFO - After: muted=False, deafened=False
+2025-09-04 22:15:57 - speaker_bot - INFO - Voice connection healthy, 1 listeners connected
+2025-09-04 22:16:53 - speaker_bot - INFO - Voice state update in speaker channel: くZava
+2025-09-04 22:16:53 - speaker_bot - INFO - Before: muted=False, deafened=False
+2025-09-04 22:16:53 - speaker_bot - INFO - After: muted=True, deafened=False
+2025-09-04 22:16:57 - speaker_bot - INFO - Voice connection healthy, 1 listeners connected
+2025-09-04 22:17:47 - speaker_bot - INFO - Voice state update in speaker channel: くZava
+2025-09-04 22:17:47 - speaker_bot - INFO - Before: muted=True, deafened=False
+2025-09-04 22:17:47 - speaker_bot - INFO - After: muted=True, deafened=False
+2025-09-04 22:17:57 - speaker_bot - INFO - Voice connection healthy, 1 listeners connected
+2025-09-04 22:18:59 - speaker_bot - INFO - Starting speaker bot speaker_1413241903083819008...
+2025-09-04 22:19:01 - speaker_bot - INFO - Speaker bot speaker_1413241903083819008 connected to Discord
+2025-09-04 22:19:03 - speaker_bot - INFO - Speaker bot speaker_1413241903083819008 ready: AudioRouterMain#1961
+2025-09-04 22:19:03 - speaker_bot - INFO - Target channel: 1413241903083819008, Guild: 1412879510319272138
+2025-09-04 22:19:03 - speaker_bot - INFO - Started WebSocket server on port 8008 for speaker bot speaker_1413241903083819008
+2025-09-04 22:19:03 - speaker_bot - INFO - Voice state update in speaker channel: AudioRouterMain
+2025-09-04 22:19:03 - speaker_bot - INFO - Before: muted=False, deafened=False
+2025-09-04 22:19:03 - speaker_bot - INFO - After: muted=False, deafened=False
+2025-09-04 22:19:03 - speaker_bot - WARNING - Bot was disconnected from voice channel!
+2025-09-04 22:19:04 - speaker_bot - ERROR - Failed to connect to speaker channel: Already connected to a voice channel.
+2025-09-04 22:19:04 - speaker_bot - INFO - Voice client connected: <discord.ext.voice_recv.voice_client.VoiceRecvClient object at 0x1031bbf10>
+2025-09-04 22:19:04 - speaker_bot - INFO - Voice client type: <class 'discord.ext.voice_recv.voice_client.VoiceRecvClient'>
+2025-09-04 22:19:04 - speaker_bot - INFO - Voice client connected: True
+2025-09-04 22:19:04 - speaker_bot - INFO - Voice state updated: self-deafened
+2025-09-04 22:19:04 - speaker_bot - INFO - Connected to speaker channel: Speaker (self-deafened)
+2025-09-04 22:19:04 - speaker_bot - INFO - Audio sink setup complete: True
+2025-09-04 22:19:05 - speaker_bot - INFO - Voice state update in speaker channel: AudioRouterMain
+2025-09-04 22:19:05 - speaker_bot - INFO - Before: muted=False, deafened=False
+2025-09-04 22:19:05 - speaker_bot - INFO - After: muted=False, deafened=True
+2025-09-04 22:19:08 - speaker_bot - INFO - Listener bot connected: ('::1', 56845, 0, 0)

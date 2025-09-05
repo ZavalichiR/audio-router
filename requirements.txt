@@ -1,0 +1,14 @@
+# Core Discord and Audio Dependencies
+discord.py==2.4.0
+discord-ext-voice-recv
+
+# WebSocket and HTTP Communication
+websockets>=10.4
+aiohttp>=3.8.0
+
+# Configuration and Environment
+python-dotenv>=1.0.0
+
+# Audio Processing
+numpy>=1.21.0
+ffmpeg-python>=0.2.0

@@ -1,0 +1,158 @@
+"""
+Audio Router for managing audio flow between channels.
+
+This module handles the coordination of audio routing between speaker
+and listener channels using the bot manager.
+"""
+
+import asyncio
+import logging
+from typing import Dict, List, Optional, Any
+import discord
+from discord.ext import commands
+
+from .process_manager import ProcessManager
+from .section_manager import SectionManager
+from .access_control import AccessControl
+
+logger = logging.getLogger(__name__)
+
+
+class AudioRouter:
+    """
+    Main audio router that coordinates audio flow between channels.
+    
+    This class manages the overall audio routing system, including
+    section management and bot coordination.
+    """
+    
+    def __init__(self, config):
+        """
+        Initialize the audio router.
+        
+        Args:
+            config: Bot configuration
+        """
+        self.config = config
+        self.process_manager = ProcessManager(config)
+        self.access_control = AccessControl(config)
+        self.section_manager = SectionManager(self.process_manager, self.access_control)
+        
+        # Main bot instance
+        self.main_bot: Optional[commands.Bot] = None
+        
+    async def initialize(self, main_bot: commands.Bot):
+        """
+        Initialize the audio router with the main bot.
+        
+        Args:
+            main_bot: Main Discord bot instance
+        """
+        self.main_bot = main_bot
+        
+        # Add available listener bot tokens
+        if hasattr(self.config, 'listener_bot_tokens') and self.config.listener_bot_tokens:
+            self.process_manager.add_available_tokens(self.config.listener_bot_tokens)
+            logger.info(f"Added {len(self.config.listener_bot_tokens)} listener bot tokens")
+        else:
+            logger.warning("No listener bot tokens configured - only speaker channel will work")
+        
+        logger.info("Using process-based bot manager for true multi-channel audio")
+        
+        logger.info("Audio router initialized")
+    
+    async def create_broadcast_section(self, guild: discord.Guild, section_name: str, 
+                                     listener_count: int) -> Dict[str, Any]:
+        """
+        Create a broadcast section.
+        
+        Args:
+            guild: Discord guild
+            section_name: Name of the section
+            listener_count: Number of listener channels
+            
+        Returns:
+            Dict with creation results
+        """
+        return await self.section_manager.create_broadcast_section(
+            guild, section_name, listener_count
+        )
+    
+    async def start_broadcast(self, guild: discord.Guild) -> Dict[str, Any]:
+        """
+        Start audio broadcasting for a section.
+        
+        Args:
+            guild: Discord guild
+            
+        Returns:
+            Dict with start results
+        """
+        return await self.section_manager.start_broadcast(guild)
+    
+    async def stop_broadcast(self, guild: discord.Guild) -> Dict[str, Any]:
+        """
+        Stop audio broadcasting for a section.
+        
+        Args:
+            guild: Discord guild
+            
+        Returns:
+            Dict with stop results
+        """
+        return await self.section_manager.stop_broadcast(guild)
+    
+    async def cleanup_section(self, guild: discord.Guild) -> Dict[str, Any]:
+        """
+        Clean up a broadcast section.
+        
+        Args:
+            guild: Discord guild
+            
+        Returns:
+            Dict with cleanup results
+        """
+        return await self.section_manager.cleanup_section(guild)
+    
+    async def get_section_status(self, guild: discord.Guild) -> Dict[str, Any]:
+        """
+        Get the status of a broadcast section.
+        
+        Args:
+            guild: Discord guild
+            
+        Returns:
+            Dict with status information
+        """
+        return await self.section_manager.get_section_status(guild)
+    
+    async def get_system_status(self) -> Dict[str, Any]:
+        """
+        Get the overall system status.
+        
+        Returns:
+            Dict with system status information
+        """
+        return {
+            'active_sections': len(self.section_manager.active_sections),
+            'process_status': self.process_manager.get_status(),
+            'available_tokens': len(self.process_manager.available_tokens),
+            'used_tokens': len(self.process_manager.used_tokens)
+        }
+    
+    async def shutdown(self):
+        """Shutdown the audio router and cleanup resources."""
+        try:
+            # Stop all bot processes
+            await self.process_manager.stop_all_bots()
+            
+            # Clean up all sections
+            for guild_id in list(self.section_manager.active_sections.keys()):
+                # We need the guild object, but we don't have it here
+                # In a real implementation, you'd store guild references
+                pass
+            
+            logger.info("Audio router shutdown complete")
+            
+        except Exception as e:
+            logger.error(f"Error during audio router shutdown: {e}")
