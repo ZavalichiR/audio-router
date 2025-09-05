@@ -39,8 +39,7 @@ async def startup():
         # Check if .env file exists
         env_file = Path(".env")
         if not env_file.exists():
-            logger.warning("No .env file found. Please copy env.example to .env and configure it.")
-            logger.info("Example configuration available in env.example")
+            logger.warning("No .env file found!")
         
         # Start the bot
         await main()

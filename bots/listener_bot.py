@@ -44,12 +44,22 @@ class ListenerBot:
         self.channel_id = int(os.getenv("CHANNEL_ID", "0"))
         self.guild_id = int(os.getenv("GUILD_ID", "0"))
         self.speaker_channel_id = int(os.getenv("SPEAKER_CHANNEL_ID", "0"))
+        
+        # Log configuration for debugging
+        logger.info(f"Listener bot configuration:")
+        logger.info(f"  Bot ID: {self.bot_id}")
+        logger.info(f"  Channel ID: {self.channel_id}")
+        logger.info(f"  Guild ID: {self.guild_id}")
+        logger.info(f"  Speaker Channel ID: {self.speaker_channel_id}")
 
         if not self.bot_token:
             raise ValueError("BOT_TOKEN environment variable is required")
 
         if not self.channel_id:
             raise ValueError("CHANNEL_ID environment variable is required")
+            
+        if not self.speaker_channel_id:
+            raise ValueError("SPEAKER_CHANNEL_ID environment variable is required")
 
         # Bot setup
         intents = discord.Intents.default()
@@ -77,8 +87,8 @@ class ListenerBot:
             logger.info(f"Listener bot {self.bot_id} ready: {self.bot.user}")
             logger.info(f"Target channel: {self.channel_id}, Guild: {self.guild_id}")
 
-            # Connect to the listener channel
-            await self.connect_to_channel()
+            # Connect to the listener channel with retry
+            await self._connect_to_channel_with_retry()
 
             # Connect to speaker bot WebSocket
             await self._connect_to_speaker()
@@ -95,8 +105,10 @@ class ListenerBot:
         """Connect to the speaker bot's WebSocket server."""
         try:
             if not self.speaker_channel_id:
-                logger.error("No speaker channel ID provided")
+                logger.error("No speaker channel ID provided - cannot connect to speaker bot")
                 return
+                
+            logger.info(f"Attempting to connect to speaker bot for channel {self.speaker_channel_id}")
 
             # Calculate the same port that the speaker bot uses
             # Use the same logic as speaker bot: 8000 + (channel_id % 1000)
@@ -104,29 +116,53 @@ class ListenerBot:
             self.speaker_websocket_url = f"ws://localhost:{speaker_port}"
 
             logger.info(
-                f"Connecting to speaker WebSocket: {self.speaker_websocket_url}"
+                f"Connecting to speaker WebSocket: {self.speaker_websocket_url} (speaker_channel_id: {self.speaker_channel_id})"
             )
 
-            # Connect to speaker bot with better connection settings
-            self.websocket = await websockets.connect(
-                self.speaker_websocket_url,
-                ping_interval=20,  # Send ping every 20 seconds (less frequent)
-                ping_timeout=10,  # Wait 10 seconds for pong (more lenient)
-                close_timeout=10,  # Wait 10 seconds for close (more lenient)
-                max_size=2**20,  # 1MB max message size
-                compression=None,  # Disable compression for lower latency
-            )
+            # Add retry logic with exponential backoff
+            max_retries = 5
+            retry_delay = 1.0
+            
+            for attempt in range(max_retries):
+                try:
+                    # Connect to speaker bot with better connection settings
+                    self.websocket = await websockets.connect(
+                        self.speaker_websocket_url,
+                        ping_interval=30,  # Send ping every 30 seconds
+                        ping_timeout=20,  # Wait 20 seconds for pong
+                        close_timeout=20,  # Wait 20 seconds for close
+                        max_size=2**20,  # 1MB max message size
+                        compression=None,  # Disable compression for lower latency
+                    )
 
-            # Start listening for audio data
-            asyncio.create_task(self._listen_for_audio())
+                    # Start listening for audio data
+                    asyncio.create_task(self._listen_for_audio())
+                    
+                    # Start ping task to keep connection alive
+                    asyncio.create_task(self._ping_speaker())
 
-            # Start heartbeat to keep connection alive
-            asyncio.create_task(self._heartbeat())
+                    logger.info(f"Connected to speaker bot WebSocket on attempt {attempt + 1}")
+                    return  # Success, exit the retry loop
 
-            logger.info("Connected to speaker bot WebSocket")
+                except ConnectionRefusedError as e:
+                    logger.warning(f"Connection refused on attempt {attempt + 1}/{max_retries}: {e}")
+                    if attempt < max_retries - 1:
+                        logger.info(f"Retrying in {retry_delay} seconds...")
+                        await asyncio.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                    else:
+                        logger.error("Max retries reached, giving up")
+                        raise
+                except Exception as e:
+                    logger.error(f"Unexpected error on attempt {attempt + 1}: {e}")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(retry_delay)
+                        retry_delay *= 2
+                    else:
+                        raise
 
         except Exception as e:
-            logger.error(f"Failed to connect to speaker WebSocket: {e}")
+            logger.error(f"Failed to connect to speaker WebSocket after all retries: {e}")
             # Retry connection after a delay
             asyncio.create_task(self._retry_speaker_connection())
 
@@ -148,20 +184,52 @@ class ListenerBot:
 
         logger.error("Failed to connect to speaker bot after maximum retries")
 
-    async def _heartbeat(self):
-        """Send periodic heartbeat to keep WebSocket connection alive."""
+    async def _ping_speaker(self):
+        """Send periodic pings to keep the WebSocket connection alive."""
         while True:
             try:
-                await asyncio.sleep(30)  # Send heartbeat every 30 seconds
+                await asyncio.sleep(30)  # Ping every 30 seconds
+                
                 if self.websocket and not self.websocket.closed:
-                    await self.websocket.ping()
-                    logger.debug("Sent heartbeat ping to speaker WebSocket")
+                    try:
+                        await self.websocket.send(json.dumps({"type": "ping"}))
+                        logger.debug("Sent ping to speaker")
+                    except websockets.exceptions.ConnectionClosed:
+                        logger.debug("Connection closed while sending ping")
+                        break
+                    except Exception as e:
+                        logger.error(f"Error sending ping: {e}")
+                        break
                 else:
-                    logger.warning("WebSocket is closed, stopping heartbeat")
+                    logger.debug("WebSocket not available for ping")
                     break
+                    
             except Exception as e:
-                logger.error(f"Error sending heartbeat: {e}")
+                logger.error(f"Error in ping task: {e}")
                 break
+
+    async def _connect_to_channel_with_retry(self):
+        """Connect to voice channel with retry logic."""
+        max_retries = 5
+        retry_delay = 2.0
+        
+        for attempt in range(max_retries):
+            try:
+                success = await self.connect_to_channel()
+                if success:
+                    logger.info(f"Successfully connected to voice channel on attempt {attempt + 1}")
+                    return
+                else:
+                    logger.warning(f"Failed to connect to voice channel on attempt {attempt + 1}")
+            except Exception as e:
+                logger.warning(f"Exception connecting to voice channel on attempt {attempt + 1}: {e}")
+            
+            if attempt < max_retries - 1:
+                logger.info(f"Retrying voice channel connection in {retry_delay} seconds...")
+                await asyncio.sleep(retry_delay)
+                retry_delay *= 1.5  # Exponential backoff
+        
+        logger.error("Failed to connect to voice channel after all retries")
 
     async def _listen_for_audio(self):
         """Listen for audio data from the speaker bot."""
@@ -190,6 +258,10 @@ class ListenerBot:
                                 logger.warning(
                                     "Received audio message but no audio data or buffer"
                                 )
+
+                        elif data.get("type") == "pong":
+                            # Handle pong responses
+                            logger.debug("Received pong from speaker")
 
                     except json.JSONDecodeError as e:
                         logger.error(f"Failed to parse WebSocket message: {e}")
@@ -249,18 +321,29 @@ class ListenerBot:
     async def connect_to_channel(self) -> bool:
         """Connect to the listener channel and start audio playback."""
         try:
+            logger.info(f"Attempting to connect to voice channel {self.channel_id}")
+            
             guild = self.bot.get_guild(self.guild_id)
             if not guild:
                 logger.error(f"Guild {self.guild_id} not found")
                 return False
 
+            logger.info(f"Found guild: {guild.name}")
+            
             channel = guild.get_channel(self.channel_id)
             if not channel:
-                logger.error(f"Channel {self.channel_id} not found")
+                logger.error(f"Channel {self.channel_id} not found in guild {guild.name}")
+                # List available channels for debugging
+                available_channels = [f"{ch.name} (ID: {ch.id})" for ch in guild.voice_channels]
+                logger.info(f"Available voice channels: {available_channels}")
                 return False
 
+            logger.info(f"Found channel: {channel.name} (type: {type(channel).__name__})")
+
             # Connect to voice channel
+            logger.info("Attempting to connect to voice channel...")
             self.voice_client = await channel.connect(cls=voice_recv.VoiceRecvClient)
+            logger.info("Voice client connected successfully")
 
             # Self-deafen to prevent hearing other audio, but don't self-mute (we need to play audio)
             await self.voice_client.guild.change_voice_state(
