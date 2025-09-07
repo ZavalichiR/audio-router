@@ -1,3 +1,4 @@
+# forwarder_bot.py
 #!/usr/bin/env python3
 """
 AudioForwarder Bot Process for Discord Audio Router.
@@ -7,6 +8,7 @@ and forwards it to listener bots via WebSocket.
 """
 
 import asyncio
+import base64  # Added for base64 encoding
 import json
 import os
 import sys
@@ -32,7 +34,6 @@ logger = setup_logging(
     component_name="audioforwarder_bot",
     log_file="logs/audioforwarder_bot.log",
 )
-
 
 class AudioForwarderBot:
     """Standalone audio forwarder bot that captures audio and forwards it."""
@@ -280,7 +281,7 @@ class AudioForwarderBot:
                 "type": "audio",
                 "speaker_id": self.bot_id,
                 "channel_id": self.channel_id,
-                "audio_data": audio_data.hex(),  # Convert bytes to hex string
+                "audio_data": base64.b64encode(audio_data).decode('ascii'),
             }
         )
 
@@ -561,7 +562,6 @@ class AudioForwarderBot:
         except Exception as e:
             logger.error(f"Error stopping AudioForwarder bot: {e}", exc_info=True)
 
-
 async def main():
     """Main function to run the audio forwarder bot."""
     try:
@@ -579,7 +579,6 @@ async def main():
     finally:
         if "audioforwarder_bot" in locals():
             await audioforwarder_bot.stop()
-
 
 if __name__ == "__main__":
     try:

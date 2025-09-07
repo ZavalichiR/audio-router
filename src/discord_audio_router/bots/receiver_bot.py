@@ -1,3 +1,4 @@
+# receiver_bot.py
 #!/usr/bin/env python3
 """
 AudioReceiver Bot Process for Discord Audio Router.
@@ -7,6 +8,7 @@ via WebSocket and plays it in a listener channel.
 """
 
 import asyncio
+import base64  # Added for base64 decoding
 import json
 import os
 import sys
@@ -32,7 +34,6 @@ logger = setup_logging(
     component_name="audioreceiver_bot",
     log_file="logs/audioreceiver_bot.log",
 )
-
 
 class AudioReceiverBot:
     """Standalone audio receiver bot that receives audio and plays it."""
@@ -288,12 +289,11 @@ class AudioReceiverBot:
 
                         elif data.get("type") == "audio":
                             # Process audio data
-                            audio_hex = data.get("audio_data", "")
-                            if audio_hex and self.audio_buffer:
-                                # Convert hex string back to bytes
-                                audio_data = bytes.fromhex(audio_hex)
+                            audio_b64 = data.get("audio_data", "")
+                            if audio_b64 and self.audio_buffer:
+                                # Convert base64 string back to bytes
+                                audio_data = base64.b64decode(audio_b64)
                                 await self.audio_buffer.put(audio_data)
-                                pass
                             else:
                                 logger.warning(
                                     "Received audio message but no audio data or buffer"
@@ -495,7 +495,6 @@ class AudioReceiverBot:
         except Exception as e:
             logger.error(f"Error stopping AudioReceiver bot: {e}", exc_info=True)
 
-
 async def main():
     """Main function to run the audio receiver bot."""
     try:
@@ -513,7 +512,6 @@ async def main():
     finally:
         if "audioreceiver_bot" in locals():
             await audioreceiver_bot.stop()
-
 
 if __name__ == "__main__":
     try:

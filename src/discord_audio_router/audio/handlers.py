@@ -1,3 +1,4 @@
+# handler.py
 """
 Audio handling components for the Discord Audio Router system.
 
@@ -15,7 +16,6 @@ from discord.ext import voice_recv
 from .buffers import AudioBuffer
 
 logger = logging.getLogger(__name__)
-
 
 class OpusAudioSink(voice_recv.AudioSink):
     """
@@ -94,7 +94,6 @@ class OpusAudioSink(voice_recv.AudioSink):
         self.stop()
         logger.info("Audio sink cleaned up")
 
-
 async def setup_audio_receiver(
     voice_client: voice_recv.VoiceRecvClient,
     audio_callback_func: Callable[[bytes], Any],
@@ -145,7 +144,6 @@ async def setup_audio_receiver(
                 )
         raise
 
-
 class OpusAudioSource(discord.AudioSource):
     """
     Audio source that plays Opus packets to Discord voice channels.
@@ -192,7 +190,7 @@ class OpusAudioSource(discord.AudioSource):
             return b""
 
         # Use thread-safe synchronous access to avoid deadlocks
-        audio_packet = self.audio_buffer.get_sync(timeout=0.005)  # Reduced timeout for lower latency
+        audio_packet = self.audio_buffer.get_sync(timeout=0.001)
         
         # Log startup and periodic status
         if self._read_count == 1:

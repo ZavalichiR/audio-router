@@ -1,3 +1,4 @@
+# buffers.py
 """
 Audio buffering components for the Discord Audio Router system.
 
@@ -15,11 +16,10 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-
 class AudioBuffer:
     """High-performance thread-safe buffer for Opus packets with optimized latency."""
 
-    def __init__(self, max_size: int = 100):  # Further reduced for minimal latency
+    def __init__(self, max_size: int = 100):
         """
         Initialize the audio buffer.
 
@@ -48,7 +48,7 @@ class AudioBuffer:
         
         async with self._async_lock:
             if len(self._async_buffer) >= self.max_size:
-                self._async_buffer.popleft()  # More efficient than pop(0)
+                self._async_buffer.popleft()
                 self._dropped_packets += 1
             self._async_buffer.append(data)
 
@@ -70,7 +70,7 @@ class AudioBuffer:
         async with self._async_lock:
             return self._async_buffer.popleft() if self._async_buffer else None
 
-    def get_sync(self, timeout: float = 0.005) -> Optional[bytes]:  # Reduced timeout for lower latency
+    def get_sync(self, timeout: float = 0.001) -> Optional[bytes]:  # Reduced timeout for lower latency (from 0.005 to 0.001)
         """Retrieve the oldest Opus packet synchronously (for discord.py)."""
         try:
             return self._sync_queue.get(timeout=timeout)
