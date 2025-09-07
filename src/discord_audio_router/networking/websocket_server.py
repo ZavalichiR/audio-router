@@ -87,6 +87,9 @@ class AudioRelayServer:
 
         self.ping_interval = ping_interval
         self._health_task: Optional[asyncio.Task] = None
+        
+        # Connection pool optimization
+        self._connection_semaphore = asyncio.Semaphore(100)  # Limit concurrent connections
 
     async def start(self):
         """Start the audio relay server."""
@@ -124,23 +127,25 @@ class AudioRelayServer:
                 pass
 
     async def _handle_connection(self, websocket, path):
-        """Handle incoming WebSocket connections."""
+        """Handle incoming WebSocket connections with connection pool management."""
         client_address = websocket.remote_address
         logger.info(f"New connection from {client_address}")
 
-        self.stats["total_connections"] += 1
+        # Use semaphore to limit concurrent connections
+        async with self._connection_semaphore:
+            self.stats["total_connections"] += 1
 
-        try:
-            async for message in websocket:
-                await self._process_message(websocket, message)
-        except websockets.exceptions.ConnectionClosed:
-            logger.info(f"Connection closed: {client_address}")
-        except Exception as e:
-            logger.error(
-                f"Error handling connection from {client_address}: {e}", exc_info=True
-            )
-        finally:
-            await self._cleanup_connection(websocket)
+            try:
+                async for message in websocket:
+                    await self._process_message(websocket, message)
+            except websockets.exceptions.ConnectionClosed:
+                logger.info(f"Connection closed: {client_address}")
+            except Exception as e:
+                logger.error(
+                    f"Error handling connection from {client_address}: {e}", exc_info=True
+                )
+            finally:
+                await self._cleanup_connection(websocket)
 
     async def _process_message(self, websocket, message: str):
         """Process incoming WebSocket messages."""
@@ -262,7 +267,7 @@ class AudioRelayServer:
         )
 
     async def _handle_audio_data(self, websocket, data):
-        """Handle audio data forwarding."""
+        """Handle audio data forwarding with optimized concurrency."""
         speaker_id = data.get("speaker_id")
         audio_data = data.get("audio_data")
 
@@ -290,6 +295,7 @@ class AudioRelayServer:
         if not listeners_to_send:
             return
 
+        # Create message once (avoid repeated JSON serialization)
         message = json.dumps(
             {
                 "type": "audio",
@@ -298,26 +304,39 @@ class AudioRelayServer:
             }
         )
 
+        # Send to all listeners concurrently with optimized error handling
         send_tasks = []
         for listener_id, listener_websocket in listeners_to_send:
             send_tasks.append(
                 self._safe_send_audio(listener_websocket, message, listener_id)
             )
 
+        # Wait for all sends to complete concurrently
         results = await asyncio.gather(*send_tasks, return_exceptions=True)
 
-        # Clean up disconnected listeners
+        # Clean up disconnected listeners efficiently
+        disconnected_listeners = []
         for idx, result in enumerate(results):
             if isinstance(result, Exception):
                 listener_id = listeners_to_send[idx][0]
-                route.listener_ids.discard(listener_id)
-                self.connected_listeners.pop(listener_id, None)
-                logger.info(f"Removed disconnected listener: {listener_id}")
+                disconnected_listeners.append(listener_id)
+                if isinstance(result, websockets.exceptions.ConnectionClosed):
+                    logger.debug(f"Listener {listener_id} disconnected")
+                else:
+                    logger.error(f"Error sending to listener {listener_id}: {result}")
 
-        self.stats["audio_packets_forwarded"] += len(listeners_to_send)
-        self.stats["bytes_forwarded"] += len(audio_data) * len(
-            listeners_to_send
-        )
+        # Batch cleanup of disconnected listeners
+        for listener_id in disconnected_listeners:
+            route.listener_ids.discard(listener_id)
+            self.connected_listeners.pop(listener_id, None)
+
+        if disconnected_listeners:
+            logger.debug(f"Removed {len(disconnected_listeners)} disconnected listeners")
+
+        # Update statistics
+        successful_sends = len(listeners_to_send) - len(disconnected_listeners)
+        self.stats["audio_packets_forwarded"] += successful_sends
+        self.stats["bytes_forwarded"] += len(audio_data) * successful_sends
 
     async def _safe_send_audio(self, websocket, message, listener_id):
         try:

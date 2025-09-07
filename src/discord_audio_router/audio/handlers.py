@@ -192,7 +192,7 @@ class OpusAudioSource(discord.AudioSource):
             return b""
 
         # Use thread-safe synchronous access to avoid deadlocks
-        audio_packet = self.audio_buffer.get_sync(timeout=0.01)  # 10ms timeout
+        audio_packet = self.audio_buffer.get_sync(timeout=0.005)  # Reduced timeout for lower latency
         
         # Log startup and periodic status
         if self._read_count == 1:
@@ -201,5 +201,5 @@ class OpusAudioSource(discord.AudioSource):
             logger.debug(f"Audio source health check: {self._read_count} calls processed")
             
         return (
-            audio_packet if audio_packet else b"\xf8\xff\xfe"
-        )  # Opus silence frame
+            audio_packet if audio_packet else self.audio_buffer.get_silence_frame()
+        )  # Use pre-allocated silence frame

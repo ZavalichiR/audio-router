@@ -270,11 +270,11 @@ class AudioForwarderBot:
             self.connected_listeners.discard(websocket)
 
     async def _forward_audio(self, audio_data: bytes):
-        """Forward audio data to all connected listener bots."""
+        """Forward audio data to all connected listener bots with optimized concurrency."""
         if not self.connected_listeners:
             return
 
-        # Create audio message
+        # Create audio message once (avoid repeated JSON serialization)
         message = json.dumps(
             {
                 "type": "audio",
@@ -284,23 +284,39 @@ class AudioForwarderBot:
             }
         )
 
-        # Send to all connected listeners
-        disconnected = set()
+        # Send to all connected listeners concurrently for better performance
+        send_tasks = []
         for websocket in self.connected_listeners:
-            try:
-                await websocket.send(message)
-                pass
-            except websockets.exceptions.ConnectionClosed:
-                pass
+            send_tasks.append(self._safe_send_audio(websocket, message))
+
+        # Wait for all sends to complete concurrently
+        results = await asyncio.gather(*send_tasks, return_exceptions=True)
+
+        # Clean up disconnected listeners
+        disconnected = set()
+        for idx, result in enumerate(results):
+            if isinstance(result, Exception):
+                websocket = list(self.connected_listeners)[idx]
                 disconnected.add(websocket)
-            except Exception as e:
-                logger.error(f"Failed to send audio to listener: {e}")
-                disconnected.add(websocket)
+                if isinstance(result, websockets.exceptions.ConnectionClosed):
+                    logger.debug(f"Listener disconnected: {websocket}")
+                else:
+                    logger.error(f"Failed to send audio to listener: {result}")
 
         # Remove disconnected listeners
         if disconnected:
             self.connected_listeners -= disconnected
-            logger.warning(f"Removed {len(disconnected)} disconnected listeners")
+            logger.debug(f"Removed {len(disconnected)} disconnected listeners")
+
+    async def _safe_send_audio(self, websocket, message):
+        """Safely send audio message to a single websocket."""
+        try:
+            await websocket.send(message)
+        except websockets.exceptions.ConnectionClosed:
+            raise  # Re-raise to be handled by caller
+        except Exception as e:
+            logger.error(f"Error sending audio: {e}")
+            raise  # Re-raise to be handled by caller
 
     async def _monitor_connections(self):
         """Monitor WebSocket connections for health."""
