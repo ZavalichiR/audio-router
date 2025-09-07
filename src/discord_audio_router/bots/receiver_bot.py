@@ -3,15 +3,14 @@
 """
 AudioReceiver Bot Process for Discord Audio Router.
 
-This process runs a Discord bot that receives audio from an AudioForwarder bot
-via WebSocket and plays it in a listener channel.
+This implementation provides significant latency and performance improvements
+through binary WebSocket protocol and optimized buffering.
 """
 
 import asyncio
-import base64  # Added for base64 decoding
-import json
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -27,6 +26,7 @@ import websockets.exceptions
 from discord.ext import commands, voice_recv
 
 from discord_audio_router.audio import AudioBuffer, OpusAudioSource
+from discord_audio_router.audio.handlers import BinaryAudioMessage
 from discord_audio_router.infrastructure import setup_logging
 
 # Configure logging
@@ -35,8 +35,9 @@ logger = setup_logging(
     log_file="logs/audioreceiver_bot.log",
 )
 
+
 class AudioReceiverBot:
-    """Standalone audio receiver bot that receives audio and plays it."""
+    """Audio receiver bot with binary protocol and performance improvements."""
 
     def __init__(self):
         """Initialize the audio receiver bot."""
@@ -81,9 +82,14 @@ class AudioReceiverBot:
         self.audio_source: Optional[OpusAudioSource] = None
         self.websocket: Optional[websockets.WebSocketClientProtocol] = None
         self.speaker_websocket_url: Optional[str] = None
-        self._reconnecting = (
-            False  # Flag to prevent multiple reconnection attempts
-        )
+        self._reconnecting = False
+
+        # Performance tracking
+        self._audio_packets_received = 0
+        self._bytes_received = 0
+        self._start_time = time.time()
+        self._last_stats_time = time.time()
+        self._binary_protocol_enabled = False
 
         # Setup bot events
         self._setup_events()
@@ -119,7 +125,7 @@ class AudioReceiverBot:
             )
 
     async def _connect_to_speaker(self):
-        """Connect to the AudioForwarder bot's WebSocket server."""
+        """Connect to the AudioForwarder bot's WebSocket server with binary protocol support."""
         try:
             if not self.speaker_channel_id:
                 logger.error(
@@ -132,7 +138,6 @@ class AudioReceiverBot:
             )
 
             # Calculate the same port that the AudioForwarder bot uses
-            # Use the same logic as AudioForwarder bot: 8000 + (channel_id % 1000)
             speaker_port = 8000 + (self.speaker_channel_id % 1000)
             self.speaker_websocket_url = f"ws://localhost:{speaker_port}"
 
@@ -146,7 +151,7 @@ class AudioReceiverBot:
 
             for attempt in range(max_retries):
                 try:
-                    # Connect to AudioForwarder bot with better connection settings
+                    # Connect to AudioForwarder bot with optimized connection settings
                     self.websocket = await websockets.connect(
                         self.speaker_websocket_url,
                         ping_interval=None,  # Disable automatic pings
@@ -161,6 +166,9 @@ class AudioReceiverBot:
 
                     # Start ping task to keep connection alive
                     asyncio.create_task(self._ping_speaker())
+
+                    # Start performance monitoring
+                    asyncio.create_task(self._monitor_performance())
 
                     logger.info(
                         f"Connected to AudioForwarder bot WebSocket on attempt {attempt + 1}"
@@ -227,7 +235,7 @@ class AudioReceiverBot:
 
                 if self.websocket and not getattr(self.websocket, 'closed', True):
                     try:
-                        await self.websocket.send(json.dumps({"type": "ping"}))
+                        await self.websocket.send('{"type": "ping"}')
                         logger.debug("Sent ping to AudioForwarder")
                     except websockets.exceptions.ConnectionClosed:
                         logger.debug("Connection closed while sending ping")
@@ -275,38 +283,66 @@ class AudioReceiverBot:
         logger.error("Failed to connect to voice channel after all retries")
 
     async def _listen_for_audio(self):
-        """Listen for audio data from the AudioForwarder bot."""
+        """Listen for audio data from the AudioForwarder bot with binary protocol support."""
         while True:
             try:
                 async for message in self.websocket:
                     try:
-                        data = json.loads(message)
-
-                        if data.get("type") == "welcome":
-                            logger.info(
-                                f"Received welcome from AudioForwarder: {data.get('speaker_id')}"
-                            )
-
-                        elif data.get("type") == "audio":
-                            # Process audio data
-                            audio_b64 = data.get("audio_data", "")
-                            if audio_b64 and self.audio_buffer:
-                                # Convert base64 string back to bytes
-                                audio_data = base64.b64decode(audio_b64)
-                                await self.audio_buffer.put(audio_data)
+                        # Check if message is binary (audio data) or text (control)
+                        if isinstance(message, bytes):
+                            # Binary audio message
+                            if self._binary_protocol_enabled:
+                                try:
+                                    audio_msg = BinaryAudioMessage.from_bytes(message)
+                                    if self.audio_buffer:
+                                        # Direct audio data processing (no Base64 decoding)
+                                        await self.audio_buffer.put(audio_msg.audio_data)
+                                        self._audio_packets_received += 1
+                                        self._bytes_received += len(audio_msg.audio_data)
+                                        
+                                        # Enhanced debug logging
+                                        if self._audio_packets_received <= 10:
+                                            buffer_stats = self.audio_buffer.get_stats()
+                                            logger.info(f"🎵 Stored audio packet #{self._audio_packets_received}: {len(audio_msg.audio_data)} bytes, buffer size: {buffer_stats.get('current_size', 0)}")
+                                        elif self._audio_packets_received % 50 == 0:
+                                            buffer_stats = self.audio_buffer.get_stats()
+                                            logger.info(f"🎵 Audio packet #{self._audio_packets_received}: {len(audio_msg.audio_data)} bytes, buffer size: {buffer_stats.get('current_size', 0)}")
+                                        
+                                        # Debug logging for first few packets
+                                        if self._audio_packets_received <= 5:
+                                            logger.info(f"Received audio packet #{self._audio_packets_received}: {len(audio_msg.audio_data)} bytes from {audio_msg.speaker_id}")
+                                    else:
+                                        logger.warning("Received binary audio but no buffer available")
+                                except Exception as e:
+                                    logger.error(f"Failed to parse binary audio message: {e}")
                             else:
-                                logger.warning(
-                                    "Received audio message but no audio data or buffer"
-                                )
+                                logger.warning("Received binary message but binary protocol not enabled")
+                        else:
+                            # Text control message
+                            try:
+                                # Simple parsing for control messages
+                                data = eval(message)
+                                
+                                if data.get("type") == "welcome":
+                                    logger.info(
+                                        f"Received welcome from AudioForwarder: {data.get('speaker_id')}"
+                                    )
+                                    # Check if binary protocol is supported
+                                    if data.get("supports_binary", False):
+                                        self._binary_protocol_enabled = True
+                                        logger.info("Binary protocol enabled for audio transmission")
+                                    else:
+                                        logger.warning("AudioForwarder does not support binary protocol")
 
-                        elif data.get("type") == "pong":
-                            # Handle pong responses
-                            pass
+                                elif data.get("type") == "pong":
+                                    # Handle pong responses
+                                    pass
 
-                    except json.JSONDecodeError as e:
-                        logger.error(f"Failed to parse WebSocket message: {e}", exc_info=True)
+                            except Exception as e:
+                                logger.error(f"Failed to parse control message: {e}")
+
                     except Exception as e:
-                        logger.error(f"Error processing audio message: {e}", exc_info=True)
+                        logger.error(f"Error processing message: {e}", exc_info=True)
 
                 # If we exit the async for loop, the connection was closed
                 logger.warning(
@@ -323,49 +359,43 @@ class AudioReceiverBot:
                 logger.error(f"Error listening for audio: {e}", exc_info=True)
                 break
 
-            # Try to reconnect (prevent multiple simultaneous attempts)
-            if self._reconnecting:
-                logger.info("Reconnection already in progress, skipping...")
-                break
-
-            self._reconnecting = True
+    async def _monitor_performance(self):
+        """Monitor and log performance statistics."""
+        while True:
             try:
-                logger.info(
-                    "Waiting 3 seconds before attempting reconnection..."
-                )
-                await asyncio.sleep(3)
+                await asyncio.sleep(30)  # Log stats every 30 seconds
+                
+                current_time = time.time()
+                uptime = current_time - self._start_time
+                time_since_last = current_time - self._last_stats_time
+                
+                if time_since_last > 0:
+                    packets_per_second = self._audio_packets_received / time_since_last
+                    bytes_per_second = self._bytes_received / time_since_last
+                    
+                    buffer_stats = self.audio_buffer.get_stats() if self.audio_buffer else {}
+                    
+                    logger.info(
+                        f"Performance stats - Uptime: {uptime:.1f}s, "
+                        f"Packets/sec: {packets_per_second:.1f}, "
+                        f"Bytes/sec: {bytes_per_second:.1f}, "
+                        f"Total packets: {self._audio_packets_received}, "
+                        f"Buffer size: {buffer_stats.get('current_size', 0)}, "
+                        f"Jitter delay: {buffer_stats.get('jitter_delay', 0):.3f}s, "
+                        f"Binary protocol: {self._binary_protocol_enabled}"
+                    )
+                    
+                    # Reset counters
+                    self._audio_packets_received = 0
+                    self._bytes_received = 0
+                    self._last_stats_time = current_time
 
-                # Close existing websocket if it exists
-                if hasattr(self, "websocket") and self.websocket:
-                    try:
-                        await self.websocket.close()
-                    except Exception:
-                        pass
-                    self.websocket = None
-
-                logger.info(
-                    "Attempting to reconnect to AudioForwarder WebSocket..."
-                )
-                await self._connect_to_speaker()
-                logger.info(
-                    "Successfully reconnected to AudioForwarder WebSocket"
-                )
-                self._reconnecting = False
-                # Continue the while loop to start listening again
-            except Exception as reconnect_error:
-                logger.error(
-                    f"Failed to reconnect to AudioForwarder WebSocket: {reconnect_error}"
-                )
-                logger.error(
-                    f"Reconnection error type: {type(reconnect_error).__name__}"
-                )
-                self._reconnecting = False
-                # Fall back to retry task
-                asyncio.create_task(self._retry_speaker_connection())
-                break
+            except Exception as e:
+                logger.error(f"Error in performance monitoring: {e}", exc_info=True)
+                await asyncio.sleep(30)
 
     async def connect_to_channel(self) -> bool:
-        """Connect to the listener channel and start audio playback."""
+        """Connect to the listener channel and start optimized audio playback."""
         try:
             logger.info(
                 f"Attempting to connect to voice channel {self.channel_id}"
@@ -434,7 +464,7 @@ class AudioReceiverBot:
             logger.info(f"Voice client is_playing after delay: {self.voice_client.is_playing()}")
 
             logger.info(
-                f"Connected to listener channel: {channel.name} (self-deafened)"
+                f"Connected to listener channel: {channel.name} (ready to play audio)"
             )
             return True
 
@@ -454,7 +484,7 @@ class AudioReceiverBot:
                 self.audio_source = None
 
             if self.audio_buffer:
-                await self.audio_buffer.clear()
+                self.audio_buffer.clear()
                 self.audio_buffer = None
 
             if self.websocket:
@@ -495,6 +525,7 @@ class AudioReceiverBot:
         except Exception as e:
             logger.error(f"Error stopping AudioReceiver bot: {e}", exc_info=True)
 
+
 async def main():
     """Main function to run the audio receiver bot."""
     try:
@@ -512,6 +543,7 @@ async def main():
     finally:
         if "audioreceiver_bot" in locals():
             await audioreceiver_bot.stop()
+
 
 if __name__ == "__main__":
     try:
