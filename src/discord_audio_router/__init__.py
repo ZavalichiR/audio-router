@@ -37,7 +37,6 @@ from .core.access_control import AccessControl
 # Audio components
 from .audio.handlers import OpusAudioSink, OpusAudioSource, setup_audio_receiver
 from .audio.buffers import AudioBuffer
-from .audio.sources import SilentSource
 
 # Networking components
 from .networking.websocket_server import AudioRelayServer, AudioRoute
@@ -78,7 +77,6 @@ __all__ = [
     "OpusAudioSink",
     "OpusAudioSource",
     "AudioBuffer",
-    "SilentSource",
     "setup_audio_receiver",
     
     # Networking components

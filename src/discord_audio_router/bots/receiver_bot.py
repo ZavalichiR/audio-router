@@ -4,7 +4,7 @@
 AudioReceiver Bot Process for Discord Audio Router.
 
 This implementation provides significant latency and performance improvements
-through binary WebSocket protocol and optimized buffering.
+through binary WebSocket protocol and buffering.
 """
 
 import asyncio
@@ -151,7 +151,7 @@ class AudioReceiverBot:
 
             for attempt in range(max_retries):
                 try:
-                    # Connect to AudioForwarder bot with optimized connection settings
+                    # Connect to AudioForwarder bot with connection settings
                     self.websocket = await websockets.connect(
                         self.speaker_websocket_url,
                         ping_interval=None,  # Disable automatic pings
@@ -300,17 +300,10 @@ class AudioReceiverBot:
                                         self._audio_packets_received += 1
                                         self._bytes_received += len(audio_msg.audio_data)
                                         
-                                        # Enhanced debug logging
-                                        if self._audio_packets_received <= 10:
+                                        # Debug logging for first few packets only
+                                        if self._audio_packets_received <= 3:
                                             buffer_stats = self.audio_buffer.get_stats()
-                                            logger.info(f"🎵 Stored audio packet #{self._audio_packets_received}: {len(audio_msg.audio_data)} bytes, buffer size: {buffer_stats.get('current_size', 0)}")
-                                        elif self._audio_packets_received % 50 == 0:
-                                            buffer_stats = self.audio_buffer.get_stats()
-                                            logger.info(f"🎵 Audio packet #{self._audio_packets_received}: {len(audio_msg.audio_data)} bytes, buffer size: {buffer_stats.get('current_size', 0)}")
-                                        
-                                        # Debug logging for first few packets
-                                        if self._audio_packets_received <= 5:
-                                            logger.info(f"Received audio packet #{self._audio_packets_received}: {len(audio_msg.audio_data)} bytes from {audio_msg.speaker_id}")
+                                            logger.debug(f"🎵 Received audio packet #{self._audio_packets_received}: {len(audio_msg.audio_data)} bytes. Buffer stats: {buffer_stats}")
                                     else:
                                         logger.warning("Received binary audio but no buffer available")
                                 except Exception as e:
@@ -395,7 +388,7 @@ class AudioReceiverBot:
                 await asyncio.sleep(30)
 
     async def connect_to_channel(self) -> bool:
-        """Connect to the listener channel and start optimized audio playback."""
+        """Connect to the listener channel and start audio playback."""
         try:
             logger.info(
                 f"Attempting to connect to voice channel {self.channel_id}"

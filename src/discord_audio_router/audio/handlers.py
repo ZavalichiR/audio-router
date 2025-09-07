@@ -215,10 +215,6 @@ class OpusAudioSink(voice_recv.AudioSink):
 
         self._packet_count += 1
         
-        # Debug logging for first few calls
-        if self._packet_count <= 10:
-            logger.info(f"Audio sink write() called #{self._packet_count}: user={user.display_name if user else 'None'}, packet={voice_data.packet is not None}")
-
         # Basic packet filtering - only filter out completely invalid packets
         if user is None or voice_data.packet.ssrc == 0:
             self._filtered_packets += 1
@@ -232,10 +228,6 @@ class OpusAudioSink(voice_recv.AudioSink):
         try:
             opus_audio_data = voice_data.packet.decrypted_data
             if opus_audio_data:
-                # Debug logging for first few packets
-                if self._packet_count <= 10:
-                    logger.info(f"Audio sink processing packet #{self._packet_count}: {len(opus_audio_data)} bytes from {user.display_name if user else 'unknown'}")
-                
                 # Direct callback without task creation for minimal latency
                 self.audio_callback_func(opus_audio_data)
         except Exception as e:
@@ -310,19 +302,13 @@ class OpusAudioSource(discord.AudioSource):
         # Use thread-safe synchronous access to avoid deadlocks
         audio_packet = self.audio_buffer.get_sync(timeout=0.001)
         
-        # Enhanced logging to debug the issue
+        # Essential logging only
         if self._read_count == 1:
             logger.info("🎵 Audio source read() called for the first time - Discord is requesting audio!")
-        elif self._read_count <= 20:  # Log first 20 calls
-            logger.info(f"🎵 Audio source read() #{self._read_count}: {len(audio_packet) if audio_packet else 0} bytes")
-        elif self._read_count % 100 == 0:  # Log every 100 calls
+        elif self._read_count <= 5:  # Log first 5 calls only
             logger.info(f"🎵 Audio source read() #{self._read_count}: {len(audio_packet) if audio_packet else 0} bytes")
             
         result = audio_packet if audio_packet else self.audio_buffer.get_silence_frame()
-        
-        # Log what we're returning
-        if self._read_count <= 10:
-            logger.info(f"🎵 Returning {len(result)} bytes to Discord (audio: {len(audio_packet) if audio_packet else 0} bytes)")
             
         return result
 

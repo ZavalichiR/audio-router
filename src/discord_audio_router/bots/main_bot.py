@@ -27,8 +27,8 @@ from discord_audio_router.infrastructure import setup_logging
 
 # Configure logging
 logger = setup_logging(
-    component_name="audiobroadcast_bot",
-    log_file="logs/audiobroadcast_bot.log",
+    component_name="main_bot",
+    log_file="logs/main_bot.log",
 )
 
 # Load configuration

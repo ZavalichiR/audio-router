@@ -157,7 +157,7 @@ class AudioForwarderBot:
                 f"Starting WebSocket server on port {port} for AudioForwarder bot {self.bot_id} (channel_id: {self.channel_id})"
             )
 
-            # Start WebSocket server with optimized settings
+            # Start WebSocket server with settings
             self.websocket_server = await websockets.serve(
                 self._create_websocket_handler(),
                 "localhost",
@@ -256,10 +256,6 @@ class AudioForwarderBot:
             # Update performance counters
             self._audio_packets_sent += 1
             self._bytes_sent += len(message_bytes)
-            
-            # Debug logging for first few packets
-            if self._audio_packets_sent <= 5:
-                logger.info(f"Captured audio packet #{self._audio_packets_sent}: {len(audio_data)} bytes, sending to {len(self.connected_listeners)} listeners")
             
             # Send to all connected listeners concurrently
             # Note: This is called from the audio sink thread, so we need to schedule
@@ -413,26 +409,26 @@ class AudioForwarderBot:
 
             # Check if bot already has the Speaker role
             if speaker_role in bot_member.roles:
-                logger.info(f"Optimized AudioForwarder bot already has Speaker role: {speaker_role.name}")
+                logger.info(f"AudioForwarder bot already has Speaker role: {speaker_role.name}")
                 return
 
             # Try to add the Speaker role to the bot
             try:
                 await bot_member.add_roles(
                     speaker_role,
-                    reason="Optimized AudioForwarder bot needs Speaker role to join speaker channels"
+                    reason="AudioForwarder bot needs Speaker role to join speaker channels"
                 )
-                logger.info(f"Added Speaker role to Optimized AudioForwarder bot: {speaker_role.name}")
+                logger.info(f"Added Speaker role to AudioForwarder bot: {speaker_role.name}")
             except discord.Forbidden:
-                logger.warning("Cannot add Speaker role to Optimized AudioForwarder bot - insufficient permissions")
+                logger.warning("Cannot add Speaker role to AudioForwarder bot - insufficient permissions")
             except Exception as e:
-                logger.error(f"Error adding Speaker role to Optimized AudioForwarder bot: {e}", exc_info=True)
+                logger.error(f"Error adding Speaker role to AudioForwarder bot: {e}", exc_info=True)
 
         except Exception as e:
-            logger.error(f"Error ensuring Speaker role for Optimized AudioForwarder bot: {e}", exc_info=True)
+            logger.error(f"Error ensuring Speaker role for AudioForwarder bot: {e}", exc_info=True)
 
     async def connect_to_channel(self) -> bool:
-        """Connect to the speaker channel and start optimized audio capture."""
+        """Connect to the speaker channel and start audio capture."""
         try:
             # Prevent multiple simultaneous connection attempts
             if self._connecting:
