@@ -270,9 +270,12 @@ class ProcessManager:
                 logger.error("No available tokens for AudioReceiver bot")
                 return None
 
-            # Use the first available token
+            # Use the first available token (this ensures consistent assignment order)
+            # The tokens should be assigned in the order they appear in the configuration
             token = self.available_tokens.pop(0)
             self.used_tokens.add(token)
+            
+            logger.info(f"Assigned token to channel {channel_id} (bot_id: {bot_id})")
 
             # Create bot process
             bot_process = BotProcess(

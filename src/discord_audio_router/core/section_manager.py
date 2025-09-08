@@ -630,8 +630,14 @@ class SectionManager:
                 }
 
             # Start listener bot processes
+            # Sort listener channels by name to ensure proper order (group-1, group-2, etc.)
+            sorted_listener_channel_ids = sorted(
+                section.listener_channel_ids,
+                key=lambda cid: guild.get_channel(cid).name if guild.get_channel(cid) else ""
+            )
+            
             listener_bot_ids = []
-            for channel_id in section.listener_channel_ids:
+            for channel_id in sorted_listener_channel_ids:
                 listener_bot_id = (
                     await self.process_manager.start_listener_bot(
                         channel_id, guild.id, section.speaker_channel_id

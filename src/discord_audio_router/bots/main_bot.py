@@ -1387,6 +1387,8 @@ async def bot_status_command(ctx):
         
         # Get bot names
         try:
+            import re
+
             members = []
             async for member in ctx.guild.fetch_members(limit=None):
                 members.append(member)
@@ -1394,13 +1396,19 @@ async def bot_status_command(ctx):
             main_bot_name = ctx.guild.me.display_name
             forwarder_bot_name = "Not found"
             receiver_bot_names = []
-            
+
+            def extract_rcv_number(name):
+                # Extracts the number after "Rcv-" for sorting, returns a large number if not found
+                match = re.match(r"Rcv-(\d+)", name)
+                return int(match.group(1)) if match else float('inf')
+
             for member in members:
                 if member.bot:
                     if member.display_name.startswith("Rcv-"):
                         receiver_bot_names.append(member.display_name)
                     elif "forward" in member.display_name.lower():
                         forwarder_bot_name = member.display_name
+            receiver_bot_names.sort(key=extract_rcv_number)
         except Exception as e:
             logger.error(f"Error fetching bot info: {e}")
             main_bot_name = ctx.guild.me.display_name
