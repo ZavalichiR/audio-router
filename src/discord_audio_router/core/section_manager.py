@@ -233,7 +233,7 @@ class SectionManager:
             # If structure is not suitable, create a new category with a different name
             new_section_name = f"{section_name} (New)"
             counter = 1
-            while discord.utils.get(guild.categories, name=new_section_name):
+            while discord.utils.get(guild.categories, name=f"🔴 {new_section_name}"):
                 counter += 1
                 new_section_name = f"{section_name} (New {counter})"
 
@@ -241,11 +241,21 @@ class SectionManager:
                 f"Existing category '{section_name}' not suitable, creating '{new_section_name}' instead"
             )
 
-            # Create new category with modified name
+            # Create new category with modified name and icon
+            category_name = f"🔴 {new_section_name}"
             category = await guild.create_category(
-                name=new_section_name,
+                name=category_name,
                 reason=f"Creating broadcast section: {new_section_name} (original name '{section_name}' was taken)",
             )
+            
+            # Position the category at the top for maximum visibility
+            try:
+                await category.edit(position=0)
+                logger.info(f"Positioned category '{category_name}' at the top")
+            except discord.Forbidden:
+                logger.warning("Could not position category at top - insufficient permissions")
+            except Exception as e:
+                logger.warning(f"Could not position category at top: {e}")
 
             # Continue with normal creation process using the new name
             return await self._create_new_section(
@@ -541,9 +551,11 @@ class SectionManager:
                     "simple_message": f"✅ Using existing broadcast section '{existing_section.section_name}'! Go to the control channel and use `!start_broadcast` to begin.",
                 }
 
-            # Check if a category with the same name already exists
+            # Check if a category with the same name already exists (with or without icon)
             existing_category = discord.utils.get(
                 guild.categories, name=section_name
+            ) or discord.utils.get(
+                guild.categories, name=f"🔴 {section_name}"
             )
             if existing_category:
                 # Try to adopt the existing category by creating a section from it
@@ -551,11 +563,21 @@ class SectionManager:
                     guild, existing_category, section_name, listener_count
                 )
 
-            # Create category for the section
+            # Create category for the section with an engaging icon at the top
+            category_name = f"🔴 {section_name}"
             category = await guild.create_category(
-                name=section_name,
+                name=category_name,
                 reason=f"Creating broadcast section: {section_name}",
             )
+            
+            # Position the category at the top for maximum visibility
+            try:
+                await category.edit(position=0)
+                logger.info(f"Positioned category '{category_name}' at the top")
+            except discord.Forbidden:
+                logger.warning("Could not position category at top - insufficient permissions")
+            except Exception as e:
+                logger.warning(f"Could not position category at top: {e}")
             logger.info(f"Created category '{section_name}' in {guild.name}")
 
             # Use the helper method to create the section
@@ -734,9 +756,10 @@ class SectionManager:
             # Stop all bot processes for this guild
             await self.process_manager.stop_bots_by_guild(guild.id)
 
-            # Find and delete the category
+            # Find and delete the category (check both with and without icon prefix)
             for category in guild.categories:
-                if category.name == section.section_name:
+                if (category.name == section.section_name or 
+                    category.name == f"🔴 {section.section_name}"):
                     for channel in category.channels:
                         await channel.delete(
                             reason="Cleaning up broadcast section"
