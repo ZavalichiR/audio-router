@@ -51,6 +51,9 @@ Thumbs.db
 logs/
 *.log
 
+# Database
+data/
+
 # Environment variables
 .env
 .env.local

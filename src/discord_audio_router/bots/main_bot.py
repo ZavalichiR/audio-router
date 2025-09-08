@@ -24,6 +24,7 @@ from discord_audio_router.config.settings import config_manager
 
 from discord_audio_router.core import AudioRouter, is_broadcast_admin
 from discord_audio_router.infrastructure import setup_logging
+from discord_audio_router.subscription import SubscriptionManager
 
 # Configure logging
 logger = setup_logging(
@@ -52,6 +53,9 @@ bot = commands.Bot(
 # Global audio router instance
 audio_router: Optional[AudioRouter] = None
 
+# Global subscription manager instance
+subscription_manager: Optional[SubscriptionManager] = None
+
 
 def is_admin():
     """Check if user has administrator permissions."""
@@ -72,12 +76,50 @@ def get_broadcast_admin_decorator():
     return is_broadcast_admin(role_name)
 
 
+async def get_available_receiver_bots_count(guild: discord.Guild) -> int:
+    """
+    Count the number of AudioReceiver bots that are actually present in the Discord server.
+    
+    Args:
+        guild: Discord guild to check
+        
+    Returns:
+        Number of AudioReceiver bots present in the server
+    """
+    try:
+        # Get all members in the guild
+        members = []
+        async for member in guild.fetch_members(limit=None):
+            members.append(member)
+        
+        # Count bots with names that start with "Rcv-"
+        receiver_bot_count = 0
+        for member in members:
+            if member.bot and member.display_name.startswith("Rcv-"):
+                receiver_bot_count += 1
+        
+        logger.info(f"Found {receiver_bot_count} AudioReceiver bots in server '{guild.name}'")
+        return receiver_bot_count
+        
+    except Exception as e:
+        logger.error(f"Error counting AudioReceiver bots in guild {guild.id}: {e}", exc_info=True)
+        # Fallback to configured tokens count if we can't check the server
+        return len(config.audio_receiver_tokens)
+
+
 @bot.event
 async def on_ready() -> None:
     """Bot ready event."""
-    global audio_router
+    global audio_router, subscription_manager
 
     logger.info(f"AudioBroadcast Bot online: {bot.user}")
+
+    # Initialize subscription manager
+    try:
+        subscription_manager = SubscriptionManager(bot_token=config.audio_broadcast_token)
+        logger.info("Subscription manager initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize subscription manager: {e}", exc_info=True)
 
     # Initialize audio router
     try:
@@ -147,20 +189,22 @@ async def start_broadcast_command(ctx, *, args: str) -> None:
     This command creates a complete broadcast section and immediately starts broadcasting:
     - Creates a category with the specified name
     - Creates one speaker channel for the presenter
-    - Creates N listener channels for the audience
+    - Creates N listener channels for the audience (or max allowed if N not provided)
     - Creates a control channel for admin commands
     - Immediately starts audio forwarding
 
-    Usage: !start_broadcast 'Section Name' N
+    Usage: !start_broadcast 'Section Name' [N]
     Example: !start_broadcast 'War Room' 5
+    Example: !start_broadcast 'War Room' (uses max allowed for your tier)
 
     Args:
         ctx: Discord command context
-        args: Command arguments in format "'Section Name' N"
+        args: Command arguments in format "'Section Name' [N]"
 
     Note:
         - Section name must be enclosed in single quotes
-        - N must be between 1 and 10
+        - N is optional - if not provided, uses maximum allowed for your subscription tier
+        - If N exceeds available receiver bots, uses all available bots
         - Requires Administrator permissions or Broadcast Admin role
     """
     try:
@@ -174,30 +218,113 @@ async def start_broadcast_command(ctx, *, args: str) -> None:
             return
 
         # Parse arguments
-        # Expected format: 'Section Name' N
-        match = re.match(r"'([^']+)'\s+(\d+)", args.strip())
-        if not match:
+        # Expected format: 'Section Name' [N]
+        match_with_count = re.match(r"'([^']+)'\s+(\d+)", args.strip())
+        match_without_count = re.match(r"'([^']+)'", args.strip())
+        
+        if match_with_count:
+            section_name = match_with_count.group(1)
+            requested_listener_count = int(match_with_count.group(2))
+        elif match_without_count:
+            section_name = match_without_count.group(1)
+            requested_listener_count = None  # Will use max allowed
+        else:
             embed = discord.Embed(
                 title="❌ Invalid Command Format",
-                description="Usage: `!start_broadcast 'Section Name' N`\n"
-                "Example: `!start_broadcast 'War Room' 5`",
+                description="Usage: `!start_broadcast 'Section Name' [N]`\n"
+                "Example: `!start_broadcast 'War Room' 5`\n"
+                "Example: `!start_broadcast 'War Room'` (uses max allowed)",
                 color=discord.Color.red(),
             )
             await ctx.send(embed=embed)
             return
 
-        section_name = match.group(1)
-        listener_count = int(match.group(2))
-
-        # Validate listener count
-        if listener_count < 1 or listener_count > 10:
-            embed = discord.Embed(
-                title="❌ Invalid Listener Count",
-                description="Listener count must be between 1 and 10",
-                color=discord.Color.red(),
+        # Get server ID for subscription check
+        server_id = str(ctx.guild.id)
+        
+        # Check subscription limits and determine listener count
+        if subscription_manager:
+            # Get max allowed for this server
+            max_allowed = subscription_manager.get_server_max_listeners(server_id)
+            
+            # If no listener count provided, use max allowed
+            if requested_listener_count is None:
+                requested_listener_count = max_allowed
+            
+            # Validate the requested count
+            is_valid, _, validation_message = subscription_manager.validate_listener_count(
+                server_id, requested_listener_count
             )
-            await ctx.send(embed=embed)
-            return
+            
+            if not is_valid:
+                embed = discord.Embed(
+                    title="❌ Subscription Limit Exceeded",
+                    description=validation_message,
+                    color=discord.Color.red(),
+                )
+                await ctx.send(embed=embed)
+                return
+            
+            # Get available receiver bots (actually present in the server)
+            available_bots = await get_available_receiver_bots_count(ctx.guild)
+            
+            # Handle CUSTOM tier (0 = unlimited) and regular tiers
+            if max_allowed == 0:
+                # CUSTOM tier - use all available receiver bots (unlimited)
+                listener_count = min(requested_listener_count, available_bots)
+                
+                # Show info if we're using fewer bots than requested
+                if requested_listener_count > available_bots:
+                    embed = discord.Embed(
+                        title="⚠️ Limited by Available Receiver Bots",
+                        description=f"Requested {requested_listener_count} listeners, but only {available_bots} receiver bots are available.\n\n"
+                                   f"**Please install additional receiver bots to support more listeners.**\n"
+                                   f"Creating {available_bots} listener channels.",
+                        color=discord.Color.orange(),
+                    )
+                    await ctx.send(embed=embed)
+            else:
+                # Regular tier - use the requested count or max allowed, whichever is smaller
+                listener_count = min(requested_listener_count, max_allowed)
+                
+                # Check if we're limited by available bots
+                if listener_count > available_bots:
+                    listener_count = available_bots
+                    embed = discord.Embed(
+                        title="⚠️ Limited by Available Receiver Bots",
+                        description=f"Your subscription allows {max_allowed} listeners, but only {available_bots} receiver bots are available.\n\n"
+                                   f"**Please install additional receiver bots to support more listeners.**\n"
+                                   f"Creating {available_bots} listener channels.",
+                        color=discord.Color.orange(),
+                    )
+                    await ctx.send(embed=embed)
+                elif requested_listener_count > max_allowed:
+                    embed = discord.Embed(
+                        title="ℹ️ Using Maximum Allowed Listeners",
+                        description=f"Requested {requested_listener_count} listeners, but your subscription allows {max_allowed}. Creating {max_allowed} listener channels.",
+                        color=discord.Color.blue(),
+                    )
+                    await ctx.send(embed=embed)
+        else:
+            # Subscription manager not available - use default behavior
+            if requested_listener_count is None:
+                requested_listener_count = 1  # Default to free tier
+            
+            # Still check available bots even without subscription manager
+            available_bots = await get_available_receiver_bots_count(ctx.guild)
+            listener_count = min(requested_listener_count, available_bots)
+            
+            if requested_listener_count > available_bots:
+                embed = discord.Embed(
+                    title="⚠️ Limited by Available Receiver Bots",
+                    description=f"Requested {requested_listener_count} listeners, but only {available_bots} receiver bots are available.\n\n"
+                               f"**Please install additional receiver bots to support more listeners.**\n"
+                               f"Creating {available_bots} listener channels.",
+                    color=discord.Color.orange(),
+                )
+                await ctx.send(embed=embed)
+            
+            logger.warning(f"Subscription manager not available for server {server_id}, using default behavior")
 
         # Send initial loading message that replaces the command message
         loading_embed = discord.Embed(
@@ -380,7 +507,7 @@ async def stop_broadcast_command(ctx):
                            f"✅ All broadcast channels deleted\n"
                            f"✅ Category removed\n"
                            f"✅ All resources cleaned up\n\n"
-                           f"Use `!start_broadcast 'Name' N` to create a new section.",
+                           f"Use `!start_broadcast 'Name'` or `!start_broadcast 'Name' N` to create a new section.",
                 color=discord.Color.green(),
             )
         else:
@@ -410,7 +537,7 @@ async def stop_broadcast_command(ctx):
                     description=f"**{section_name}** broadcast has been stopped and cleaned up.\n\n"
                                f"✅ All channels and resources have been removed\n"
                                f"✅ Ready for a new broadcast section\n\n"
-                               f"Use `!start_broadcast 'Name' N` to create a new section.",
+                               f"Use `!start_broadcast 'Name'` or `!start_broadcast 'Name' N` to create a new section.",
                     color=discord.Color.blue(),
                 )
                 await section.original_message.edit(embed=ended_embed)
@@ -615,7 +742,7 @@ async def setup_roles_command(ctx):
                 name="📝 Next Steps",
                 value="1. **Assign Roles:** Give users the appropriate roles\n"
                       "2. **Test Setup:** Run `!check_setup` to verify everything\n"
-                      "3. **Create Section:** Run `!start_broadcast 'Test Room' 3`\n"
+                      "3. **Create Section:** Run `!start_broadcast 'Test Room'` or `!start_broadcast 'Test Room' 3`\n"
                       "4. **Learn More:** Run `!how_it_works` for usage guide",
                 inline=False,
             )
@@ -770,7 +897,7 @@ async def check_setup_command(ctx):
             embed.add_field(
                 name="✅ Setup Status",
                 value="Your server is properly configured! You can:\n"
-                      "• Run `!start_broadcast 'Name' N` to create and start a broadcast section\n"
+                      "• Run `!start_broadcast 'Name'` or `!start_broadcast 'Name' N` to create and start a broadcast section\n"
                       "• Run `!how_it_works` to learn how to use the system",
                 inline=False,
             )
@@ -1013,7 +1140,7 @@ async def role_info_command(ctx):
                 name="🚀 Next Steps",
                 value="1. Run `!setup_roles` to create the required roles\n"
                 "2. Assign roles to users as needed\n"
-                "3. Run `!start_broadcast 'Name' N` to create and start your first broadcast section",
+                "3. Run `!start_broadcast 'Name'` or `!start_broadcast 'Name' N` to create and start your first broadcast section",
                 inline=False,
             )
             embed.color = discord.Color.orange()
@@ -1022,7 +1149,7 @@ async def role_info_command(ctx):
                 name="✅ Ready to Use",
                 value="All required roles are set up! You can now:\n"
                 "• Assign roles to users\n"
-                "• Create and start broadcast sections with `!start_broadcast 'Name' N`\n"
+                "• Create and start broadcast sections with `!start_broadcast 'Name'` or `!start_broadcast 'Name' N`\n"
                 "• Stop and clean up with `!stop_broadcast`",
                 inline=False,
             )
@@ -1067,9 +1194,11 @@ async def help_command(ctx):
         name="👑 Admin Commands",
         value="• `!setup_roles` - Create and configure required roles\n"
         "• `!check_permissions` - Verify bot permissions and get fixes\n"
-        "• `!start_broadcast 'Name' N` - Create and start a broadcast section\n"
+        "• `!start_broadcast 'Name' [N]` - Create and start a broadcast section\n"
         "• `!stop_broadcast` - Stop broadcasting and clean up section\n"
-        "• `!broadcast_status` - Check broadcast status",
+        "• `!broadcast_status` - Check broadcast status\n"
+        "• `!subscription_status` - Check subscription tier and limits\n"
+        "• `!bot_status` - Check installed receiver bots",
         inline=False,
     )
 
@@ -1093,13 +1222,272 @@ async def help_command(ctx):
         name="🚀 Quick Start",
         value="1. Run `!check_setup` to see what's needed\n"
         "2. Run `!setup_roles` to create required roles\n"
-        "3. Run `!start_broadcast 'Test Room' 3` to create and start your first section\n"
+        "3. Run `!start_broadcast 'Test Room'` or `!start_broadcast 'Test Room' 3` to create and start your first section\n"
         "4. Use `!stop_broadcast` to stop and clean up when done",
         inline=False,
     )
 
     embed.set_footer(text="Use !how_it_works to learn more about the system")
     await ctx.send(embed=embed)
+
+
+@bot.command(name="subscription_status")
+async def subscription_status_command(ctx):
+    """Check the subscription status for this server."""
+    try:
+        if not subscription_manager:
+            embed = discord.Embed(
+                title="❌ System Error",
+                description="Subscription manager not initialized. Please restart the bot.",
+                color=discord.Color.red(),
+            )
+            await ctx.send(embed=embed)
+            return
+
+        server_id = str(ctx.guild.id)
+        subscription = subscription_manager.get_server_subscription(server_id)
+        
+        if subscription:
+            tier_info = subscription_manager.get_tier_info(subscription.tier)
+            
+            # Get tier description and request channel
+            tier_descriptions = {
+                "Free": "Basic functionality",
+                "Basic": "Trial tier", 
+                "Standard": "Small communities",
+                "Advanced": "Medium communities",
+                "Premium": "Large communities",
+                "Custom": "Custom features"
+            }
+            tier_request_channels = {
+                "Free": "-",
+                "Basic": "-",
+                "Standard": "-", 
+                "Advanced": "email",
+                "Premium": "email",
+                "Custom": "DM or email"
+            }
+            
+            tier_name = tier_info['name']
+            description = tier_descriptions.get(tier_name, "Unknown")
+            request_channel = tier_request_channels.get(tier_name, "Unknown")
+            
+            embed = discord.Embed(
+                title="📊 Subscription Status",
+                description=f"**Server:** {ctx.guild.name}\n**Server ID:** {server_id}",
+                color=discord.Color.green(),
+            )
+            if request_channel != "-":
+                current_tier_value = f"**{tier_name}** - {description} (request via {request_channel})"
+            else:
+                current_tier_value = f"**{tier_name}** - {description}"
+            embed.add_field(
+                name="🎯 Current Tier",
+                value=current_tier_value,
+                inline=False,
+            )
+            embed.add_field(
+                name="📢 Listener Limit",
+                value=f"**{subscription.max_listeners}** listener channel{'s' if subscription.max_listeners != 1 else ''}" if subscription.max_listeners > 0 else "**Unlimited** listeners",
+                inline=True,
+            )
+            embed.add_field(
+                name="📅 Subscription Info",
+                value=f"**Created:** {subscription.created_at or 'Unknown'}\n**Updated:** {subscription.updated_at or 'Unknown'}",
+                inline=True,
+            )
+        else:
+            # Free tier
+            from discord_audio_router.subscription.models import SubscriptionTier
+            tier_info = subscription_manager.get_tier_info(SubscriptionTier.FREE)
+            embed = discord.Embed(
+                title="📊 Subscription Status",
+                description=f"**Server:** {ctx.guild.name}\n**Server ID:** {server_id}",
+                color=discord.Color.blue(),
+            )
+            embed.add_field(
+                name="🎯 Current Tier",
+                value=f"**{tier_info['name']}** (Default) - Basic functionality",
+                inline=False,
+            )
+            embed.add_field(
+                name="📢 Listener Limit",
+                value=f"**{tier_info['max_listeners']}** listener channel",
+                inline=True,
+            )
+            embed.add_field(
+                name="💡 Upgrade Available",
+                value="Contact **zavalichir** or visit our website (URL TBD) to upgrade your subscription!",
+                inline=True,
+            )
+
+        # Add available tiers info
+        from discord_audio_router.subscription.models import SUBSCRIPTION_TIERS
+        
+        # Tier descriptions and request channels
+        tier_descriptions = {
+            "Free": "Basic functionality",
+            "Basic": "Trial tier", 
+            "Standard": "Small communities",
+            "Advanced": "Medium communities",
+            "Premium": "Large communities",
+            "Custom": "Custom features"
+        }
+        tier_request_channels = {
+            "Free": "-",
+            "Basic": "-",
+            "Standard": "-", 
+            "Advanced": "email",
+            "Premium": "email",
+            "Custom": "DM or email"
+        }
+        
+        tiers_text = "\n".join([
+            (
+                f"• **{info['name']}**: "
+                f"{info['max_listeners'] if info['max_listeners'] > 0 else 'unlimited'} listeners - "
+                f"{tier_descriptions.get(info['name'], 'Unknown')}"
+                +
+                (
+                    f" (request via {tier_request_channels.get(info['name'], 'Unknown')})"
+                    if tier_request_channels.get(info['name'], 'Unknown') not in ('Unknown', '-') else ""
+                )
+            )
+            for tier, info in SUBSCRIPTION_TIERS.items()
+        ])
+        embed.add_field(
+            name="📋 Available Tiers",
+            value=tiers_text,
+            inline=False,
+        )
+
+        await ctx.send(embed=embed)
+
+    except Exception as e:
+        logger.error(f"Error in subscription_status command: {e}", exc_info=True)
+        embed = discord.Embed(
+            title="❌ Command Error",
+            description=f"An error occurred: {str(e)}",
+            color=discord.Color.red(),
+        )
+        await ctx.send(embed=embed)
+
+
+@bot.command(name="bot_status")
+async def bot_status_command(ctx):
+    """Check the status of installed receiver bots in this server."""
+    try:
+        # Get configured tokens count
+        configured_tokens = len(config.audio_receiver_tokens)
+        
+        # Get actually installed bots count
+        installed_bots = await get_available_receiver_bots_count(ctx.guild)
+        
+        # Get maximum allowed based on subscription
+        if subscription_manager:
+            max_allowed = subscription_manager.get_server_max_listeners(str(ctx.guild.id))
+            if max_allowed == 0:  # CUSTOM tier - unlimited
+                max_allowed = configured_tokens  # Use all configured tokens
+        else:
+            max_allowed = 1  # Default to free tier
+        
+        # Get bot names
+        try:
+            members = []
+            async for member in ctx.guild.fetch_members(limit=None):
+                members.append(member)
+            
+            main_bot_name = ctx.guild.me.display_name
+            forwarder_bot_name = "Not found"
+            receiver_bot_names = []
+            
+            for member in members:
+                if member.bot:
+                    if member.display_name.startswith("Rcv-"):
+                        receiver_bot_names.append(member.display_name)
+                    elif "forward" in member.display_name.lower():
+                        forwarder_bot_name = member.display_name
+        except Exception as e:
+            logger.error(f"Error fetching bot info: {e}")
+            main_bot_name = ctx.guild.me.display_name
+            forwarder_bot_name = "Unknown"
+            receiver_bot_names = []
+        
+        # Create simple status message
+        status_text = f"**Main Bot:** {main_bot_name}\n"
+        status_text += f"**Forwarder:** {forwarder_bot_name}\n"
+        status_text += f"**Receivers:** {', '.join(receiver_bot_names) if receiver_bot_names else 'None'}\n\n"
+        status_text += f"**Status:** {installed_bots}/{max_allowed} receivers installed (subscription limit)"
+        
+        embed = discord.Embed(
+            title="🤖 Bot Status",
+            description=status_text,
+            color=discord.Color.blue(),
+        )
+        
+        # Hardcoded invite links for AudioReceiver bots
+        invite_links = [
+            "https://discord.com/oauth2/authorize?client_id=1412874261563179119&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_1
+            "https://discord.com/oauth2/authorize?client_id=1413616376379084940&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_2
+            "https://discord.com/oauth2/authorize?client_id=1413616620009689146&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_3
+            "https://discord.com/oauth2/authorize?client_id=1413616797097136138&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_4
+            "https://discord.com/oauth2/authorize?client_id=1413617038999552040&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_5
+            "https://discord.com/oauth2/authorize?client_id=1413617122395029534&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_6
+            "https://discord.com/oauth2/authorize?client_id=1413617324962873374&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_7
+            "https://discord.com/oauth2/authorize?client_id=1413617448330068101&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_8
+            "https://discord.com/oauth2/authorize?client_id=1413617570904543363&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_9
+            "https://discord.com/oauth2/authorize?client_id=1413617711896068186&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_10
+            "https://discord.com/oauth2/authorize?client_id=1413617864459423764&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_11
+            "https://discord.com/oauth2/authorize?client_id=1414514398915203202&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_12
+        ]
+        
+        # Add recommendations based on subscription limits
+        if installed_bots < max_allowed:
+            missing_bots = max_allowed - installed_bots
+            embed.add_field(
+                name="⚠️ Missing Receivers",
+                value=f"Need {missing_bots} more receiver{'s' if missing_bots > 1 else ''} for your subscription tier. Install with these links:",
+                inline=False,
+            )
+            
+            # Show only the links for missing bots
+            for i in range(missing_bots):
+                bot_number = installed_bots + i + 1
+                if i < len(invite_links):
+                    embed.add_field(
+                        name=f"Rcv-{bot_number}",
+                        value=f"[Install Bot]({invite_links[i]})",
+                        inline=False,
+                    )
+            embed.color = discord.Color.orange()
+            
+        elif installed_bots > max_allowed:
+            extra_bots = installed_bots - max_allowed
+            embed.add_field(
+                name="ℹ️ Extra Receivers",
+                value=f"You have {extra_bots} extra receiver{'s' if extra_bots > 1 else ''} installed. Receivers {max_allowed + 1}-{installed_bots} can be removed if not needed.",
+                inline=False,
+            )
+            embed.color = discord.Color.blue()
+            
+        else:
+            embed.add_field(
+                name="✅ Perfect",
+                value="All required receivers for your subscription tier are installed!",
+                inline=False,
+            )
+            embed.color = discord.Color.green()
+        
+        await ctx.send(embed=embed)
+        
+    except Exception as e:
+        logger.error(f"Error in bot_status command: {e}", exc_info=True)
+        embed = discord.Embed(
+            title="❌ Command Error",
+            description=f"An error occurred: {str(e)}",
+            color=discord.Color.red(),
+        )
+        await ctx.send(embed=embed)
 
 
 @bot.command(name="how_it_works")
@@ -1161,6 +1549,18 @@ async def how_it_works_command(ctx):
         "• Sections are organized in Discord categories\n"
         "• You can have multiple sections for different events\n"
         "• Each section operates independently",
+        inline=False,
+    )
+
+    embed.add_field(
+        name="💎 Subscription System",
+        value="• **Free Tier:** 1 listener channel - Basic functionality\n"
+        "• **Basic Tier:** 2 listener channels - Trial tier\n"
+        "• **Standard Tier:** 6 listener channels - Small communities\n"
+        "• **Advanced Tier:** 12 listener channels - Medium communities (request via email)\n"
+        "• **Premium Tier:** 24 listener channels - Large communities (request via email)\n"
+        "• **Custom Tier:** Unlimited listeners - Custom features (request via DM or email)\n"
+        "• Use `!subscription_status` to check your current tier",
         inline=False,
     )
 
