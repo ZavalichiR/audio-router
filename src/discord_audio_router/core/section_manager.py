@@ -98,6 +98,70 @@ class SectionManager:
             {}
         )  # guild_id -> section
 
+    def _validate_section_structure(
+        self, category: discord.CategoryChannel, expected_listener_count: int
+    ) -> tuple[bool, str]:
+        """
+        Validate if a category has the correct structure for a broadcast section.
+        
+        Args:
+            category: Category to validate
+            expected_listener_count: Expected number of listener channels
+            
+        Returns:
+            Tuple of (is_valid, validation_message)
+        """
+        voice_channels = [ch for ch in category.channels if isinstance(ch, discord.VoiceChannel)]
+        text_channels = [ch for ch in category.channels if isinstance(ch, discord.TextChannel)]
+        
+        # Check for speaker channel
+        speaker_channel = None
+        for channel in voice_channels:
+            if "🎤" in channel.name or "speaker" in channel.name.lower():
+                speaker_channel = channel
+                break
+        
+        # Check for listener channels (Channel-X format)
+        listener_channels = []
+        for channel in voice_channels:
+            if channel.name.startswith("Channel-") and channel.name[8:].isdigit():
+                listener_channels.append(channel)
+        
+        # Check for control channel
+        control_channel = None
+        for channel in text_channels:
+            if "control" in channel.name.lower() or "broadcast" in channel.name.lower():
+                control_channel = channel
+                break
+        
+        # Validate structure
+        if not speaker_channel:
+            return False, "Missing speaker channel"
+        
+        if len(listener_channels) == 0:
+            return False, "No listener channels found (expected Channel-1, Channel-2, etc.)"
+        
+        if len(listener_channels) != expected_listener_count:
+            return False, f"Expected {expected_listener_count} listener channels, but found {len(listener_channels)}"
+        
+        if not control_channel:
+            return False, "Missing control channel"
+        
+        # Check if listener channels are properly numbered
+        expected_numbers = set(range(1, expected_listener_count + 1))
+        actual_numbers = set()
+        for channel in listener_channels:
+            try:
+                num = int(channel.name[8:])  # Extract number from "Channel-X"
+                actual_numbers.add(num)
+            except ValueError:
+                return False, f"Invalid listener channel name: {channel.name}"
+        
+        if expected_numbers != actual_numbers:
+            return False, f"Listener channels not properly numbered. Expected Channel-1 through Channel-{expected_listener_count}"
+        
+        return True, "Structure is valid"
+
     async def _adopt_existing_category(
         self,
         guild: discord.Guild,
@@ -106,11 +170,11 @@ class SectionManager:
         listener_count: int,
     ) -> Dict[str, Any]:
         """
-        Try to adopt an existing category and convert it to a broadcast section.
+        Adopt an existing category that has been validated to have the correct structure.
 
         Args:
             guild: Discord guild
-            existing_category: Existing category to adopt
+            existing_category: Existing category to adopt (already validated)
             section_name: Name of the section
             listener_count: Number of listener channels needed
 
@@ -118,19 +182,11 @@ class SectionManager:
             Dict with adoption results
         """
         try:
-            # Check if the category has the right structure
-            voice_channels = [
-                ch
-                for ch in existing_category.channels
-                if isinstance(ch, discord.VoiceChannel)
-            ]
-            text_channels = [
-                ch
-                for ch in existing_category.channels
-                if isinstance(ch, discord.TextChannel)
-            ]
+            # Since structure is already validated, we can directly extract channels
+            voice_channels = [ch for ch in existing_category.channels if isinstance(ch, discord.VoiceChannel)]
+            text_channels = [ch for ch in existing_category.channels if isinstance(ch, discord.TextChannel)]
 
-            # Look for speaker and listener channels
+            # Extract channels (we know they exist from validation)
             speaker_channel = None
             listener_channels = []
             control_channel = None
@@ -138,130 +194,83 @@ class SectionManager:
             for channel in voice_channels:
                 if "🎤" in channel.name or "speaker" in channel.name.lower():
                     speaker_channel = channel
-                elif (
-                    "📢" in channel.name or "listener" in channel.name.lower()
-                ):
+                elif channel.name.startswith("Channel-") and channel.name[8:].isdigit():
                     listener_channels.append(channel)
 
             for channel in text_channels:
-                if (
-                    "control" in channel.name.lower()
-                    or "broadcast" in channel.name.lower()
-                ):
+                if "control" in channel.name.lower() or "broadcast" in channel.name.lower():
                     control_channel = channel
 
-            # If we have a good structure, adopt it
-            if speaker_channel and len(listener_channels) >= listener_count:
-                # Create broadcast section from existing channels
-                section = BroadcastSection(
-                    guild_id=guild.id,
-                    section_name=section_name,
-                    speaker_channel_id=speaker_channel.id,
-                    listener_channel_ids=[
-                        ch.id for ch in listener_channels[:listener_count]
-                    ],
-                )
-                section.category_id = existing_category.id
-                if control_channel:
-                    section.control_channel_id = control_channel.id
-
-                self.active_sections[guild.id] = section
-
-                # Set up permissions for adopted channels
-                if self.access_control:
-                    # Ensure required roles exist
-                    roles = await self.access_control.ensure_roles_exist(guild)
-                    speaker_role = roles.get("speaker_role")
-                    broadcast_admin_role = roles.get("broadcast_admin_role")
-
-                    # Set up voice channel permissions
-                    if speaker_channel:
-                        permission_success = await self.access_control.setup_voice_channel_permissions(
-                            speaker_channel,
-                            listener_channels,
-                            broadcast_admin_role,
-                            speaker_role,
-                        )
-                        if not permission_success:
-                            logger.warning(
-                                "Could not set up voice channel permissions for adopted channels"
-                            )
-
-                    # Set up control channel permissions
-                    if control_channel:
-                        try:
-                            if guild.me.guild_permissions.manage_channels:
-                                await control_channel.set_permissions(
-                                    guild.default_role,
-                                    read_messages=False,
-                                    send_messages=False,
-                                )
-                                await control_channel.set_permissions(
-                                    guild.me,
-                                    read_messages=True,
-                                    send_messages=True,
-                                    manage_messages=True,
-                                    embed_links=True,
-                                )
-                                if broadcast_admin_role:
-                                    await control_channel.set_permissions(
-                                        broadcast_admin_role,
-                                        read_messages=True,
-                                        send_messages=True,
-                                        embed_links=True,
-                                    )
-                                logger.info(
-                                    f"Set up control channel permissions for adopted channel: {control_channel.name}"
-                                )
-                        except discord.Forbidden:
-                            logger.warning(
-                                f"Could not set up control channel permissions for adopted channel: {control_channel.name}"
-                            )
-
-                logger.info(
-                    f"Adopted existing category '{section_name}' in {guild.name}"
-                )
-
-                return {
-                    "success": True,
-                    "message": f"Adopted existing broadcast section '{section_name}' with {len(listener_channels)} listener channels",
-                    "section": section,
-                    "was_existing": True,
-                    "adopted": True,
-                    "simple_message": f"✅ Using existing broadcast section '{section_name}'! Go to the control channel and use `!start_broadcast` to begin.",
-                }
-
-            # If structure is not suitable, create a new category with a different name
-            new_section_name = f"{section_name} (New)"
-            counter = 1
-            while discord.utils.get(guild.categories, name=f"🔴 {new_section_name}"):
-                counter += 1
-                new_section_name = f"{section_name} (New {counter})"
-
-            logger.info(
-                f"Existing category '{section_name}' not suitable, creating '{new_section_name}' instead"
-            )
-
-            # Create new category with modified name and icon
-            category_name = f"🔴 {new_section_name}"
-            category = await guild.create_category(
-                name=category_name,
-                reason=f"Creating broadcast section: {new_section_name} (original name '{section_name}' was taken)",
-            )
+            # Sort listener channels by numeric order
+            def sort_key(channel):
+                return int(channel.name[8:])  # Extract number from "Channel-X"
             
-            # Position the category at the top for maximum visibility
-            try:
-                await category.edit(position=0)
-                logger.info(f"Positioned category '{category_name}' at the top")
-            except discord.Forbidden:
-                logger.warning("Could not position category at top - insufficient permissions")
-            except Exception as e:
-                logger.warning(f"Could not position category at top: {e}")
-
-            # Continue with normal creation process using the new name
-            return await self._create_new_section(
-                guild, category, new_section_name, listener_count
+            listener_channels.sort(key=sort_key)
+            
+            # Create broadcast section from existing channels
+            section = BroadcastSection(
+                guild_id=guild.id,
+                section_name=section_name,
+                speaker_channel_id=speaker_channel.id,
+                listener_channel_ids=[ch.id for ch in listener_channels],
             )
+            section.category_id = existing_category.id
+            if control_channel:
+                section.control_channel_id = control_channel.id
+
+            self.active_sections[guild.id] = section
+
+            # Set up permissions for adopted channels
+            if self.access_control:
+                # Ensure required roles exist
+                roles = await self.access_control.ensure_roles_exist(guild)
+                speaker_role = roles.get("speaker_role")
+                broadcast_admin_role = roles.get("broadcast_admin_role")
+
+                # Set up voice channel permissions
+                if speaker_channel:
+                    await self.access_control.setup_voice_channel_permissions(
+                        speaker_channel,
+                        listener_channels,
+                        broadcast_admin_role,
+                        speaker_role,
+                    )
+
+                # Set up control channel permissions
+                if control_channel and guild.me.guild_permissions.manage_channels:
+                    try:
+                        await control_channel.set_permissions(
+                            guild.default_role,
+                            read_messages=False,
+                            send_messages=False,
+                        )
+                        await control_channel.set_permissions(
+                            guild.me,
+                            read_messages=True,
+                            send_messages=True,
+                            manage_messages=True,
+                            embed_links=True,
+                        )
+                        if broadcast_admin_role:
+                            await control_channel.set_permissions(
+                                broadcast_admin_role,
+                                read_messages=True,
+                                send_messages=True,
+                                embed_links=True,
+                            )
+                    except discord.Forbidden:
+                        logger.warning(f"Could not set up control channel permissions for adopted channel: {control_channel.name}")
+
+            logger.info(f"Adopted existing section '{section_name}' in {guild.name}")
+
+            return {
+                "success": True,
+                "message": f"Using existing broadcast section '{section_name}' with {len(listener_channels)} listener channels",
+                "section": section,
+                "was_existing": True,
+                "adopted": True,
+                "simple_message": f"✅ Using existing broadcast section '{section_name}'! Go to the control channel and use `!start_broadcast` to begin.",
+            }
 
         except Exception as e:
             logger.error(f"Error adopting existing category: {e}", exc_info=True)
@@ -309,7 +318,7 @@ class SectionManager:
             listener_channel_ids = []
             for i in range(1, listener_count + 1):
                 listener_channel = await category.create_voice_channel(
-                    name=f"group-{i}",
+                    name=f"Channel-{i}",
                     bitrate=96000,  # Discord's maximum bitrate
                     user_limit=0,
                     reason=f"Creating listener channel {i}",
@@ -552,19 +561,33 @@ class SectionManager:
                     "simple_message": f"✅ Using existing broadcast section '{existing_section.section_name}'! Go to the control channel and use `!start_broadcast` to begin.",
                 }
 
-            # Check if a category with the same name already exists (with or without icon)
+            # Check if a category with the same name already exists (exact match only)
             existing_category = discord.utils.get(
                 guild.categories, name=section_name
             ) or discord.utils.get(
                 guild.categories, name=f"🔴 {section_name}"
             )
+            
             if existing_category:
-                # Try to adopt the existing category by creating a section from it
-                return await self._adopt_existing_category(
-                    guild, existing_category, section_name, listener_count
+                # Check if the existing category has the correct structure
+                structure_valid, validation_message = self._validate_section_structure(
+                    existing_category, listener_count
                 )
+                
+                if structure_valid:
+                    # Structure is correct, adopt the existing section
+                    return await self._adopt_existing_category(
+                        guild, existing_category, section_name, listener_count
+                    )
+                else:
+                    # Structure is incorrect, return error
+                    return {
+                        "success": False,
+                        "message": f"Section '{section_name}' already exists but has a different structure. {validation_message}",
+                        "simple_message": f"❌ Section '{section_name}' already exists with different channels. Please use a different section name or delete the existing section first.",
+                    }
 
-            # Create category for the section with an engaging icon at the top
+            # No existing section found, create a new one
             category_name = f"🔴 {section_name}"
             category = await guild.create_category(
                 name=category_name,
@@ -579,7 +602,6 @@ class SectionManager:
                 logger.warning("Could not position category at top - insufficient permissions")
             except Exception as e:
                 logger.warning(f"Could not position category at top: {e}")
-            logger.info(f"Created category '{section_name}' in {guild.name}")
 
             # Use the helper method to create the section
             return await self._create_new_section(
@@ -631,7 +653,7 @@ class SectionManager:
                 }
 
             # Start listener bot processes with improved batch processing
-            # Sort listener channels by numeric order (group-1, group-2, group-3, etc.)
+            # Sort listener channels by numeric order (Channel-1, Channel-2, Channel-3, etc.)
             def extract_channel_number(channel_id):
                 """Extract the numeric part from channel name for proper sorting."""
                 channel = guild.get_channel(channel_id)

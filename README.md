@@ -9,7 +9,7 @@ Transform your Discord server into a professional broadcasting platform! The Dis
 The Discord Audio Router creates a **one-to-many audio broadcasting system** that allows:
 
 - **🎤 One Speaker Channel**: Presenters, instructors, or speakers join a dedicated speaker channel
-- **📢 Multiple Listener Channels**: Audience members join separate listener channels (group-1, group-2, etc.)
+- **📢 Multiple Listener Channels**: Audience members join separate listener channels (Channel-1, Channel-2, etc.)
 - **🔄 Real-time Audio Routing**: Audio from the speaker is instantly forwarded to all listener channels
 - **🏗️ Automatic Setup**: Creates organized channel categories with proper permissions
 - **🎛️ Easy Management**: Simple commands to start, stop, and monitor broadcasts
@@ -67,7 +67,7 @@ When you run `!start_broadcast 'Meeting Room' 5`:
 
 1. **Channel Setup**: Creates a "Meeting Room" category with:
    - 🎤 **Speaker** channel (for presenters)
-   - 📢 **group-1** through **group-5** channels (for audience)
+   - 📢 **Channel-1** through **Channel-5** channels (for audience)
    - 🎛️ **broadcast-control** channel (for commands)
 
 2. **Bot Deployment**: 
@@ -217,7 +217,7 @@ For each bot, create an invite link:
    This creates and immediately starts:
    - 📁 **War Room** category
    - 🎤 **Speaker** channel (for presenters)
-   - 📢 **group-1** through **group-5** channels (for audience)
+   - 📢 **Channel-1** through **Channel-5** channels (for audience)
    - 🎛️ **broadcast-control** channel (for commands)
    - 🎵 **Audio forwarding** from speaker to all listener channels
 
@@ -242,7 +242,7 @@ For each bot, create an invite link:
 # Creates a meeting setup with 10 listener channels and starts broadcasting
 
 # Presenter joins "Speaker" channel
-# Audience joins "group-1", "group-2", etc.
+# Audience joins "Channel-1", "Channel-2", etc.
 
 !stop_broadcast
 # Stops audio routing and removes all channels

@@ -130,6 +130,7 @@ async def on_ready() -> None:
 
         logger.info("Audio router initialized successfully")
 
+
     except Exception as e:
         logger.error(f"Failed to initialize audio router: {e}", exc_info=True)
 
