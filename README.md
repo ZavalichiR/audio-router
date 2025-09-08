@@ -126,30 +126,27 @@ For each bot, create an invite link:
 
 ### Creating a Broadcast Section
 
-1. **Set up a broadcast section** (creates organized channels):
+1. **Start a broadcast section** (creates organized channels and starts broadcasting):
    ```
-   !setup_broadcast 'War Room' 5
+   !start_broadcast 'War Room' 5
    ```
-   This creates:
+   This creates and immediately starts:
    - 📁 **War Room** category
    - 🎤 **Speaker** channel (for presenters)
    - 📢 **group-1** through **group-5** channels (for audience)
    - 🎛️ **broadcast-control** channel (for commands)
+   - 🎵 **Audio forwarding** from speaker to all listener channels
 
-2. **Start broadcasting**:
-   ```
-   !start_broadcast
-   ```
-   - The bot will connect to the speaker channel
-   - Audio from the speaker channel will be forwarded to all listener channels
-   - Audience members can join any listener channel to hear the audio
-
-3. **Stop broadcasting**:
+2. **Stop broadcasting and clean up**:
    ```
    !stop_broadcast
    ```
+   - Stops all audio broadcasting
+   - Deletes all broadcast channels
+   - Removes the broadcast category
+   - Cleans up all resources
 
-4. **Check status**:
+3. **Check status**:
    ```
    !broadcast_status
    ```
@@ -157,40 +154,33 @@ For each bot, create an invite link:
 ### Complete Example
 
 ```
-!setup_broadcast 'Company Meeting' 10
-# Creates a meeting setup with 10 listener channels
-
-!start_broadcast
-# Starts audio routing from speaker to all listeners
+!start_broadcast 'Company Meeting' 10
+# Creates a meeting setup with 10 listener channels and starts broadcasting
 
 # Presenter joins "Speaker" channel
 # Audience joins "group-1", "group-2", etc.
 
 !stop_broadcast
-# Stops audio routing
-
-!cleanup_setup
-# Removes all channels and cleans up
+# Stops audio routing and removes all channels
 ```
 
 ## 📋 Commands Reference
 
-### Setup Commands
+### Main Commands
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `!setup_broadcast 'Name' N` | Create broadcast section with N listener channels | `!setup_broadcast 'War Room' 5` |
-| `!check_setup 'Name'` | Check if a section already exists | `!check_setup 'War Room'` |
-| `!cleanup_setup` | Remove entire broadcast section | `!cleanup_setup` |
+| `!start_broadcast 'Name' N` | Create and start broadcast section with N listener channels | `!start_broadcast 'War Room' 5` |
+| `!stop_broadcast` | Stop broadcasting and remove entire section | `!stop_broadcast` |
+| `!broadcast_status` | Check current broadcast status | `!broadcast_status` |
+| `!system_status` | Check all bot processes and system health | `!system_status` |
 
-### Control Commands
+### Setup Commands
 
 | Command | Description |
 |---------|-------------|
-| `!start_broadcast` | Start audio forwarding |
-| `!stop_broadcast` | Stop audio forwarding |
-| `!broadcast_status` | Check current broadcast status |
-| `!system_status` | Check all bot processes and system health |
+| `!check_setup` | Check if your server is properly configured |
+| `!setup_roles` | Create and configure required roles |
 
 ### Access Control Commands (Admin Only)
 
@@ -520,8 +510,8 @@ This project is licensed under the MIT License.
 2. **Invite it to your server** with proper permissions
 3. **Configure your `.env` file** with bot tokens
 4. **Run the bot** using Docker or Python: `python launcher.py`
-5. **Create your first broadcast section** with `!setup_broadcast 'My Event' 5`
-6. **Start broadcasting** with `!start_broadcast`
+5. **Create and start your first broadcast section** with `!start_broadcast 'My Event' 5`
+6. **Stop and clean up** with `!stop_broadcast`
 
 **Happy Broadcasting! 🎵**
 

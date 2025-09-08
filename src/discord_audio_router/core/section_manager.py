@@ -53,6 +53,9 @@ class BroadcastSection:
         # Bot instances for this section
         self.speaker_bot_id: Optional[str] = None
         self.listener_bot_ids: List[str] = []
+        
+        # Reference to the original start_broadcast message for cleanup updates
+        self.original_message: Optional[Any] = None
 
     def get_status(self) -> Dict[str, Any]:
         """Get the current status of this section."""
@@ -420,10 +423,9 @@ class SectionManager:
                 )
                 embed.add_field(
                     name="🎛️ Available Commands",
-                    value="• `!start_broadcast` - Start audio forwarding\n"
-                    "• `!stop_broadcast` - Stop audio forwarding\n"
+                    value="• `!stop_broadcast` - Stop broadcasting and remove entire section\n"
                     "• `!broadcast_status` - Check broadcast status\n"
-                    "• `!cleanup_setup` - Remove entire section",
+                    "• `!system_status` - Check system health",
                     inline=False,
                 )
 
@@ -450,11 +452,10 @@ class SectionManager:
                             name="📝 Setup Instructions",
                             value="**To get started:**\n"
                             "1. **Assign Roles:** Give users the appropriate roles\n"
-                            "2. **Start Broadcast:** Run `!start_broadcast` in this channel\n"
-                            "3. **Join Channels:**\n"
+                            "2. **Join Channels:**\n"
                             f"   • Speakers join: <#{speaker_channel.id}>\n"
                             f"   • Listeners join: <#{listener_channel_ids[0] if listener_channel_ids else 'N/A'}> (and others)\n"
-                            "4. **Need Help?** Run `!help` for full setup guide",
+                            "3. **Need Help?** Run `!help` for full setup guide",
                             inline=False,
                         )
 
