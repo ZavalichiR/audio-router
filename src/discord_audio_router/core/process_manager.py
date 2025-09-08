@@ -188,6 +188,12 @@ class ProcessManager:
         """Add available bot tokens."""
         self.available_tokens.extend(tokens)
         logger.info(f"Added {len(tokens)} available bot tokens")
+        
+        # Log token order for debugging
+        for i, token in enumerate(tokens):
+            # Show first few and last few characters of token for identification
+            token_preview = f"{token[:8]}...{token[-8:]}" if len(token) > 16 else token
+            logger.info(f"Token #{i+1}: {token_preview}")
 
     async def start_speaker_bot(
         self, channel_id: int, guild_id: int
@@ -275,7 +281,11 @@ class ProcessManager:
             token = self.available_tokens.pop(0)
             self.used_tokens.add(token)
             
-            logger.info(f"Assigned token to channel {channel_id} (bot_id: {bot_id})")
+            # Calculate which token number this is (for debugging)
+            total_tokens = len(self.available_tokens) + len(self.used_tokens)
+            token_number = total_tokens - len(self.available_tokens)
+            
+            logger.info(f"Assigned token #{token_number} to channel {channel_id} (bot_id: {bot_id})")
 
             # Create bot process
             bot_process = BotProcess(
@@ -294,6 +304,19 @@ class ProcessManager:
             if bot_process.start():
                 self.bot_processes[bot_id] = bot_process
                 logger.info(f"Started AudioReceiver bot process: {bot_id}")
+                
+                # Give the bot a moment to initialize before considering it ready
+                await asyncio.sleep(0.5)
+                
+                # Verify the process is still running
+                if not bot_process.is_alive():
+                    logger.error(f"AudioReceiver bot process {bot_id} died immediately after startup")
+                    # Return token to available list if startup failed
+                    self.available_tokens.insert(0, token)
+                    self.used_tokens.discard(token)
+                    del self.bot_processes[bot_id]
+                    return None
+                
                 return bot_id
             else:
                 # Return token to available list if startup failed
@@ -392,14 +415,24 @@ class ProcessManager:
 
     def get_status(self) -> Dict[str, Any]:
         """Get the status of all bot processes."""
+        alive_processes = sum(1 for bp in self.bot_processes.values() if bp.is_alive())
         return {
             "total_processes": len(self.bot_processes),
+            "alive_processes": alive_processes,
             "available_tokens": len(self.available_tokens),
             "used_tokens": len(self.used_tokens),
             "processes": {
                 bot_id: bot_process.get_status()
                 for bot_id, bot_process in self.bot_processes.items()
             },
+        }
+    
+    def get_bot_channel_mapping(self) -> Dict[str, int]:
+        """Get a mapping of bot_id to channel_id for all running bots."""
+        return {
+            bot_id: bot_process.channel_id
+            for bot_id, bot_process in self.bot_processes.items()
+            if bot_process.is_alive()
         }
 
     def get_bot_status(self, bot_id: str) -> Optional[Dict[str, Any]]:

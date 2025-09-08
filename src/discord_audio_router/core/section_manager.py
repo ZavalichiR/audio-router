@@ -5,6 +5,7 @@ This module manages broadcast sections, including channel creation,
 bot deployment, and audio routing coordination.
 """
 
+import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -629,26 +630,96 @@ class SectionManager:
                     "message": "Failed to start speaker bot process!",
                 }
 
-            # Start listener bot processes
-            # Sort listener channels by name to ensure proper order (group-1, group-2, etc.)
+            # Start listener bot processes with improved batch processing
+            # Sort listener channels by numeric order (group-1, group-2, group-3, etc.)
+            def extract_channel_number(channel_id):
+                """Extract the numeric part from channel name for proper sorting."""
+                channel = guild.get_channel(channel_id)
+                if not channel:
+                    return float('inf')  # Put unknown channels at the end
+                
+                # Extract number from "group-X" format
+                import re
+                match = re.search(r'group-(\d+)', channel.name)
+                if match:
+                    return int(match.group(1))
+                else:
+                    return float('inf')  # Put non-group channels at the end
+            
             sorted_listener_channel_ids = sorted(
                 section.listener_channel_ids,
-                key=lambda cid: guild.get_channel(cid).name if guild.get_channel(cid) else ""
+                key=extract_channel_number
             )
             
+            # Log the sorted channel order for debugging
+            channel_names = []
+            for cid in sorted_listener_channel_ids:
+                channel = guild.get_channel(cid)
+                channel_names.append(channel.name if channel else f"Unknown({cid})")
+            
+            logger.info(f"Starting {len(sorted_listener_channel_ids)} listener bots in batches...")
+            logger.info(f"Channel order: {channel_names}")
+            
+            batch_size = 10
             listener_bot_ids = []
-            for channel_id in sorted_listener_channel_ids:
-                listener_bot_id = (
-                    await self.process_manager.start_listener_bot(
+            failed_channels = []
+            
+            for i in range(0, len(sorted_listener_channel_ids), batch_size):
+                batch = sorted_listener_channel_ids[i:i + batch_size]
+                logger.info(f"Starting batch {i//batch_size + 1}: channels {[guild.get_channel(cid).name if guild.get_channel(cid) else cid for cid in batch]}")
+                
+                # Start all bots in this batch concurrently
+                batch_tasks = []
+                for channel_id in batch:
+                    task = self.process_manager.start_listener_bot(
                         channel_id, guild.id, section.speaker_channel_id
                     )
-                )
-                if listener_bot_id:
-                    listener_bot_ids.append(listener_bot_id)
-                else:
-                    logger.warning(
-                        f"Failed to start listener bot for channel {channel_id}"
+                    batch_tasks.append((channel_id, task))
+                
+                # Wait for all bots in this batch to start
+                for channel_id, task in batch_tasks:
+                    try:
+                        listener_bot_id = await task
+                        if listener_bot_id:
+                            listener_bot_ids.append(listener_bot_id)
+                            channel_name = guild.get_channel(channel_id).name if guild.get_channel(channel_id) else str(channel_id)
+                            logger.info(f"✅ Started listener bot for {channel_name} (ID: {listener_bot_id})")
+                        else:
+                            failed_channels.append(channel_id)
+                            channel_name = guild.get_channel(channel_id).name if guild.get_channel(channel_id) else str(channel_id)
+                            logger.warning(f"❌ Failed to start listener bot for {channel_name}")
+                    except Exception as e:
+                        failed_channels.append(channel_id)
+                        channel_name = guild.get_channel(channel_id).name if guild.get_channel(channel_id) else str(channel_id)
+                        logger.error(f"❌ Exception starting listener bot for {channel_name}: {e}")
+                
+                # Add a small delay between batches to avoid rate limiting
+                if i + batch_size < len(sorted_listener_channel_ids):
+                    logger.info("Waiting 2 seconds before starting next batch...")
+                    await asyncio.sleep(2)
+            
+            # Retry failed channels once
+            if failed_channels:
+                logger.info(f"Retrying {len(failed_channels)} failed channels...")
+                retry_tasks = []
+                for channel_id in failed_channels:
+                    task = self.process_manager.start_listener_bot(
+                        channel_id, guild.id, section.speaker_channel_id
                     )
+                    retry_tasks.append((channel_id, task))
+                
+                for channel_id, task in retry_tasks:
+                    try:
+                        listener_bot_id = await task
+                        if listener_bot_id:
+                            listener_bot_ids.append(listener_bot_id)
+                            channel_name = guild.get_channel(channel_id).name if guild.get_channel(channel_id) else str(channel_id)
+                            logger.info(f"✅ Retry successful for {channel_name} (ID: {listener_bot_id})")
+                    except Exception as e:
+                        channel_name = guild.get_channel(channel_id).name if guild.get_channel(channel_id) else str(channel_id)
+                        logger.error(f"❌ Retry failed for {channel_name}: {e}")
+            
+            logger.info(f"Successfully started {len(listener_bot_ids)} out of {len(sorted_listener_channel_ids)} listener bots")
 
             if not listener_bot_ids:
                 # Stop speaker bot if no listeners started

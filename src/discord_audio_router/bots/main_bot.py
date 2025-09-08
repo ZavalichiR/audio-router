@@ -1415,11 +1415,28 @@ async def bot_status_command(ctx):
             forwarder_bot_name = "Unknown"
             receiver_bot_names = []
         
+        # Get active bot processes if audio router is available
+        active_bot_info = ""
+        if audio_router:
+            process_status = audio_router.process_manager.get_status()
+            bot_mapping = audio_router.process_manager.get_bot_channel_mapping()
+            
+            active_bot_info = f"\n**Active Bot Processes:** {process_status['alive_processes']}/{process_status['total_processes']}\n"
+            if bot_mapping:
+                active_bot_info += "**Bot-Channel Mapping:**\n"
+                for bot_id, channel_id in bot_mapping.items():
+                    channel = ctx.guild.get_channel(channel_id)
+                    channel_name = channel.name if channel else f"Unknown({channel_id})"
+                    active_bot_info += f"• {bot_id} → {channel_name}\n"
+            else:
+                active_bot_info += "No active bot processes found.\n"
+        
         # Create simple status message
         status_text = f"**Main Bot:** {main_bot_name}\n"
         status_text += f"**Forwarder:** {forwarder_bot_name}\n"
         status_text += f"**Receivers:** {', '.join(receiver_bot_names) if receiver_bot_names else 'None'}\n\n"
         status_text += f"**Status:** {installed_bots}/{max_allowed} receivers installed (subscription limit)"
+        status_text += active_bot_info
         
         embed = discord.Embed(
             title="🤖 Bot Status",
@@ -1494,6 +1511,69 @@ async def bot_status_command(ctx):
         embed = discord.Embed(
             title="⚠️ Something Went Wrong",
             description=f"An unexpected error occurred. Please try again or contact the bot administrator if the issue persists.\n\n**Error:** {str(e)}",
+            color=discord.Color.orange(),
+        )
+        await ctx.send(embed=embed)
+
+
+@bot.command(name="debug_tokens")
+@get_broadcast_admin_decorator()
+async def debug_tokens_command(ctx):
+    """Debug command to show token order and channel assignment."""
+    try:
+        if not audio_router:
+            embed = discord.Embed(
+                title="⚠️ System Starting Up",
+                description="The audio router is still initializing. Please wait a moment and try again.",
+                color=discord.Color.orange(),
+            )
+            await ctx.send(embed=embed)
+            return
+
+        # Get token information
+        process_manager = audio_router.process_manager
+        total_tokens = len(process_manager.available_tokens) + len(process_manager.used_tokens)
+        
+        embed = discord.Embed(
+            title="🔍 Token Debug Information",
+            description=f"**Total Tokens:** {total_tokens}\n**Available:** {len(process_manager.available_tokens)}\n**Used:** {len(process_manager.used_tokens)}",
+            color=discord.Color.blue(),
+        )
+        
+        # Show token order
+        if hasattr(process_manager, 'config') and hasattr(process_manager.config, 'audio_receiver_tokens'):
+            tokens = process_manager.config.audio_receiver_tokens
+            token_info = "**Token Order (as loaded from .env):**\n"
+            for i, token in enumerate(tokens[:10]):  # Show first 10 tokens
+                token_preview = f"{token[:8]}...{token[-8:]}" if len(token) > 16 else token
+                token_info += f"{i+1}. {token_preview}\n"
+            if len(tokens) > 10:
+                token_info += f"... and {len(tokens) - 10} more tokens"
+            embed.add_field(name="📋 Token List", value=token_info, inline=False)
+        
+        # Show current bot assignments
+        bot_mapping = process_manager.get_bot_channel_mapping()
+        if bot_mapping:
+            assignment_info = "**Current Bot-Channel Assignments:**\n"
+            for bot_id, channel_id in bot_mapping.items():
+                channel = ctx.guild.get_channel(channel_id)
+                channel_name = channel.name if channel else f"Unknown({channel_id})"
+                # Extract bot number from bot_id (e.g., "audioreceiver_123456" -> extract number)
+                import re
+                bot_match = re.search(r'audioreceiver_(\d+)', bot_id)
+                bot_num = bot_match.group(1) if bot_match else "Unknown"
+                assignment_info += f"Bot {bot_num} → {channel_name}\n"
+            embed.add_field(name="🤖 Current Assignments", value=assignment_info, inline=False)
+        else:
+            embed.add_field(name="🤖 Current Assignments", value="No active bot processes", inline=False)
+        
+        await ctx.send(embed=embed)
+        
+    except Exception as e:
+        logger.error(f"Error in debug_tokens command: {e}", exc_info=True)
+        embed = discord.Embed(
+            title="⚠️ Something Went Wrong",
+            description=f"An unexpected error occurred: {str(e)}",
             color=discord.Color.orange(),
         )
         await ctx.send(embed=embed)
