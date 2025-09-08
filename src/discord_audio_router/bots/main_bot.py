@@ -6,6 +6,7 @@ proper multi-bot architecture for handling multiple listener channels.
 """
 
 import asyncio
+import json
 import re
 import sys
 from pathlib import Path
@@ -1418,21 +1419,13 @@ async def bot_status_command(ctx):
             color=discord.Color.blue(),
         )
         
-        # Hardcoded invite links for AudioReceiver bots
-        invite_links = [
-            "https://discord.com/oauth2/authorize?client_id=1412874261563179119&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_1
-            "https://discord.com/oauth2/authorize?client_id=1413616376379084940&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_2
-            "https://discord.com/oauth2/authorize?client_id=1413616620009689146&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_3
-            "https://discord.com/oauth2/authorize?client_id=1413616797097136138&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_4
-            "https://discord.com/oauth2/authorize?client_id=1413617038999552040&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_5
-            "https://discord.com/oauth2/authorize?client_id=1413617122395029534&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_6
-            "https://discord.com/oauth2/authorize?client_id=1413617324962873374&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_7
-            "https://discord.com/oauth2/authorize?client_id=1413617448330068101&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_8
-            "https://discord.com/oauth2/authorize?client_id=1413617570904543363&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_9
-            "https://discord.com/oauth2/authorize?client_id=1413617711896068186&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_10
-            "https://discord.com/oauth2/authorize?client_id=1413617864459423764&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_11
-            "https://discord.com/oauth2/authorize?client_id=1414514398915203202&permissions=2419149840&integration_type=0&scope=bot",  # Rcv_12
-        ]
+        # Load invite links from JSON file
+        try:
+            with open("data/bot_urls.json", "r", encoding="utf-8") as f:
+                invite_links = json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to load bot URLs: {e}")
+            invite_links = []
         
         # Add recommendations based on subscription limits
         if installed_bots < max_allowed:
