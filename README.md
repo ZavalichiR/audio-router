@@ -1,19 +1,103 @@
 # 🎵 Discord Audio Router
 
-**Professional audio routing system for Discord voice channels**
+**Professional multi-bot audio routing system for Discord voice channels**
 
-Transform your Discord server into a professional broadcasting platform! The Discord Audio Router allows you to route audio from one voice channel to multiple listener channels simultaneously, perfect for presentations, meetings, events, and more.
+Transform your Discord server into a professional broadcasting platform! The Discord Audio Router is a sophisticated system that routes audio from one speaker channel to multiple listener channels simultaneously using a multi-bot architecture. Perfect for presentations, meetings, events, training sessions, and any scenario where you need to broadcast audio to multiple groups.
 
-## 🏗️ Architecture
+## 🎯 What This Bot Does
 
-This project uses a clean, modular architecture with proper separation of concerns:
+The Discord Audio Router creates a **one-to-many audio broadcasting system** that allows:
 
-- **Core Logic**: Business logic and orchestration (`src/discord_audio_router/core/`)
-- **Audio Processing**: Audio capture, buffering, and playback (`src/discord_audio_router/audio/`)
-- **Networking**: WebSocket communication and relay servers (`src/discord_audio_router/networking/`)
-- **Bot Implementations**: Discord bot instances (`src/discord_audio_router/bots/`)
-- **Configuration**: Settings and environment management (`src/discord_audio_router/config/`)
-- **Infrastructure**: Logging, exceptions, and utilities (`src/discord_audio_router/infrastructure/`)
+- **🎤 One Speaker Channel**: Presenters, instructors, or speakers join a dedicated speaker channel
+- **📢 Multiple Listener Channels**: Audience members join separate listener channels (group-1, group-2, etc.)
+- **🔄 Real-time Audio Routing**: Audio from the speaker is instantly forwarded to all listener channels
+- **🏗️ Automatic Setup**: Creates organized channel categories with proper permissions
+- **🎛️ Easy Management**: Simple commands to start, stop, and monitor broadcasts
+- **👥 Access Control**: Role-based permissions for broadcast management
+
+## 🏗️ How It's Structured
+
+The system uses a **multi-bot architecture** with specialized bots for different functions:
+
+### Bot Types & Roles
+
+1. **🎛️ AudioBroadcast Bot (Main Control)**
+   - Handles user commands and system management
+   - Creates and manages broadcast sections
+   - Coordinates all other bots
+   - Provides status monitoring and access control
+
+2. **🎤 AudioForwarder Bot (Speaker Bot)**
+   - Joins the speaker channel
+   - Captures audio from presenters
+   - Sends audio data to the WebSocket relay server
+   - One instance per broadcast section
+
+3. **📢 AudioReceiver Bots (Listener Bots)**
+   - Join individual listener channels
+   - Receive audio data from the relay server
+   - Play audio to audience members
+   - Multiple instances (one per listener channel)
+
+### System Architecture
+
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Speaker       │    │  WebSocket       │    │   Listener      │
+│   Channel       │◄───┤  Relay Server    ├───►│   Channels      │
+│                 │    │                  │    │                 │
+│ [AudioForwarder]│    │  Audio Router    │    │ [AudioReceiver] │
+│      Bot        │    │   System         │    │      Bots       │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+```
+
+### Core Components
+
+- **Core Logic** (`src/discord_audio_router/core/`): Business logic and orchestration
+- **Audio Processing** (`src/discord_audio_router/audio/`): Audio capture, buffering, and playback
+- **Networking** (`src/discord_audio_router/networking/`): WebSocket communication and relay servers
+- **Bot Implementations** (`src/discord_audio_router/bots/`): Specialized Discord bot instances
+- **Configuration** (`src/discord_audio_router/config/`): Settings and environment management
+- **Infrastructure** (`src/discord_audio_router/infrastructure/`): Logging, exceptions, and utilities
+
+## ⚙️ How It Works
+
+### 1. **Broadcast Section Creation**
+When you run `!start_broadcast 'Meeting Room' 5`:
+
+1. **Channel Setup**: Creates a "Meeting Room" category with:
+   - 🎤 **Speaker** channel (for presenters)
+   - 📢 **group-1** through **group-5** channels (for audience)
+   - 🎛️ **broadcast-control** channel (for commands)
+
+2. **Bot Deployment**: 
+   - Starts one AudioForwarder bot in the speaker channel
+   - Starts five AudioReceiver bots (one in each listener channel)
+   - Establishes WebSocket connections for audio routing
+
+3. **Audio Routing**: 
+   - Audio from the speaker channel is captured by the AudioForwarder bot
+   - Audio data is sent to the WebSocket relay server
+   - The relay server distributes audio to all AudioReceiver bots
+   - Each AudioReceiver bot plays the audio in its respective listener channel
+
+### 2. **Real-time Audio Flow**
+```
+Presenter speaks → AudioForwarder captures → WebSocket relay → AudioReceiver bots → Audience hears
+```
+
+### 3. **Process Management**
+- Each bot runs as a separate process for stability
+- Automatic health monitoring and restart capabilities
+- Graceful shutdown and cleanup procedures
+- Resource management and token allocation
+
+### 4. **Access Control**
+- Role-based permissions (Broadcast Admin, Speaker roles)
+- User authorization system
+- Automatic role creation and management
+- Permission validation and error handling
+
 
 ## ✨ Features
 
@@ -173,30 +257,22 @@ For each bot, create an invite link:
 | `!start_broadcast 'Name' N` | Create and start broadcast section with N listener channels | `!start_broadcast 'War Room' 5` |
 | `!stop_broadcast` | Stop broadcasting and remove entire section | `!stop_broadcast` |
 | `!broadcast_status` | Check current broadcast status | `!broadcast_status` |
-| `!system_status` | Check all bot processes and system health | `!system_status` |
 
 ### Setup Commands
 
 | Command | Description |
 |---------|-------------|
 | `!check_setup` | Check if your server is properly configured |
-| `!setup_roles` | Create and configure required roles |
-
-### Access Control Commands (Admin Only)
-
-| Command | Description | Example |
-|---------|-------------|---------|
-| `!authorize @user` | Give user broadcast control permissions | `!authorize @john` |
-| `!unauthorize @user` | Remove user's broadcast permissions | `!unauthorize @john` |
-| `!list_authorized` | List all authorized users |
-| `!check_permissions` | Check bot permissions and role hierarchy |
-| `!fix_permissions` | Get step-by-step permission fix instructions |
+| `!setup_roles` | Create and configure required roles (Admin only) |
+| `!check_permissions` | Check bot permissions and role hierarchy (Admin only) |
+| `!role_info` | Show information about audio router roles |
 
 ### Help Commands
 
 | Command | Description |
 |---------|-------------|
-| `!help_audio_router` | Show complete help information |
+| `!help` | Show all available commands and their descriptions |
+| `!how_it_works` | Explain how the audio routing system works |
 
 ## ⚙️ Configuration
 
@@ -210,7 +286,11 @@ AUDIO_BROADCAST_TOKEN=your_audiobroadcast_bot_token_here
 AUDIO_FORWARDER_TOKEN=your_audioforwarder_bot_token_here
 
 # AudioReceiver Bot Tokens (for multiple listener channels) - REQUIRED
-AUDIO_RECEIVER_TOKENS=your_audioreceiver_1_bot_token,your_audioreceiver_2_bot_token,your_audioreceiver_3_bot_token
+AUDIO_RECEIVER_TOKENS=[
+    your_audioreceiver_1_bot_token,
+    your_audioreceiver_2_bot_token,
+    your_audioreceiver_3_bot_token
+]
 
 # Optional
 BOT_PREFIX=!
@@ -225,8 +305,16 @@ AUTO_CREATE_ROLES=true
 For better performance with many listener channels, you can configure multiple AudioReceiver bot tokens:
 
 ```env
-AUDIO_RECEIVER_TOKENS=your_audioreceiver_1_bot_token,your_audioreceiver_2_bot_token,your_audioreceiver_3_bot_token,your_audioreceiver_4_bot_token,your_audioreceiver_5_bot_token
+AUDIO_RECEIVER_TOKENS=[
+    your_audioreceiver_1_bot_token,
+    your_audioreceiver_2_bot_token,
+    your_audioreceiver_3_bot_token,
+    your_audioreceiver_4_bot_token,
+    your_audioreceiver_5_bot_token
+]
 ```
+
+**Note**: The configuration parser supports both the new multi-line format (recommended) and the legacy comma-separated format for backward compatibility.
 
 **Important**: Each AudioReceiver bot must have its own unique token. Discord does not allow multiple bot instances to use the same token simultaneously. More bots = better performance and reliability.
 
@@ -257,11 +345,11 @@ AUDIO_RECEIVER_TOKENS=your_audioreceiver_1_bot_token,your_audioreceiver_2_bot_to
 ### Common Issues
 
 #### ❌ "You need administrator permissions"
-**Solution**: Make sure you have Administrator permission or are in an authorized role.
+**Solution**: Make sure you have Administrator permission or are in the Broadcast Admin role.
 
 #### ❌ "Bot lacks 'Manage Channels' permission"
 **Solution**: 
-1. Run `!fix_permissions` for detailed instructions
+1. Run `!check_permissions` for detailed instructions
 2. Or give the bot Administrator permission in Server Settings
 
 #### ❌ "No available tokens for AudioReceiver bot"
@@ -274,11 +362,11 @@ AUDIO_RECEIVER_TOKENS=your_audioreceiver_1_bot_token,your_audioreceiver_2_bot_to
 **Solution**:
 1. Check that FFmpeg is installed
 2. Verify bot is connected to voice channels
-3. Run `!system_status` to check bot health
+3. Run `!broadcast_status` to check broadcast health
 
 ### Getting Help
 
-1. **Check bot status**: `!system_status`
+1. **Check bot status**: `!broadcast_status`
 2. **Check permissions**: `!check_permissions`
 3. **View logs**: Check the `logs/` directory for error messages
 4. **Restart bot**: Stop and restart the bot process
@@ -345,13 +433,10 @@ The system uses a centralized configuration approach following 12-factor app pri
 - **Environment Variables**: All configuration via environment variables
 - **Validation**: Comprehensive configuration validation
 - **Documentation**: Clear documentation for all settings
-- **Examples**: Multiple example configurations for different environments
 
 #### Configuration Files
 
 - `env.example` - Complete configuration template with documentation
-- `examples/basic_setup.env` - Basic setup for development
-- `examples/production.env` - Production-ready configuration
 
 #### Environment Variables
 
@@ -420,7 +505,7 @@ services:
 
 Monitor your bot with:
 
-- **System Status**: `!system_status`
+- **Broadcast Status**: `!broadcast_status`
 - **Log Files**: Check `logs/` directory
 - **Health Checks**: Built-in Docker health checks
 
@@ -440,44 +525,6 @@ For high-traffic scenarios:
 - **Dedicated Resources**: Allocate sufficient RAM and CPU
 - **Network Optimization**: Use low-latency hosting
 
-## 🧪 Testing
-
-### Running Tests
-
-The project includes comprehensive tests to ensure reliability:
-
-```bash
-# Run all tests
-make test
-
-# Run specific test categories
-python -m pytest tests/unit/ -v
-python -m pytest tests/integration/ -v
-python -m pytest tests/e2e/ -v
-
-# Run configuration audit tests
-python -m pytest tests/test_configuration_audit.py -v
-
-# Run with coverage
-python -m pytest tests/ --cov=src/discord_audio_router --cov-report=html
-```
-
-### Test Categories
-
-- **Unit Tests**: Individual component testing
-- **Integration Tests**: Component interaction testing
-- **End-to-End Tests**: Full workflow testing
-- **Configuration Audit**: Configuration consistency testing
-
-### Configuration Validation
-
-The system includes comprehensive configuration validation:
-
-- Environment variable validation
-- Bot token format validation
-- Channel ID validation
-- Role name validation
-- Port number validation
 
 ## 🤝 Support
 
@@ -485,12 +532,11 @@ The system includes comprehensive configuration validation:
 
 1. **Check the logs** in the `logs/` directory
 2. **Run diagnostic commands**:
-   - `!system_status`
+   - `!check_setup`
    - `!check_permissions`
    - `!broadcast_status`
 3. **Review this documentation**
 4. **Check Discord bot permissions**
-5. **Run configuration audit tests**
 
 ### Common Solutions
 
@@ -498,7 +544,6 @@ The system includes comprehensive configuration validation:
 - **Check Discord server permissions**
 - **Verify bot token configuration**
 - **Ensure FFmpeg is installed**
-- **Run tests to verify configuration**
 
 ## 📄 License
 
@@ -517,4 +562,4 @@ This project is licensed under the MIT License.
 
 ---
 
-*Need help? Check the troubleshooting section or run `!help_audio_router` in your Discord server.*
+*Need help? Check the troubleshooting section or run `!help` in your Discord server.*

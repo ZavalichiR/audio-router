@@ -97,7 +97,12 @@ class SimpleConfigManager:
         """
         Get AudioReceiver bot tokens from environment variables.
 
-        Uses AUDIO_RECEIVER_TOKENS with comma-separated tokens.
+        Always expects multi-line format:
+        AUDIO_RECEIVER_TOKENS=[
+            "token1",
+            "token2",
+            ...
+        ]
 
         Returns:
             List of AudioReceiver bot tokens
@@ -105,18 +110,7 @@ class SimpleConfigManager:
         Raises:
             ValueError: If no AudioReceiver tokens are configured
         """
-        tokens = []
-
-        # Get comma-separated tokens
-        multiple_tokens = self._get_optional_env("AUDIO_RECEIVER_TOKENS")
-        if multiple_tokens:
-            for token in multiple_tokens.split(","):
-                token = token.strip()
-                if token and token not in tokens:
-                    tokens.append(token)
-
-        # AudioReceiver tokens are required - Discord doesn't allow multiple
-        # instances with same token
+        tokens = self._parse_multiline_tokens_from_env_file()
         if not tokens:
             raise ValueError(
                 "AUDIO_RECEIVER_TOKENS is required. Each AudioReceiver bot "
@@ -124,9 +118,81 @@ class SimpleConfigManager:
                 "Discord Developer Portal and add their tokens to "
                 "AUDIO_RECEIVER_TOKENS."
             )
-
         logger.info(f"Loaded {len(tokens)} AudioReceiver bot tokens")
         return tokens
+
+    def _parse_multiline_tokens_from_env_file(self) -> List[str]:
+        """
+        Parse multi-line AUDIO_RECEIVER_TOKENS directly from .env file.
+
+        Assumes the format:
+        AUDIO_RECEIVER_TOKENS=[
+            "token1",
+            "token2",
+            ...
+        ]
+
+        Returns:
+            List of parsed tokens
+        """
+        tokens = []
+        try:
+            # Look for .env file in current directory and parent directories
+            env_file_path = None
+            current_dir = os.getcwd()
+            for _ in range(3):  # Check up to 3 levels up
+                potential_path = os.path.join(current_dir, ".env")
+                if os.path.exists(potential_path):
+                    env_file_path = potential_path
+                    break
+                current_dir = os.path.dirname(current_dir)
+
+            if not env_file_path:
+                logger.warning("Could not find .env file to parse multi-line tokens")
+                return tokens
+
+            with open(env_file_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+
+            in_tokens_section = False
+            for line in lines:
+                stripped = line.strip()
+                if not in_tokens_section:
+                    if stripped.startswith("AUDIO_RECEIVER_TOKENS=["):
+                        in_tokens_section = True
+                        # Check if tokens are on the same line
+                        after_bracket = stripped[len("AUDIO_RECEIVER_TOKENS=["):].strip()
+                        if after_bracket and after_bracket != "]":
+                            # Handle inline tokens, e.g. AUDIO_RECEIVER_TOKENS=["token1","token2"]
+                            inline = after_bracket
+                            if inline.endswith("]"):
+                                inline = inline[:-1]
+                                in_tokens_section = False
+                            for token in inline.split(","):
+                                token = token.strip().strip('"').strip("'")
+                                if token:
+                                    tokens.append(token)
+                        continue
+                else:
+                    if stripped == "]":
+                        break
+                    if not stripped or stripped.startswith("#"):
+                        continue
+                    # Remove trailing comma and quotes
+                    token = stripped.rstrip(",").strip().strip('"').strip("'")
+                    if token:
+                        tokens.append(token)
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_tokens = []
+            for token in tokens:
+                if token and token not in seen:
+                    seen.add(token)
+                    unique_tokens.append(token)
+            return unique_tokens
+        except Exception as e:
+            logger.error(f"Error parsing multi-line tokens from .env file: {e}")
+            return tokens
 
     def _get_speaker_role_name(self) -> str:
         """Get speaker role name from environment variables."""
