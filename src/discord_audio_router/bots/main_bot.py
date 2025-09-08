@@ -210,9 +210,9 @@ async def start_broadcast_command(ctx, *, args: str) -> None:
     try:
         if not audio_router:
             embed = discord.Embed(
-                title="❌ System Error",
-                description="Audio router not initialized. Please restart the bot.",
-                color=discord.Color.red(),
+                title="⚠️ System Starting Up",
+                description="The audio router is still initializing. Please wait a moment and try again.\n\nIf this persists, contact the bot administrator.",
+                color=discord.Color.orange(),
             )
             await ctx.send(embed=embed)
             return
@@ -230,11 +230,13 @@ async def start_broadcast_command(ctx, *, args: str) -> None:
             requested_listener_count = None  # Will use max allowed
         else:
             embed = discord.Embed(
-                title="❌ Invalid Command Format",
-                description="Usage: `!start_broadcast 'Section Name' [N]`\n"
-                "Example: `!start_broadcast 'War Room' 5`\n"
-                "Example: `!start_broadcast 'War Room'` (uses max allowed)",
-                color=discord.Color.red(),
+                title="📝 How to Use This Command",
+                description="**Usage:** `!start_broadcast 'Section Name' [N]`\n\n"
+                "**Examples:**\n"
+                "• `!start_broadcast 'War Room' 5` - Create with 5 listeners\n"
+                "• `!start_broadcast 'War Room'` - Create with max allowed for your tier\n\n"
+                "**Note:** Section name must be in quotes!",
+                color=discord.Color.blue(),
             )
             await ctx.send(embed=embed)
             return
@@ -258,9 +260,9 @@ async def start_broadcast_command(ctx, *, args: str) -> None:
             
             if not is_valid:
                 embed = discord.Embed(
-                    title="❌ Subscription Limit Exceeded",
-                    description=validation_message,
-                    color=discord.Color.red(),
+                    title="💎 Upgrade Your Subscription",
+                    description=f"{validation_message}\n\n**Need more listeners?** Contact **zavalichir** or visit our website to upgrade your subscription tier!",
+                    color=discord.Color.orange(),
                 )
                 await ctx.send(embed=embed)
                 return
@@ -425,9 +427,9 @@ async def start_broadcast_command(ctx, *, args: str) -> None:
     except Exception as e:
         logger.error(f"Error in start_broadcast command: {e}", exc_info=True)
         embed = discord.Embed(
-            title="❌ Command Error",
-            description=f"An error occurred: {str(e)}",
-            color=discord.Color.red(),
+            title="⚠️ Something Went Wrong",
+            description=f"An unexpected error occurred. Please try again or contact the bot administrator if the issue persists.\n\n**Error:** {str(e)}",
+            color=discord.Color.orange(),
         )
         await ctx.send(embed=embed)
 
@@ -449,9 +451,9 @@ async def stop_broadcast_command(ctx):
     try:
         if not audio_router:
             embed = discord.Embed(
-                title="❌ System Error",
-                description="Audio router not initialized. Please restart the bot.",
-                color=discord.Color.red(),
+                title="⚠️ System Starting Up",
+                description="The audio router is still initializing. Please wait a moment and try again.\n\nIf this persists, contact the bot administrator.",
+                color=discord.Color.orange(),
             )
             await ctx.send(embed=embed)
             return
@@ -552,9 +554,9 @@ async def stop_broadcast_command(ctx):
     except Exception as e:
         logger.error(f"Error in stop_broadcast command: {e}", exc_info=True)
         embed = discord.Embed(
-            title="❌ Command Error",
-            description=f"An error occurred: {str(e)}",
-            color=discord.Color.red(),
+            title="⚠️ Something Went Wrong",
+            description=f"An unexpected error occurred. Please try again or contact the bot administrator if the issue persists.\n\n**Error:** {str(e)}",
+            color=discord.Color.orange(),
         )
         # Try to send error message, but handle case where channel might not exist
         try:
@@ -572,9 +574,9 @@ async def broadcast_status_command(ctx):
     try:
         if not audio_router:
             embed = discord.Embed(
-                title="❌ System Error",
-                description="Audio router not initialized. Please restart the bot.",
-                color=discord.Color.red(),
+                title="⚠️ System Starting Up",
+                description="The audio router is still initializing. Please wait a moment and try again.\n\nIf this persists, contact the bot administrator.",
+                color=discord.Color.orange(),
             )
             await ctx.send(embed=embed)
             return
@@ -615,9 +617,9 @@ async def broadcast_status_command(ctx):
     except Exception as e:
         logger.error(f"Error in status command: {e}", exc_info=True)
         embed = discord.Embed(
-            title="❌ Command Error",
-            description=f"An error occurred: {str(e)}",
-            color=discord.Color.red(),
+            title="⚠️ Something Went Wrong",
+            description=f"An unexpected error occurred. Please try again or contact the bot administrator if the issue persists.\n\n**Error:** {str(e)}",
+            color=discord.Color.orange(),
         )
         await ctx.send(embed=embed)
 
@@ -631,9 +633,9 @@ async def setup_roles_command(ctx):
     try:
         if not audio_router or not hasattr(audio_router, "access_control"):
             embed = discord.Embed(
-                title="❌ System Error",
-                description="Access control system not available.",
-                color=discord.Color.red(),
+                title="⚠️ System Loading",
+                description="The access control system is still initializing. Please wait a moment and try again.",
+                color=discord.Color.orange(),
             )
             await ctx.send(embed=embed)
             return
@@ -759,9 +761,9 @@ async def setup_roles_command(ctx):
     except Exception as e:
         logger.error(f"Error in setup_roles command: {e}", exc_info=True)
         embed = discord.Embed(
-            title="❌ Command Error",
-            description=f"An error occurred: {str(e)}",
-            color=discord.Color.red(),
+            title="⚠️ Something Went Wrong",
+            description=f"An unexpected error occurred. Please try again or contact the bot administrator if the issue persists.\n\n**Error:** {str(e)}",
+            color=discord.Color.orange(),
         )
         await ctx.send(embed=embed)
 
@@ -772,9 +774,9 @@ async def check_setup_command(ctx):
     try:
         if not audio_router:
             embed = discord.Embed(
-                title="❌ System Error",
-                description="Audio router not initialized. Please restart the bot.",
-                color=discord.Color.red(),
+                title="⚠️ System Starting Up",
+                description="The audio router is still initializing. Please wait a moment and try again.\n\nIf this persists, contact the bot administrator.",
+                color=discord.Color.orange(),
             )
             await ctx.send(embed=embed)
             return
@@ -908,9 +910,9 @@ async def check_setup_command(ctx):
     except Exception as e:
         logger.error(f"Error in check_setup command: {e}", exc_info=True)
         embed = discord.Embed(
-            title="❌ Command Error",
-            description=f"An error occurred: {str(e)}",
-            color=discord.Color.red(),
+            title="⚠️ Something Went Wrong",
+            description=f"An unexpected error occurred. Please try again or contact the bot administrator if the issue persists.\n\n**Error:** {str(e)}",
+            color=discord.Color.orange(),
         )
         await ctx.send(embed=embed)
 
@@ -1032,9 +1034,9 @@ async def check_permissions_command(ctx):
     except Exception as e:
         logger.error(f"Error in check_permissions command: {e}", exc_info=True)
         embed = discord.Embed(
-            title="❌ Command Error",
-            description=f"An error occurred: {str(e)}",
-            color=discord.Color.red(),
+            title="⚠️ Something Went Wrong",
+            description=f"An unexpected error occurred. Please try again or contact the bot administrator if the issue persists.\n\n**Error:** {str(e)}",
+            color=discord.Color.orange(),
         )
         await ctx.send(embed=embed)
 
@@ -1045,9 +1047,9 @@ async def role_info_command(ctx):
     try:
         if not audio_router or not hasattr(audio_router, "access_control"):
             embed = discord.Embed(
-                title="❌ System Error",
-                description="Access control system not available.",
-                color=discord.Color.red(),
+                title="⚠️ System Loading",
+                description="The access control system is still initializing. Please wait a moment and try again.",
+                color=discord.Color.orange(),
             )
             await ctx.send(embed=embed)
             return
@@ -1160,9 +1162,9 @@ async def role_info_command(ctx):
     except Exception as e:
         logger.error(f"Error in role_info command: {e}", exc_info=True)
         embed = discord.Embed(
-            title="❌ Command Error",
-            description=f"An error occurred: {str(e)}",
-            color=discord.Color.red(),
+            title="⚠️ Something Went Wrong",
+            description=f"An unexpected error occurred. Please try again or contact the bot administrator if the issue persists.\n\n**Error:** {str(e)}",
+            color=discord.Color.orange(),
         )
         await ctx.send(embed=embed)
 
@@ -1176,58 +1178,49 @@ async def help_command(ctx):
     """Show all available commands and their descriptions."""
     embed = discord.Embed(
         title="🎵 Audio Router Bot - Commands",
-        description="Here are all the available commands for the Audio Router Bot:",
+        description="Transform your Discord server into a professional broadcasting platform!",
         color=discord.Color.blue(),
     )
 
-    # Basic commands (available to everyone)
+    # Quick start guide (most important first)
     embed.add_field(
-        name="📋 Basic Commands",
-        value="• `!help` - Show this command list\n"
-        "• `!how_it_works` - Learn how the audio routing system works\n"
-        "• `!check_setup` - Check if your server is properly configured",
+        name="🚀 Quick Start Guide",
+        value="1. **Check Setup:** `!check_setup` - See what's needed\n"
+        "2. **Create Roles:** `!setup_roles` - Set up required roles\n"
+        "3. **Start Broadcast:** `!start_broadcast 'Room Name'` - Create your first broadcast\n"
+        "4. **Stop When Done:** `!stop_broadcast` - Clean up everything",
         inline=False,
     )
 
-    # Admin commands
+    # Main broadcast commands
     embed.add_field(
-        name="👑 Admin Commands",
-        value="• `!setup_roles` - Create and configure required roles\n"
-        "• `!check_permissions` - Verify bot permissions and get fixes\n"
-        "• `!start_broadcast 'Name' [N]` - Create and start a broadcast section\n"
-        "• `!stop_broadcast` - Stop broadcasting and clean up section\n"
-        "• `!broadcast_status` - Check broadcast status\n"
-        "• `!subscription_status` - Check subscription tier and limits\n"
+        name="🎤 Broadcast Commands",
+        value="• `!start_broadcast 'Name' [N]` - Start a new broadcast section\n"
+        "• `!stop_broadcast` - Stop and clean up current broadcast\n"
+        "• `!broadcast_status` - Check current broadcast status",
+        inline=False,
+    )
+
+    # Setup and management
+    embed.add_field(
+        name="⚙️ Setup & Management",
+        value="• `!check_setup` - Verify your server is ready\n"
+        "• `!setup_roles` - Create required roles\n"
+        "• `!check_permissions` - Fix bot permission issues\n"
         "• `!bot_status` - Check installed receiver bots",
         inline=False,
     )
 
-    # Role management commands
+    # Information commands
     embed.add_field(
-        name="👥 Role Management",
-        value="• `!role_info` - Show information about audio router roles\n"
-        "• `!setup_roles` - Create and position roles correctly",
+        name="ℹ️ Information",
+        value="• `!subscription_status` - Check your subscription tier\n"
+        "• `!role_info` - Learn about roles and permissions\n"
+        "• `!how_it_works` - Understand the audio routing system",
         inline=False,
     )
 
-    # Debug commands
-    embed.add_field(
-        name="🔧 Debug Commands",
-        value="• `!check_permissions` - Detailed permission analysis",
-        inline=False,
-    )
-
-    # Quick start guide
-    embed.add_field(
-        name="🚀 Quick Start",
-        value="1. Run `!check_setup` to see what's needed\n"
-        "2. Run `!setup_roles` to create required roles\n"
-        "3. Run `!start_broadcast 'Test Room'` or `!start_broadcast 'Test Room' 3` to create and start your first section\n"
-        "4. Use `!stop_broadcast` to stop and clean up when done",
-        inline=False,
-    )
-
-    embed.set_footer(text="Use !how_it_works to learn more about the system")
+    embed.set_footer(text="Need help? Run !how_it_works for a detailed explanation")
     await ctx.send(embed=embed)
 
 
@@ -1237,9 +1230,9 @@ async def subscription_status_command(ctx):
     try:
         if not subscription_manager:
             embed = discord.Embed(
-                title="❌ System Error",
-                description="Subscription manager not initialized. Please restart the bot.",
-                color=discord.Color.red(),
+                title="⚠️ Subscription System Loading",
+                description="The subscription system is still initializing. Please wait a moment and try again.\n\nIf this persists, contact the bot administrator.",
+                color=discord.Color.orange(),
             )
             await ctx.send(embed=embed)
             return
@@ -1282,8 +1275,8 @@ async def subscription_status_command(ctx):
             else:
                 current_tier_value = f"**{tier_name}** - {description}"
             embed.add_field(
-                name="🎯 Current Tier",
-                value=current_tier_value,
+                        name="🎯 Current Tier",
+                        value=current_tier_value,
                 inline=False,
             )
             embed.add_field(
@@ -1366,9 +1359,9 @@ async def subscription_status_command(ctx):
     except Exception as e:
         logger.error(f"Error in subscription_status command: {e}", exc_info=True)
         embed = discord.Embed(
-            title="❌ Command Error",
-            description=f"An error occurred: {str(e)}",
-            color=discord.Color.red(),
+            title="⚠️ Something Went Wrong",
+            description=f"An unexpected error occurred. Please try again or contact the bot administrator if the issue persists.\n\n**Error:** {str(e)}",
+            color=discord.Color.orange(),
         )
         await ctx.send(embed=embed)
 
@@ -1450,15 +1443,30 @@ async def bot_status_command(ctx):
                 inline=False,
             )
             
-            # Show only the links for missing bots
-            for i in range(missing_bots):
-                bot_number = installed_bots + i + 1
-                if i < len(invite_links):
-                    embed.add_field(
-                        name=f"Rcv-{bot_number}",
-                        value=f"[Install Bot]({invite_links[i]})",
-                        inline=False,
-                    )
+            # Show only the links for missing bots that we have invite links for
+            # We need to show links for bots from (installed_bots + 1) to min(max_allowed, len(invite_links))
+            first_missing_bot = installed_bots + 1
+            last_available_bot = min(max_allowed, len(invite_links))
+            
+            # Show invite links for available bots
+            for bot_number in range(first_missing_bot, last_available_bot + 1):
+                # Bot number is 1-indexed, but array is 0-indexed
+                link_index = bot_number - 1
+                embed.add_field(
+                    name=f"Rcv-{bot_number}",
+                    value=f"[Install Bot]({invite_links[link_index]})",
+                    inline=False,
+                )
+            
+            # If we need more bots than we have links for, show contact message
+            if max_allowed > len(invite_links):
+                first_contact_bot = len(invite_links) + 1
+                embed.add_field(
+                    name="📞 Contact for More Bots",
+                    value=f"For receivers Rcv-{first_contact_bot} to Rcv-{max_allowed}, please contact **zavalichir** to get additional receiver bots.",
+                    inline=False,
+                )
+            
             embed.color = discord.Color.orange()
             
         elif installed_bots > max_allowed:
@@ -1483,9 +1491,9 @@ async def bot_status_command(ctx):
     except Exception as e:
         logger.error(f"Error in bot_status command: {e}", exc_info=True)
         embed = discord.Embed(
-            title="❌ Command Error",
-            description=f"An error occurred: {str(e)}",
-            color=discord.Color.red(),
+            title="⚠️ Something Went Wrong",
+            description=f"An unexpected error occurred. Please try again or contact the bot administrator if the issue persists.\n\n**Error:** {str(e)}",
+            color=discord.Color.orange(),
         )
         await ctx.send(embed=embed)
 
