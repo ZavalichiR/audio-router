@@ -32,6 +32,7 @@ class SimpleConfig:
 
     # Access control configuration (simplified)
     speaker_role_name: str = "Speaker"
+    listener_role_name: str = "Listener"
     broadcast_admin_role_name: str = "Broadcast Admin"
     auto_create_roles: bool = True
 
@@ -198,6 +199,10 @@ class SimpleConfigManager:
         """Get speaker role name from environment variables."""
         return self._get_optional_env("SPEAKER_ROLE_NAME", "Speaker")
 
+    def _get_listener_role_name(self) -> str:
+        """Get listener role name from environment variables."""
+        return self._get_optional_env("LISTENER_ROLE_NAME", "Listener")
+
     def _get_broadcast_admin_role_name(self) -> str:
         """Get broadcast admin role name from environment variables."""
         return self._get_optional_env(
@@ -237,6 +242,7 @@ class SimpleConfigManager:
                 log_level=self._get_optional_env("LOG_LEVEL", "INFO"),
                 audio_receiver_tokens=audio_receiver_tokens,
                 speaker_role_name=self._get_speaker_role_name(),
+                listener_role_name=self._get_listener_role_name(),
                 broadcast_admin_role_name=self._get_broadcast_admin_role_name(),
                 auto_create_roles=self._get_auto_create_roles(),
             )

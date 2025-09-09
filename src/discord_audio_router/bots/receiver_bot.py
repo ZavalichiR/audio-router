@@ -106,6 +106,9 @@ class AudioReceiverBot:
                 f"Target channel: {self.channel_id}, Guild: {self.guild_id}"
             )
 
+            # Ensure the bot has the Listener role
+            await self._ensure_listener_role()
+
             # Connect to the listener channel with retry
             await self._connect_to_channel_with_retry()
 
@@ -386,6 +389,45 @@ class AudioReceiverBot:
             except Exception as e:
                 logger.error(f"Error in performance monitoring: {e}", exc_info=True)
                 await asyncio.sleep(30)
+
+    async def _ensure_listener_role(self):
+        """Ensure the AudioReceiver bot has the Listener role to join listener channels."""
+        try:
+            guild = self.bot.get_guild(self.guild_id)
+            if not guild:
+                logger.error(f"Guild {self.guild_id} not found")
+                return
+
+            bot_member = guild.get_member(self.bot.user.id)
+            if not bot_member:
+                logger.error(f"Bot member not found in guild {guild.name}")
+                return
+
+            # Look for the Listener role
+            listener_role = discord.utils.get(guild.roles, name="Listener")
+            if not listener_role:
+                logger.warning("Listener role not found - AudioReceiver bot may not be able to join listener channels")
+                return
+
+            # Check if bot already has the Listener role
+            if listener_role in bot_member.roles:
+                logger.info(f"AudioReceiver bot already has Listener role: {listener_role.name}")
+                return
+
+            # Try to add the Listener role to the bot
+            try:
+                await bot_member.add_roles(
+                    listener_role,
+                    reason="AudioReceiver bot needs Listener role to join listener channels"
+                )
+                logger.info(f"Added Listener role to AudioReceiver bot: {listener_role.name}")
+            except discord.Forbidden:
+                logger.warning("Cannot add Listener role to AudioReceiver bot - insufficient permissions")
+            except Exception as e:
+                logger.error(f"Error adding Listener role to AudioReceiver bot: {e}", exc_info=True)
+
+        except Exception as e:
+            logger.error(f"Error ensuring Listener role for AudioReceiver bot: {e}", exc_info=True)
 
     async def connect_to_channel(self) -> bool:
         """Connect to the listener channel and start audio playback."""

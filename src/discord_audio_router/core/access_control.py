@@ -3,8 +3,8 @@ Simplified Access Control System for Discord Audio Router Bot.
 
 This module provides a clean role-based access control system:
 - Speaker role: Required to join speaker channels
+- Listener role: Required to join listener channels
 - Broadcast Admin role: Required to use bot commands
-- Listener channels: Open to everyone
 """
 
 import logging
@@ -22,6 +22,7 @@ class AccessControl:
 
     This class handles:
     - Speaker role management (who can join speaker channels)
+    - Listener role management (who can join listener channels)
     - Broadcast admin role management (who can use bot commands)
     - Automatic role creation (but not assignment)
     """
@@ -39,6 +40,9 @@ class AccessControl:
         self.speaker_role_name = getattr(
             config, "speaker_role_name", "Speaker"
         )
+        self.listener_role_name = getattr(
+            config, "listener_role_name", "Listener"
+        )
         self.broadcast_admin_role_name = getattr(
             config, "broadcast_admin_role_name", "Broadcast Admin"
         )
@@ -47,7 +51,7 @@ class AccessControl:
         self.auto_create_roles = getattr(config, "auto_create_roles", True)
 
         logger.info(
-            f"Access control initialized - Speaker: '{self.speaker_role_name}', Admin: '{self.broadcast_admin_role_name}'"
+            f"Access control initialized - Speaker: '{self.speaker_role_name}', Listener: '{self.listener_role_name}', Admin: '{self.broadcast_admin_role_name}'"
         )
 
     def is_broadcast_admin(self, member: discord.Member) -> bool:
@@ -84,6 +88,19 @@ class AccessControl:
         member_role_names = {role.name for role in member.roles}
         return self.speaker_role_name in member_role_names
 
+    def has_listener_role(self, member: discord.Member) -> bool:
+        """
+        Check if a member has the listener role.
+
+        Args:
+            member: Discord member to check
+
+        Returns:
+            True if member has listener role, False otherwise
+        """
+        member_role_names = {role.name for role in member.roles}
+        return self.listener_role_name in member_role_names
+
     async def ensure_roles_exist(self, guild: discord.Guild) -> dict:
         """
         Ensure that required roles exist in the guild.
@@ -93,12 +110,12 @@ class AccessControl:
             guild: Discord guild
 
         Returns:
-            Dict with role information: {'speaker_role': role, 'broadcast_admin_role': role}
+            Dict with role information: {'speaker_role': role, 'listener_role': role, 'broadcast_admin_role': role}
         """
         if not self.auto_create_roles:
-            return {"speaker_role": None, "broadcast_admin_role": None}
+            return {"speaker_role": None, "listener_role": None, "broadcast_admin_role": None}
 
-        result = {"speaker_role": None, "broadcast_admin_role": None}
+        result = {"speaker_role": None, "listener_role": None, "broadcast_admin_role": None}
 
         try:
             # Check if bot has necessary permissions
@@ -149,6 +166,46 @@ class AccessControl:
                 except Exception as e:
                     logger.warning(f"Could not add speaker role to bot: {e}")
 
+            # Ensure listener role exists
+            listener_role = discord.utils.get(
+                guild.roles, name=self.listener_role_name
+            )
+            if not listener_role:
+                try:
+                    listener_role = await guild.create_role(
+                        name=self.listener_role_name,
+                        color=discord.Color.blue(),
+                        reason="Created for listener channel access",
+                    )
+                    logger.info(
+                        f"Created listener role: {self.listener_role_name}"
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to create listener role: {e}", exc_info=True)
+            else:
+                logger.info(
+                    f"Listener role '{self.listener_role_name}' already exists"
+                )
+            result["listener_role"] = listener_role
+
+            # Give the bot the listener role so it can join listener channels
+            if listener_role and bot_member:
+                try:
+                    if listener_role not in bot_member.roles:
+                        await bot_member.add_roles(
+                            listener_role,
+                            reason="Bot needs listener role to join listener channels",
+                        )
+                        logger.info(
+                            f"Added listener role to bot: {self.listener_role_name}"
+                        )
+                    else:
+                        logger.info(
+                            f"Bot already has listener role: {self.listener_role_name}"
+                        )
+                except Exception as e:
+                    logger.warning(f"Could not add listener role to bot: {e}")
+
             # Ensure broadcast admin role exists
             admin_role = discord.utils.get(
                 guild.roles, name=self.broadcast_admin_role_name
@@ -182,15 +239,17 @@ class AccessControl:
         listener_channels: list[discord.VoiceChannel],
         broadcast_admin_role: Optional[discord.Role] = None,
         speaker_role: Optional[discord.Role] = None,
+        listener_role: Optional[discord.Role] = None,
     ) -> bool:
         """
         Set up voice channel permissions for speaker and listener channels.
 
         Args:
             speaker_channel: Speaker voice channel (restricted to speaker role)
-            listener_channels: List of listener voice channels (open to everyone)
+            listener_channels: List of listener voice channels (restricted to listener role)
             broadcast_admin_role: Role for broadcast admins
             speaker_role: Role for speakers
+            listener_role: Role for listeners
 
         Returns:
             True if successful, False otherwise
@@ -239,16 +298,33 @@ class AccessControl:
                         f"Cannot set speaker channel permissions: {e}"
                     )
 
-            # Set up listener channel permissions (open to everyone, can speak)
+            # Set up listener channel permissions (restricted to listener role)
             for listener_channel in listener_channels:
                 try:
-                    # Allow everyone to connect and speak in listener channels
-                    await listener_channel.set_permissions(
-                        listener_channel.guild.default_role,
-                        connect=True,
-                        speak=True,  # Listeners can speak in their channels
-                        view_channel=True,
-                    )
+                    if listener_role:
+                        # Deny access to @everyone
+                        await listener_channel.set_permissions(
+                            listener_channel.guild.default_role,
+                            connect=False,
+                            view_channel=True,  # Allow viewing but not connecting
+                        )
+
+                        # Allow listener role to connect
+                        await listener_channel.set_permissions(
+                            listener_role,
+                            connect=True,
+                            speak=True,  # Listeners can speak in their channels
+                            view_channel=True,
+                        )
+
+                        # Allow broadcast admin role to connect (for management)
+                        if broadcast_admin_role:
+                            await listener_channel.set_permissions(
+                                broadcast_admin_role,
+                                connect=True,
+                                speak=True,
+                                view_channel=True,
+                            )
 
                     logger.info(
                         f"Set listener channel permissions for: {listener_channel.name}"

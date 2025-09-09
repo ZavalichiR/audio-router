@@ -332,9 +332,10 @@ class SectionManager:
                 # Ensure required roles exist
                 roles = await self.access_control.ensure_roles_exist(guild)
                 speaker_role = roles.get("speaker_role")
+                listener_role = roles.get("listener_role")
                 broadcast_admin_role = roles.get("broadcast_admin_role")
                 
-                logger.info(f"Roles setup: speaker_role={speaker_role}, broadcast_admin_role={broadcast_admin_role}")
+                logger.info(f"Roles setup: speaker_role={speaker_role}, listener_role={listener_role}, broadcast_admin_role={broadcast_admin_role}")
 
                 # Set up voice channel permissions
                 permission_setup_success = (
@@ -347,6 +348,7 @@ class SectionManager:
                         ],
                         broadcast_admin_role,
                         speaker_role,
+                        listener_role,
                     )
                 )
                 logger.info(f"Voice channel permission setup: {'success' if permission_setup_success else 'failed'}")
