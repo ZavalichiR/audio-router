@@ -328,14 +328,11 @@ class SectionManager:
             # Set up voice channel permissions using access control
             permission_setup_success = False
             if self.access_control:
-                logger.info("Setting up access control and roles...")
                 # Ensure required roles exist
                 roles = await self.access_control.ensure_roles_exist(guild)
                 speaker_role = roles.get("speaker_role")
                 listener_role = roles.get("listener_role")
                 broadcast_admin_role = roles.get("broadcast_admin_role")
-                
-                logger.info(f"Roles setup: speaker_role={speaker_role}, listener_role={listener_role}, broadcast_admin_role={broadcast_admin_role}")
 
                 # Set up voice channel permissions
                 permission_setup_success = (
@@ -359,7 +356,6 @@ class SectionManager:
             # This should be independent of voice channel permission setup success
             control_channel_permissions_set = False
             if self.access_control:
-                logger.info("Setting up control channel permissions...")
                 try:
                     # Check if bot has manage channels permission before attempting
                     if guild.me.guild_permissions.manage_channels:
@@ -680,9 +676,6 @@ class SectionManager:
             for cid in sorted_listener_channel_ids:
                 channel = guild.get_channel(cid)
                 channel_names.append(channel.name if channel else f"Unknown({cid})")
-            
-            logger.info(f"Starting {len(sorted_listener_channel_ids)} listener bots in batches...")
-            logger.info(f"Channel order: {channel_names}")
             
             batch_size = 10
             listener_bot_ids = []

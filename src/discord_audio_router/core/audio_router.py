@@ -156,20 +156,3 @@ class AudioRouter:
             "available_tokens": len(self.process_manager.available_tokens),
             "used_tokens": len(self.process_manager.used_tokens),
         }
-
-    async def shutdown(self):
-        """Shutdown the audio router and cleanup resources."""
-        try:
-            # Stop all bot processes
-            await self.process_manager.stop_all_bots()
-
-            # Clean up all sections
-            for guild_id in list(self.section_manager.active_sections.keys()):
-                # We need the guild object, but we don't have it here
-                # In a real implementation, you'd store guild references
-                pass
-
-            logger.info("Audio router shutdown complete")
-
-        except Exception as e:
-            logger.error(f"Error during audio router shutdown: {e}", exc_info=True)
