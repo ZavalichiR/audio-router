@@ -5,17 +5,21 @@ This module handles the coordination of audio routing between speaker
 and listener channels using the bot manager.
 """
 
-import logging
 from typing import Any, Dict, Optional
 
 import discord
 from discord.ext import commands
 
+from discord_audio_router.infrastructure import setup_logging
+
 from .access_control import AccessControl
 from .bot_manager import BotManager
 from .section_manager import SectionManager
 
-logger = logging.getLogger(__name__)
+logger = setup_logging(
+    component_name="audio_router",
+    log_file="logs/audio_router.log",
+)
 
 
 class AudioRouter:
@@ -78,7 +82,7 @@ class AudioRouter:
         logger.info("Audio router initialized")
 
     async def create_broadcast_section(
-        self, guild: discord.Guild, section_name: str, listener_count: int
+        self, guild: discord.Guild, section_name: str, listener_count: int, role_name: str = None
     ) -> Dict[str, Any]:
         """
         Create a broadcast section.
@@ -87,12 +91,13 @@ class AudioRouter:
             guild: Discord guild
             section_name: Name of the section
             listener_count: Number of listener channels
+            role_name: Optional role name for category visibility restriction
 
         Returns:
             Dict with creation results
         """
         return await self.section_manager.create_broadcast_section(
-            guild, section_name, listener_count
+            guild, section_name, listener_count, role_name=role_name
         )
 
     async def start_broadcast(self, guild: discord.Guild) -> Dict[str, Any]:

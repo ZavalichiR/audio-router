@@ -143,7 +143,7 @@ async def on_command_error(ctx: commands.Context, error: Exception) -> None:
 async def start_broadcast_command(ctx, *, args: str) -> None:
     """
     🎵 Start audio broadcasting with automatic setup.
-    Usage: !start_broadcast 'Section Name' [N]
+    Usage: !start_broadcast 'Section Name' [N] [--role 'RoleName']
     """
     try:
         if not audio_router:
@@ -155,7 +155,30 @@ async def start_broadcast_command(ctx, *, args: str) -> None:
             await ctx.send(embed=embed)
             return
 
-        # Parse arguments: 'Section Name' [N]
+        # Parse arguments: 'Section Name' [N] [--role 'RoleName']
+        # First, check for --role parameter
+        role_name = None
+        if '--role' in args:
+            role_match = re.search(r"--role\s+'([^']+)'", args)
+            if role_match:
+                role_name = role_match.group(1)
+                # Remove the --role part from args for further parsing
+                args = re.sub(r"\s*--role\s+'[^']+'", "", args).strip()
+            else:
+                embed = discord.Embed(
+                    title="❌ Invalid Role Parameter",
+                    description="**Usage:** `!start_broadcast 'Section Name' [N] [--role 'RoleName']`\n\n"
+                                "**Examples:**\n"
+                                "• `!start_broadcast 'War Room' 5` - Create with 5 listeners, visible to everyone\n"
+                                "• `!start_broadcast 'War Room' 5 --role 'VIP'` - Create with 5 listeners, only visible to VIP role\n"
+                                "• `!start_broadcast 'War Room' --role 'Members'` - Create with max listeners, only visible to Members role\n\n"
+                                "**Note:** Role name must be in quotes!",
+                    color=discord.Color.red(),
+                )
+                await ctx.send(embed=embed)
+                return
+
+        # Parse remaining arguments: 'Section Name' [N]
         match_with_count = re.match(r"'([^']+)'\s+(\d+)", args.strip())
         match_without_count = re.match(r"'([^']+)'", args.strip())
 
@@ -168,10 +191,11 @@ async def start_broadcast_command(ctx, *, args: str) -> None:
         else:
             embed = discord.Embed(
                 title="📝 How to Use This Command",
-                description="**Usage:** `!start_broadcast 'Section Name' [N]`\n\n"
+                description="**Usage:** `!start_broadcast 'Section Name' [N] [--role 'RoleName']`\n\n"
                             "**Examples:**\n"
-                            "• `!start_broadcast 'War Room' 5` - Create with 5 listeners\n"
-                            "• `!start_broadcast 'War Room'` - Create with max allowed for your tier\n\n"
+                            "• `!start_broadcast 'War Room' 5` - Create with 5 listeners, visible to everyone\n"
+                            "• `!start_broadcast 'War Room' 5 --role 'VIP'` - Create with 5 listeners, only visible to VIP role\n"
+                            "• `!start_broadcast 'War Room' --role 'Members'` - Create with max listeners, only visible to Members role\n\n"
                             "**Note:** Section name must be in quotes!",
                 color=discord.Color.blue(),
             )
@@ -276,7 +300,7 @@ async def start_broadcast_command(ctx, *, args: str) -> None:
         await loading_message.edit(embed=creating_embed)
 
         result = await audio_router.create_broadcast_section(
-            ctx.guild, section_name, listener_count
+            ctx.guild, section_name, listener_count, role_name=role_name
         )
 
         if not result["success"]:
@@ -302,13 +326,21 @@ async def start_broadcast_command(ctx, *, args: str) -> None:
         section.original_message = loading_message
 
         if start_result["success"]:
+            # Create success message based on role visibility
+            visibility_info = ""
+            if role_name:
+                visibility_info = f"✅ Category visible only to **{role_name}** role members\n"
+            else:
+                visibility_info = "✅ Category visible to everyone\n"
+            
             success_embed = discord.Embed(
                 title="🎵 Broadcast Started Successfully!",
                 description=f"**{section_name}** is now live!\n\n"
                             f"✅ Section created with {listener_count} listener channels\n"
                             f"✅ Audio forwarding is active\n"
                             f"✅ Presenters can join the speaker channel\n"
-                            f"✅ Audience can join any listener channel\n\n"
+                            f"✅ Audience can join any listener channel\n"
+                            f"{visibility_info}\n"
                             f"Go to {control_channel_mention} for more commands!",
                 color=discord.Color.green(),
             )
@@ -361,35 +393,36 @@ async def stop_broadcast_command(ctx):
         section = audio_router.section_manager.active_sections[ctx.guild.id]
         section_name = section.section_name
 
-        embed = discord.Embed(
+        # Create initial loading message
+        loading_embed = discord.Embed(
             title="⏹️ Stopping Audio Broadcasting",
             description=f"Stopping audio forwarding for '{section_name}'...",
             color=discord.Color.orange(),
         )
-        await ctx.send(embed=embed)
+        loading_message = await ctx.send(embed=loading_embed)
 
         stop_result = await audio_router.stop_broadcast(ctx.guild)
 
         if not stop_result["success"]:
-            embed = discord.Embed(
+            error_embed = discord.Embed(
                 title="⚠️ Failed to Stop Broadcast",
                 description=f"Could not stop broadcasting: {stop_result['message']}\n\n"
                             f"Proceeding with cleanup anyway...",
                 color=discord.Color.orange(),
             )
-            await ctx.send(embed=embed)
+            await loading_message.edit(embed=error_embed)
 
-        embed = discord.Embed(
+        cleanup_embed = discord.Embed(
             title="🗑️ Cleaning Up Broadcast Section",
             description=f"Removing all channels and resources for '{section_name}'...",
             color=discord.Color.orange(),
         )
-        await ctx.send(embed=embed)
+        await loading_message.edit(embed=cleanup_embed)
 
         cleanup_result = await audio_router.cleanup_section(ctx.guild)
 
         if cleanup_result["success"]:
-            embed = discord.Embed(
+            final_embed = discord.Embed(
                 title="✅ Broadcast Stopped and Cleaned Up!",
                 description=f"**{section_name}** has been completely removed:\n\n"
                             f"✅ Audio broadcasting stopped\n"
@@ -400,7 +433,7 @@ async def stop_broadcast_command(ctx):
                 color=discord.Color.green(),
             )
         else:
-            embed = discord.Embed(
+            final_embed = discord.Embed(
                 title="⚠️ Partial Cleanup",
                 description=f"Broadcasting was stopped, but cleanup encountered issues:\n\n"
                             f"{cleanup_result['message']}\n\n"
@@ -409,11 +442,11 @@ async def stop_broadcast_command(ctx):
             )
 
         try:
-            await ctx.send(embed=embed)
+            await loading_message.edit(embed=final_embed)
         except discord.NotFound:
             logger.info(f"Cleanup completed successfully for section '{section_name}', but control channel was deleted")
         except Exception as send_error:
-            logger.warning(f"Could not send cleanup result message: {send_error}")
+            logger.warning(f"Could not update cleanup result message: {send_error}")
 
         try:
             if section.original_message:
@@ -929,7 +962,8 @@ async def role_info_command(ctx):
             value="• **🎤 Speaker Role:** Users with this role can join speaker channels to broadcast audio\n"
                   "• **🎛️ Broadcast Admin Role:** Users with this role can use bot commands to control broadcasts\n"
                   "• **👑 Server Administrators:** Can always use all commands and join any channel\n"
-                  "• **👥 Everyone Else:** Can join listener channels freely (no role required)",
+                  "• **👥 Everyone Else:** Can join listener channels freely (no role required)\n"
+                  "• **🔒 Category Visibility:** Use `--role 'RoleName'` to restrict who can see broadcast categories",
             inline=False,
         )
 
@@ -937,7 +971,9 @@ async def role_info_command(ctx):
             name="📝 Usage Examples",
             value="• **For a presentation:** Give Speaker role to the presenter, everyone else joins listener channels\n"
                   "• **For a meeting:** Give Broadcast Admin role to meeting organizers, Speaker role to speakers\n"
-                  "• **For an event:** Create multiple broadcast sections, assign roles as needed",
+                  "• **For an event:** Create multiple broadcast sections, assign roles as needed\n"
+                  "• **For VIP content:** Use `!start_broadcast 'VIP Session' 5 --role 'Premium Members'`\n"
+                  "• **For public events:** Use `!start_broadcast 'Public Event' 10` (visible to everyone)",
             inline=False,
         )
 
@@ -986,13 +1022,15 @@ async def help_command(ctx):
         value="1. **Check Setup:** `!check_setup` - See what's needed\n"
               "2. **Create Roles:** `!setup_roles` - Set up required roles\n"
               "3. **Start Broadcast:** `!start_broadcast 'Room Name'` - Create your first broadcast\n"
-              "4. **Stop When Done:** `!stop_broadcast` - Clean up everything",
+              "4. **Optional:** Add `--role 'RoleName'` to restrict category visibility\n"
+              "5. **Stop When Done:** `!stop_broadcast` - Clean up everything",
         inline=False,
     )
 
     embed.add_field(
         name="🎤 Broadcast Commands",
-        value="• `!start_broadcast 'Name' [N]` - Start a new broadcast section\n"
+        value="• `!start_broadcast 'Name' [N]` - Start a new broadcast section (visible to everyone)\n"
+              "• `!start_broadcast 'Name' [N] --role 'RoleName'` - Start broadcast visible only to specified role\n"
               "• `!stop_broadcast` - Stop and clean up current broadcast\n"
               "• `!broadcast_status` - Check current broadcast status",
         inline=False,
@@ -1322,7 +1360,8 @@ async def how_it_works_command(ctx):
         value="• **Speaker Role:** Required to join speaker channels\n"
               "• **Broadcast Admin Role:** Required to use bot commands\n"
               "• **Server Administrators:** Can always use all commands\n"
-              "• **Everyone Else:** Can join listener channels freely",
+              "• **Everyone Else:** Can join listener channels freely\n"
+              "• **Category Visibility:** Use `--role 'RoleName'` to restrict who can see broadcast categories",
         inline=False,
     )
 
@@ -1332,6 +1371,17 @@ async def how_it_works_command(ctx):
               "• Sections are organized in Discord categories\n"
               "• You can have multiple sections for different events\n"
               "• Each section operates independently",
+        inline=False,
+    )
+
+    embed.add_field(
+        name="🔒 Category Visibility Control",
+        value="• **Default:** Categories are visible to everyone\n"
+              "• **Restricted:** Use `--role 'RoleName'` to limit visibility\n"
+              "• **Examples:**\n"
+              "  - `!start_broadcast 'Public Event' 5` (everyone can see)\n"
+              "  - `!start_broadcast 'VIP Session' 3 --role 'Premium'` (only Premium role can see)\n"
+              "• **Perfect for:** VIP content, member-only events, private sessions",
         inline=False,
     )
 

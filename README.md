@@ -213,11 +213,12 @@ For each bot, create an invite link:
 1. **Start a broadcast section** (creates organized channels and starts broadcasting):
    ```
    !start_broadcast 'War Room' 5
+   !start_broadcast 'War Room' 5 --role 'VIP'
    ```
    This creates and immediately starts:
-   - 📁 **War Room** category
-   - 🎤 **Speaker** channel (for presenters)
-   - 📢 **Channel-1** through **Channel-5** channels (for audience)
+   - 📁 **War Room** category (visible to everyone, or restricted to specified role)
+   - 🎤 **Speaker** channel (for presenters with Speaker role)
+   - 📢 **Channel-1** through **Channel-5** channels (open to everyone)
    - 🎛️ **broadcast-control** channel (for commands)
    - 🎵 **Audio forwarding** from speaker to all listener channels
 
@@ -239,10 +240,13 @@ For each bot, create an invite link:
 
 ```
 !start_broadcast 'Company Meeting' 10
-# Creates a meeting setup with 10 listener channels and starts broadcasting
+# Creates a meeting setup with 10 listener channels, visible to everyone
 
-# Presenter joins "Speaker" channel
-# Audience joins "Channel-1", "Channel-2", etc.
+!start_broadcast 'VIP Session' 5 --role 'Premium Members'
+# Creates a session with 5 listener channels, only visible to Premium Members role
+
+# Presenter joins "Speaker" channel (requires Speaker role)
+# Audience joins "Channel-1", "Channel-2", etc. (no role required)
 
 !stop_broadcast
 # Stops audio routing and removes all channels
@@ -254,7 +258,7 @@ For each bot, create an invite link:
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `!start_broadcast 'Name' N` | Create and start broadcast section with N listener channels | `!start_broadcast 'War Room' 5` |
+| `!start_broadcast 'Name' N [--role 'RoleName']` | Create and start broadcast section with N listener channels | `!start_broadcast 'War Room' 5`<br>`!start_broadcast 'VIP Session' 3 --role 'Premium'` |
 | `!stop_broadcast` | Stop broadcasting and remove entire section | `!stop_broadcast` |
 | `!broadcast_status` | Check current broadcast status | `!broadcast_status` |
 
