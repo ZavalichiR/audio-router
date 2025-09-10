@@ -1230,16 +1230,7 @@ async def bot_status_command(ctx):
         active_bot_info = ""
         if audio_router:
             process_status = audio_router.bot_manager.get_status()
-            bot_mapping = audio_router.bot_manager.get_bot_channel_mapping()
             active_bot_info = f"\n**Active Bot Processes:** {process_status['alive_processes']}/{process_status['total_processes']}\n"
-            if bot_mapping:
-                active_bot_info += "**Bot-Channel Mapping:**\n"
-                for bot_id, channel_id in bot_mapping.items():
-                    channel = ctx.guild.get_channel(channel_id)
-                    channel_name = channel.name if channel else f"Unknown({channel_id})"
-                    active_bot_info += f"• {bot_id} → {channel_name}\n"
-            else:
-                active_bot_info += "No active bot processes found.\n"
 
         status_text = f"**Main Bot:** {main_bot_name}\n"
         status_text += f"**Forwarder:** {forwarder_bot_name}\n"

@@ -426,14 +426,6 @@ class BotManager:
                 for bot_id, bot_process in self.bot_processes.items()
             },
         }
-    
-    def get_bot_channel_mapping(self) -> Dict[str, int]:
-        """Get a mapping of bot_id to channel_id for all running bots."""
-        return {
-            bot_id: bot_process.channel_id
-            for bot_id, bot_process in self.bot_processes.items()
-            if bot_process.is_alive()
-        }
 
     def get_bot_status(self, bot_id: str) -> Optional[Dict[str, Any]]:
         """Get the status of a specific bot process."""
