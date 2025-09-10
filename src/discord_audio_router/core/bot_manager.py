@@ -186,6 +186,8 @@ class BotManager:
         self.bot_processes: Dict[str, BotProcess] = {}
         self.available_tokens: List[str] = []
         self.used_tokens: set = set()
+        
+        # Simple token list - Channel-1 gets Token-1, Channel-2 gets Token-2, etc.
 
     def add_available_tokens(self, tokens: List[str]):
         """Add available bot tokens."""
@@ -197,6 +199,7 @@ class BotManager:
             # Show first few and last few characters of token for identification
             token_preview = f"{token[:8]}...{token[-8:]}" if len(token) > 16 else token
             logger.info(f"Token #{i+1}: {token_preview}")
+
 
     async def start_speaker_bot(
         self, channel_id: int, guild_id: int
@@ -250,7 +253,7 @@ class BotManager:
             return None
 
     async def start_listener_bot(
-        self, channel_id: int, guild_id: int, speaker_channel_id: int = None
+        self, channel_id: int, guild_id: int, speaker_channel_id: int, channel_number: int
     ) -> Optional[str]:
         """
         Start a listener bot process.
@@ -259,6 +262,7 @@ class BotManager:
             channel_id: Listener channel ID
             guild_id: Guild ID
             speaker_channel_id: Speaker channel ID (for WebSocket connection)
+            channel_number: Channel number (1, 2, 3, etc.) for token assignment
 
         Returns:
             Bot ID if successful, None otherwise
@@ -274,21 +278,13 @@ class BotManager:
                 logger.info(f"AudioReceiver bot {bot_id} is already running")
                 return bot_id
 
-            # Get available token
-            if not self.available_tokens:
-                logger.error("No available tokens for AudioReceiver bot")
+            # Get token based on channel number (Channel-1 gets Token-1, Channel-2 gets Token-2, etc.)
+            if channel_number > len(self.available_tokens):
+                logger.error(f"Channel number {channel_number} exceeds available tokens ({len(self.available_tokens)})")
                 return None
-
-            # Use the first available token (this ensures consistent assignment order)
-            # The tokens should be assigned in the order they appear in the configuration
-            token = self.available_tokens.pop(0)
-            self.used_tokens.add(token)
-            
-            # Calculate which token number this is (for debugging)
-            total_tokens = len(self.available_tokens) + len(self.used_tokens)
-            token_number = total_tokens - len(self.available_tokens)
-            
-            logger.info(f"Assigned token #{token_number} to channel {channel_id} (bot_id: {bot_id})")
+                
+            token = self.available_tokens[channel_number - 1]  # Channel-1 = index 0
+            logger.info(f"Assigned token #{channel_number} to Channel-{channel_number} (bot_id: {bot_id}) in guild {guild_id}")
 
             # Create bot process
             bot_process = BotProcess(
@@ -314,20 +310,12 @@ class BotManager:
                 # Verify the process is still running
                 if not bot_process.is_alive():
                     logger.error(f"AudioReceiver bot process {bot_id} died immediately after startup")
-                    # Return token to available list if startup failed
-                    self.available_tokens.insert(0, token)
-                    self.used_tokens.discard(token)
                     del self.bot_processes[bot_id]
                     return None
                 
                 return bot_id
             else:
-                # Return token to available list if startup failed
-                self.available_tokens.insert(0, token)
-                self.used_tokens.discard(token)
-                logger.error(
-                    f"Failed to start AudioReceiver bot process: {bot_id}"
-                )
+                logger.error(f"Failed to start AudioReceiver bot process: {bot_id}")
                 return None
 
         except Exception as e:
@@ -358,11 +346,6 @@ class BotManager:
             )
             
             if success:
-                # Return token to available list if it's a listener bot
-                if bot_process.bot_type == "listener":
-                    self.available_tokens.append(bot_process.token)
-                    self.used_tokens.discard(bot_process.token)
-
                 # Remove from processes
                 del self.bot_processes[bot_id]
                 logger.info(f"Successfully stopped and removed bot process: {bot_id}")

@@ -579,17 +579,16 @@ class SectionManager:
                 match = re.search(r"Channel-(\d+)", channel.name)
                 return int(match.group(1)) if match else float("inf")
 
-            sorted_listener_channel_ids = sorted(section.listener_channel_ids, key=extract_channel_number)
             batch_size = 10
             listener_bot_ids = []
             failed_channels = []
 
-            for i in range(0, len(sorted_listener_channel_ids), batch_size):
-                batch = sorted_listener_channel_ids[i : i + batch_size]
+            for i in range(0, len(section.listener_channel_ids), batch_size):
+                batch = section.listener_channel_ids[i : i + batch_size]
                 logger.info(f"Starting batch {i // batch_size + 1}: channels {[guild.get_channel(cid).name if guild.get_channel(cid) else cid for cid in batch]}")
 
                 batch_tasks = [
-                    (channel_id, self.bot_manager.start_listener_bot(channel_id, guild.id, section.speaker_channel_id))
+                    (channel_id, self.bot_manager.start_listener_bot(channel_id, guild.id, section.speaker_channel_id, extract_channel_number(channel_id)))
                     for channel_id in batch
                 ]
 
@@ -609,14 +608,14 @@ class SectionManager:
                         channel_name = guild.get_channel(channel_id).name if guild.get_channel(channel_id) else str(channel_id)
                         logger.error(f"❌ Exception starting listener bot for {channel_name}: {e}")
 
-                if i + batch_size < len(sorted_listener_channel_ids):
+                if i + batch_size < len(section.listener_channel_ids):
                     logger.info("Waiting 2 seconds before starting next batch...")
                     await asyncio.sleep(2)
 
             if failed_channels:
                 logger.info(f"Retrying {len(failed_channels)} failed channels...")
                 retry_tasks = [
-                    (channel_id, self.bot_manager.start_listener_bot(channel_id, guild.id, section.speaker_channel_id))
+                    (channel_id, self.bot_manager.start_listener_bot(channel_id, guild.id, section.speaker_channel_id, extract_channel_number(channel_id)))
                     for channel_id in failed_channels
                 ]
 
@@ -631,7 +630,7 @@ class SectionManager:
                         channel_name = guild.get_channel(channel_id).name if guild.get_channel(channel_id) else str(channel_id)
                         logger.error(f"❌ Retry failed for {channel_name}: {e}")
 
-            logger.info(f"Successfully started {len(listener_bot_ids)} out of {len(sorted_listener_channel_ids)} listener bots")
+            logger.info(f"Successfully started {len(listener_bot_ids)} out of {len(section.listener_channel_ids)} listener bots")
 
             if not listener_bot_ids:
                 await self.bot_manager.stop_bot(speaker_bot_id)
