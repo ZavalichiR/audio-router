@@ -35,6 +35,9 @@ class SimpleConfig:
     listener_role_name: str = "Listener"
     broadcast_admin_role_name: str = "Broadcast Admin"
     auto_create_roles: bool = True
+    
+    # Auto-cleanup configuration
+    auto_cleanup_timeout: int = 10
 
     def __post_init__(self):
         """Post-initialization processing."""
@@ -216,6 +219,19 @@ class SimpleConfigManager:
             == "true"
         )
 
+    def _get_auto_cleanup_timeout(self) -> int:
+        """Get auto-cleanup timeout from environment variables."""
+        try:
+            timeout_str = self._get_optional_env("AUTO_CLEANUP_TIMEOUT", "10")
+            timeout = int(timeout_str)
+            if timeout < 0:
+                logger.warning("AUTO_CLEANUP_TIMEOUT cannot be negative, using default 30 minutes")
+                return 10
+            return timeout
+        except ValueError:
+            logger.warning(f"Invalid AUTO_CLEANUP_TIMEOUT value: {timeout_str}, using default 30 minutes")
+            return 10
+
     def get_config(self) -> SimpleConfig:
         """
         Get the bot configuration.
@@ -245,6 +261,7 @@ class SimpleConfigManager:
                 listener_role_name=self._get_listener_role_name(),
                 broadcast_admin_role_name=self._get_broadcast_admin_role_name(),
                 auto_create_roles=self._get_auto_create_roles(),
+                auto_cleanup_timeout=self._get_auto_cleanup_timeout(),
             )
 
             logger.info("Configuration loaded successfully")

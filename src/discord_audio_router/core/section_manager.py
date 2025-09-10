@@ -6,6 +6,7 @@ bot deployment, and audio routing coordination.
 """
 
 import asyncio
+import time
 from typing import Any, Dict, List, Optional
 
 import discord
@@ -84,6 +85,7 @@ class SectionManager:
         self,
         bot_manager: BotManager,
         access_control: Optional[AccessControl] = None,
+        auto_cleanup_timeout: int = 10,  # minutes
     ):
         """
         Initialize the section manager.
@@ -91,10 +93,104 @@ class SectionManager:
         Args:
             bot_manager: Bot manager instance
             access_control: Access control instance (optional)
+            auto_cleanup_timeout: Minutes of inactivity before auto-stopping broadcast
         """
         self.bot_manager = bot_manager
         self.access_control = access_control
         self.active_sections: Dict[int, BroadcastSection] = {}
+        self.auto_cleanup_timeout = auto_cleanup_timeout * 60  # Convert to seconds
+        self.last_activity: Dict[int, float] = {}  # guild_id -> timestamp
+        self.cleanup_task: Optional[asyncio.Task] = None
+
+    async def start_auto_cleanup(self, main_bot: discord.Client):
+        """Start the auto-cleanup task for inactive broadcasts."""
+        if self.cleanup_task and not self.cleanup_task.done():
+            logger.debug("Auto-cleanup task is already running")
+            return
+            
+        self.cleanup_task = asyncio.create_task(self._auto_cleanup_loop(main_bot))
+        logger.info(f"Started auto-cleanup task (timeout: {self.auto_cleanup_timeout // 60} minutes)")
+
+    async def stop_auto_cleanup(self):
+        """Stop the auto-cleanup task."""
+        if self.cleanup_task and not self.cleanup_task.done():
+            self.cleanup_task.cancel()
+            try:
+                await self.cleanup_task
+            except asyncio.CancelledError:
+                pass
+            logger.info("Stopped auto-cleanup task")
+
+    async def _auto_cleanup_loop(self, main_bot: discord.Client):
+        """Main auto-cleanup loop that checks for inactive broadcasts."""
+        while True:
+            try:
+                await asyncio.sleep(60)  # Check every minute
+                await self._check_inactive_broadcasts(main_bot)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in auto-cleanup loop: {e}", exc_info=True)
+
+    async def _check_inactive_broadcasts(self, main_bot: discord.Client):
+        """Check for broadcasts that have been inactive too long."""
+        current_time = time.time()
+        inactive_guilds = []
+        
+        for guild_id, section in self.active_sections.items():
+            if not section.is_active:
+                logger.debug("Section is not active")
+                continue
+                
+            logger.debug("Checking if speaker channel has been empty for too long")
+            # Check if speaker channel has been empty for too long
+            if await self._is_speaker_channel_empty(main_bot, guild_id, section):
+                if guild_id not in self.last_activity:
+                    logger.debug("Guild is not in last activity")
+                    self.last_activity[guild_id] = current_time
+                elif current_time - self.last_activity[guild_id] > self.auto_cleanup_timeout:
+                    logger.debug("Guild has been inactive for too long")
+                    inactive_guilds.append(guild_id)
+            else:
+                # Reset activity timestamp if someone is in speaker channel
+                self.last_activity[guild_id] = current_time
+        
+        # Auto-stop inactive broadcasts
+        if inactive_guilds:
+            logger.info(f"Auto-cleanup found {len(inactive_guilds)} inactive broadcasts: {inactive_guilds}")
+        
+        for guild_id in inactive_guilds:
+            logger.info(f"Auto-stopping inactive broadcast for guild {guild_id} (inactive for {self.auto_cleanup_timeout // 60} minutes)")
+            # Fetch guild and use existing stop_broadcast method
+            guild = main_bot.get_guild(guild_id)
+            if guild:
+                await self.stop_broadcast(guild)
+            else:
+                logger.warning(f"Could not fetch guild {guild_id} for auto-cleanup, using fallback method")
+                await self.stop_broadcast_by_guild_id(guild_id)
+
+    async def _is_speaker_channel_empty(self, main_bot: discord.Client, guild_id: int, section: BroadcastSection) -> bool:
+        """Check if the speaker channel is empty (no human users)."""
+        try:
+            guild = main_bot.get_guild(guild_id)
+            if not guild:
+                logger.debug(f"Could not fetch guild {guild_id}, considering inactive")
+                return True
+                
+            speaker_channel = guild.get_channel(section.speaker_channel_id)
+            if not speaker_channel:
+                logger.debug(f"Could not fetch speaker channel {section.speaker_channel_id}, considering inactive")
+                return True
+                
+            # Count human members (non-bots) in the speaker channel
+            human_members = [member for member in speaker_channel.members if not member.bot]
+            is_empty = len(human_members) == 0
+            logger.debug(f"Speaker channel '{speaker_channel.name}' has {len(human_members)} human members (empty: {is_empty})")
+            return is_empty
+            
+        except Exception as e:
+            logger.error(f"Error checking speaker channel for guild {guild_id}: {e}")
+            return True  # Consider inactive on error
 
     def _validate_section_structure(
         self, category: discord.CategoryChannel, expected_listener_count: int
@@ -693,6 +789,10 @@ class SectionManager:
                 section.speaker_bot_id = None
                 section.listener_bot_ids.clear()
                 section.is_active = False
+                
+                # Clean up activity tracking for auto-cleanup
+                if guild.id in self.last_activity:
+                    del self.last_activity[guild.id]
 
             for category in guild.categories:
                 if category.name == section.section_name or category.name == f"🔴 {section.section_name}":

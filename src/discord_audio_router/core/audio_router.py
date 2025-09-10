@@ -40,8 +40,9 @@ class AudioRouter:
         self.config = config
         self.bot_manager = BotManager(config)
         self.access_control = AccessControl(config)
+
         self.section_manager = SectionManager(
-            self.bot_manager, self.access_control
+            self.bot_manager, self.access_control, config.auto_cleanup_timeout
         )
 
         # Main bot instance
@@ -78,6 +79,9 @@ class AudioRouter:
         logger.info(
             "Using bot manager for true multi-channel audio"
         )
+
+        logger.debug("Starting auto-cleanup task for inactive broadcasts")
+        await self.section_manager.start_auto_cleanup(main_bot)
 
         logger.info("Audio router initialized")
 
