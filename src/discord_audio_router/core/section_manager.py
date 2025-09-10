@@ -656,45 +656,6 @@ class SectionManager:
 
     async def stop_broadcast(self, guild: discord.Guild) -> Dict[str, Any]:
         """
-        Stop audio broadcasting for a section.
-
-        Args:
-            guild: Discord guild
-
-        Returns:
-            Dict with stop results
-        """
-        try:
-            if guild.id not in self.active_sections:
-                return {"success": False, "message": "No active broadcast section found in this server!"}
-
-            section = self.active_sections[guild.id]
-            if not section.is_active:
-                return {"success": False, "message": "Broadcast is not active for this section!"}
-
-            if section.speaker_bot_id:
-                await self.bot_manager.stop_bot(section.speaker_bot_id)
-
-            for listener_bot_id in section.listener_bot_ids:
-                await self.bot_manager.stop_bot(listener_bot_id)
-
-            section.speaker_bot_id = None
-            section.listener_bot_ids.clear()
-            section.is_active = False
-
-            logger.info(f"Stopped broadcast for section '{section.section_name}' in {guild.name}")
-
-            return {
-                "success": True,
-                "message": f"Broadcast stopped for section '{section.section_name}'!",
-            }
-
-        except Exception as e:
-            logger.error(f"Error stopping broadcast in {guild.name}: {e}", exc_info=True)
-            return {"success": False, "message": f"Failed to stop broadcast: {str(e)}"}
-
-    async def cleanup_section(self, guild: discord.Guild) -> Dict[str, Any]:
-        """
         Clean up an entire broadcast section.
 
         Args:
@@ -709,9 +670,30 @@ class SectionManager:
 
             section = self.active_sections[guild.id]
             if section.is_active:
-                await self.stop_broadcast(guild)
+                # Stop all bots concurrently for better performance
+                stop_tasks = []
+                
+                if section.speaker_bot_id:
+                    stop_tasks.append(self.bot_manager.stop_bot(section.speaker_bot_id))
+                
+                for listener_bot_id in section.listener_bot_ids:
+                    stop_tasks.append(self.bot_manager.stop_bot(listener_bot_id))
+                
+                # Wait for all bots to stop concurrently
+                if stop_tasks:
+                    logger.info(f"Stopping {len(stop_tasks)} bot processes concurrently...")
+                    results = await asyncio.gather(*stop_tasks, return_exceptions=True)
+                    
+                    # Log any failures
+                    for i, result in enumerate(results):
+                        if isinstance(result, Exception):
+                            logger.error(f"Bot stop task {i} failed: {result}")
+                        elif not result:
+                            logger.warning(f"Bot stop task {i} returned False")
 
-            await self.bot_manager.stop_bots_by_guild(guild.id)
+                section.speaker_bot_id = None
+                section.listener_bot_ids.clear()
+                section.is_active = False
 
             for category in guild.categories:
                 if category.name == section.section_name or category.name == f"🔴 {section.section_name}":

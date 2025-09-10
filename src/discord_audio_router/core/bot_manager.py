@@ -6,7 +6,6 @@ enabling true multi-channel audio with process isolation.
 """
 
 import asyncio
-import logging
 import os
 import subprocess
 import sys
@@ -14,8 +13,12 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-logger = logging.getLogger(__name__)
-
+from discord_audio_router.infrastructure import setup_logging
+# Configure logging
+logger = setup_logging(
+    component_name="bot_manager",
+    log_file="logs/section_manager.log",
+)
 
 class BotProcess:
     """Represents a bot process instance."""
@@ -125,7 +128,7 @@ class BotProcess:
 
                 # Wait for graceful shutdown
                 try:
-                    self.process.wait(timeout=5.0)
+                    self.process.wait(timeout=10.0)  # Increased timeout for graceful shutdown
                 except subprocess.TimeoutExpired:
                     # Force kill if graceful shutdown fails
                     logger.warning(f"Force killing bot process {self.bot_id}")
@@ -135,7 +138,7 @@ class BotProcess:
             self.is_running = False
             self.pid = None
 
-            logger.info(f"Stopped bot process {self.bot_id}")
+            logger.info(f"Stopped bot process: {self.bot_id}")
             return True
 
         except Exception as e:
@@ -333,7 +336,7 @@ class BotManager:
 
     async def stop_bot(self, bot_id: str) -> bool:
         """
-        Stop a specific bot process.
+        Stop a specific bot process and wait for it to fully terminate.
 
         Args:
             bot_id: Bot ID to stop
@@ -348,8 +351,13 @@ class BotManager:
 
             bot_process = self.bot_processes[bot_id]
 
-            # Stop the process
-            if bot_process.stop():
+            # Run the sync stop method in a thread pool to avoid blocking
+            logger.info(f"Stopping bot process: {bot_id}")
+            success = await asyncio.get_event_loop().run_in_executor(
+                None, bot_process.stop
+            )
+            
+            if success:
                 # Return token to available list if it's a listener bot
                 if bot_process.bot_type == "listener":
                     self.available_tokens.append(bot_process.token)
@@ -357,7 +365,7 @@ class BotManager:
 
                 # Remove from processes
                 del self.bot_processes[bot_id]
-                logger.info(f"Stopped bot process: {bot_id}")
+                logger.info(f"Successfully stopped and removed bot process: {bot_id}")
                 return True
             else:
                 logger.error(f"Failed to stop bot process: {bot_id}")
@@ -365,52 +373,6 @@ class BotManager:
 
         except Exception as e:
             logger.error(f"Error stopping bot {bot_id}: {e}", exc_info=True)
-            return False
-
-    async def stop_all_bots(self) -> bool:
-        """Stop all bot processes."""
-        try:
-            success = True
-            bot_ids = list(self.bot_processes.keys())
-
-            for bot_id in bot_ids:
-                if not await self.stop_bot(bot_id):
-                    success = False
-
-            logger.info("Stopped all bot processes")
-            return success
-
-        except Exception as e:
-            logger.error(f"Error stopping all bots: {e}", exc_info=True)
-            return False
-
-    async def stop_bots_by_guild(self, guild_id: int) -> bool:
-        """
-        Stop all bot processes for a specific guild.
-
-        Args:
-            guild_id: Guild ID
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            success = True
-            bot_ids = [
-                bot_id
-                for bot_id, bot_process in self.bot_processes.items()
-                if bot_process.guild_id == guild_id
-            ]
-
-            for bot_id in bot_ids:
-                if not await self.stop_bot(bot_id):
-                    success = False
-
-            logger.info(f"Stopped all bot processes for guild {guild_id}")
-            return success
-
-        except Exception as e:
-            logger.error(f"Error stopping bots for guild {guild_id}: {e}", exc_info=True)
             return False
 
     def get_status(self) -> Dict[str, Any]:
@@ -432,12 +394,3 @@ class BotManager:
         if bot_id in self.bot_processes:
             return self.bot_processes[bot_id].get_status()
         return None
-
-    def cleanup(self):
-        """Clean up all resources."""
-        try:
-            # Stop all processes
-            asyncio.create_task(self.stop_all_bots())
-            logger.info("Bot manager cleaned up")
-        except Exception as e:
-            logger.error(f"Error during bot manager cleanup: {e}", exc_info=True)

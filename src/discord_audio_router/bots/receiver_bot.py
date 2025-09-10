@@ -437,8 +437,17 @@ class AudioReceiverBot:
 
             guild = self.bot.get_guild(self.guild_id)
             if not guild:
-                logger.error(f"Guild {self.guild_id} not found")
-                return False
+                logger.warning(f"Guild {self.guild_id} not found in cache, attempting to fetch...")
+                try:
+                    # Try to fetch the guild directly from Discord
+                    guild = await self.bot.fetch_guild(self.guild_id)
+                    logger.info(f"Successfully fetched guild: {guild.name}")
+                except discord.NotFound:
+                    logger.error(f"Guild {self.guild_id} not found on Discord")
+                    return False
+                except Exception as e:
+                    logger.error(f"Error fetching guild: {e}")
+                    return False
 
             logger.info(f"Found guild: {guild.name}")
 

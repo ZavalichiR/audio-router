@@ -282,7 +282,7 @@ async def start_broadcast_command(ctx, *, args: str) -> None:
                 color=discord.Color.orange(),
             )
             await loading_message.edit(embed=cleanup_embed)
-            cleanup_result = await audio_router.cleanup_section(ctx.guild)
+            cleanup_result = await audio_router.section_manager.stop_broadcast(ctx.guild)
             if not cleanup_result["success"]:
                 error_embed = discord.Embed(
                     title="❌ Failed to Cleanup Existing Section",
@@ -373,89 +373,82 @@ async def stop_broadcast_command(ctx):
     """
     try:
         if not audio_router:
-            embed = discord.Embed(
-                title="⚠️ System Starting Up",
-                description="The audio router is still initializing. Please wait a moment and try again.\n\nIf this persists, contact the bot administrator.",
-                color=discord.Color.orange(),
+            await ctx.send(
+                embed=discord.Embed(
+                    title="⚠️ System Starting Up",
+                    description="The audio router is still initializing. Please wait a moment and try again.\n\nIf this persists, contact the bot administrator.",
+                    color=discord.Color.orange(),
+                )
             )
-            await ctx.send(embed=embed)
             return
 
-        if ctx.guild.id not in audio_router.section_manager.active_sections:
-            embed = discord.Embed(
-                title="❌ No Active Section",
-                description="No active broadcast section found in this server.",
-                color=discord.Color.red(),
+        section = audio_router.section_manager.active_sections.get(ctx.guild.id)
+        if not section:
+            await ctx.send(
+                embed=discord.Embed(
+                    title="❌ No Active Section",
+                    description="No active broadcast section found in this server.",
+                    color=discord.Color.red(),
+                )
             )
-            await ctx.send(embed=embed)
             return
 
-        section = audio_router.section_manager.active_sections[ctx.guild.id]
         section_name = section.section_name
 
-        # Create initial loading message
-        loading_embed = discord.Embed(
-            title="⏹️ Stopping Audio Broadcasting",
-            description=f"Stopping audio forwarding for '{section_name}'...",
-            color=discord.Color.orange(),
+        # Send initial feedback to user
+        loading_message = await ctx.send(
+            embed=discord.Embed(
+                title="⏹️ Stopping Audio Broadcasting",
+                description=f"Stopping audio forwarding for '{section_name}'...",
+                color=discord.Color.orange(),
+            )
         )
-        loading_message = await ctx.send(embed=loading_embed)
 
         stop_result = await audio_router.stop_broadcast(ctx.guild)
 
-        if not stop_result["success"]:
-            error_embed = discord.Embed(
-                title="⚠️ Failed to Stop Broadcast",
-                description=f"Could not stop broadcasting: {stop_result['message']}\n\n"
-                            f"Proceeding with cleanup anyway...",
-                color=discord.Color.orange(),
-            )
-            await loading_message.edit(embed=error_embed)
-
-        cleanup_embed = discord.Embed(
-            title="🗑️ Cleaning Up Broadcast Section",
-            description=f"Removing all channels and resources for '{section_name}'...",
-            color=discord.Color.orange(),
-        )
-        await loading_message.edit(embed=cleanup_embed)
-
-        cleanup_result = await audio_router.cleanup_section(ctx.guild)
-
-        if cleanup_result["success"]:
-            final_embed = discord.Embed(
+        # Prepare embed for result
+        if stop_result["success"]:
+            result_embed = discord.Embed(
                 title="✅ Broadcast Stopped and Cleaned Up!",
-                description=f"**{section_name}** has been completely removed:\n\n"
-                            f"✅ Audio broadcasting stopped\n"
-                            f"✅ All broadcast channels deleted\n"
-                            f"✅ Category removed\n"
-                            f"✅ All resources cleaned up\n\n"
-                            f"Use `!start_broadcast 'Name'` or `!start_broadcast 'Name' N` to create a new section.",
+                description=(
+                    f"**{section_name}** has been completely removed:\n\n"
+                    f"✅ Audio broadcasting stopped\n"
+                    f"✅ All broadcast channels deleted\n"
+                    f"✅ Category removed\n"
+                    f"✅ All resources cleaned up\n\n"
+                    f"Use `!start_broadcast 'Name'` or `!start_broadcast 'Name' N` to create a new section."
+                ),
                 color=discord.Color.green(),
             )
         else:
-            final_embed = discord.Embed(
-                title="⚠️ Partial Cleanup",
-                description=f"Broadcasting was stopped, but cleanup encountered issues:\n\n"
-                            f"{cleanup_result['message']}\n\n"
-                            f"You may need to manually delete some channels.",
+            result_embed = discord.Embed(
+                title="⚠️ Failed to Stop Broadcast",
+                description=(
+                    f"Could not stop broadcasting: {stop_result['message']}\n\n"
+                    f"Proceeding with cleanup anyway..."
+                ),
                 color=discord.Color.orange(),
             )
 
+        # Try to update the loading message with the result
         try:
-            await loading_message.edit(embed=final_embed)
+            await loading_message.edit(embed=result_embed)
         except discord.NotFound:
-            logger.info(f"Cleanup completed successfully for section '{section_name}', but control channel was deleted")
+            logger.info(f"Cleanup completed for section '{section_name}', but control channel was deleted")
         except Exception as send_error:
             logger.warning(f"Could not update cleanup result message: {send_error}")
 
+        # Try to update the original start_broadcast message, if it exists
         try:
-            if section.original_message:
+            if getattr(section, "original_message", None):
                 ended_embed = discord.Embed(
                     title="⏹️ Broadcast Ended",
-                    description=f"**{section_name}** broadcast has been stopped and cleaned up.\n\n"
-                                f"✅ All channels and resources have been removed\n"
-                                f"✅ Ready for a new broadcast section\n\n"
-                                f"Use `!start_broadcast 'Name'` or `!start_broadcast 'Name' N` to create a new section.",
+                    description=(
+                        f"**{section_name}** broadcast has been stopped and cleaned up.\n\n"
+                        f"✅ All channels and resources have been removed\n"
+                        f"✅ Ready for a new broadcast section\n\n"
+                        f"Use `!start_broadcast 'Name'` or `!start_broadcast 'Name' N` to create a new section."
+                    ),
                     color=discord.Color.blue(),
                 )
                 await section.original_message.edit(embed=ended_embed)
@@ -464,13 +457,16 @@ async def stop_broadcast_command(ctx):
 
     except Exception as e:
         logger.error(f"Error in stop_broadcast command: {e}", exc_info=True)
-        embed = discord.Embed(
+        error_embed = discord.Embed(
             title="⚠️ Something Went Wrong",
-            description=f"An unexpected error occurred. Please try again or contact the bot administrator if the issue persists.\n\n**Error:** {str(e)}",
+            description=(
+                "An unexpected error occurred. Please try again or contact the bot administrator if the issue persists.\n\n"
+                f"**Error:** {str(e)}"
+            ),
             color=discord.Color.orange(),
         )
         try:
-            await ctx.send(embed=embed)
+            await ctx.send(embed=error_embed)
         except discord.NotFound:
             logger.warning("Could not send error message - channel may have been deleted")
         except Exception as send_error:
@@ -553,12 +549,15 @@ async def setup_roles_command(ctx):
 
         roles = await audio_router.access_control.ensure_roles_exist(ctx.guild)
         speaker_role = roles.get("speaker_role")
+        listener_role = roles.get("listener_role")
         broadcast_admin_role = roles.get("broadcast_admin_role")
 
         bot_member = ctx.guild.me
         bot_role = bot_member.top_role
 
         roles_to_move = []
+        if listener_role and listener_role.position >= bot_role.position:
+            roles_to_move.append(("Listener", listener_role))
         if speaker_role and speaker_role.position >= bot_role.position:
             roles_to_move.append(("Speaker", speaker_role))
         if broadcast_admin_role and broadcast_admin_role.position >= bot_role.position:

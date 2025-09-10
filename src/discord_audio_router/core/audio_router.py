@@ -124,18 +124,6 @@ class AudioRouter:
         """
         return await self.section_manager.stop_broadcast(guild)
 
-    async def cleanup_section(self, guild: discord.Guild) -> Dict[str, Any]:
-        """
-        Clean up a broadcast section.
-
-        Args:
-            guild: Discord guild
-
-        Returns:
-            Dict with cleanup results
-        """
-        return await self.section_manager.cleanup_section(guild)
-
     async def get_section_status(self, guild: discord.Guild) -> Dict[str, Any]:
         """
         Get the status of a broadcast section.

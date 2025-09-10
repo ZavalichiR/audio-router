@@ -155,23 +155,8 @@ class AccessControl:
                 logger.info(f"Broadcast admin role '{self.broadcast_admin_role_name}' already exists")
             result["broadcast_admin_role"] = admin_role
 
-            # Handle custom role if specified
             if custom_role_name:
                 custom_role = discord.utils.get(guild.roles, name=custom_role_name)
-                if not custom_role:
-                    try:
-                        custom_role = await guild.create_role(
-                            name=custom_role_name,
-                            color=discord.Color.blue(),
-                            reason="Created for custom category visibility",
-                        )
-                        logger.info(f"Created custom role: {custom_role_name}")
-                    except discord.Forbidden:
-                        logger.error(f"Bot lacks permissions to create custom role: {custom_role_name}")
-                    except Exception as e:
-                        logger.error(f"Failed to create custom role: {e}", exc_info=True)
-                else:
-                    logger.info(f"Custom role '{custom_role_name}' already exists")
                 result["custom_role"] = custom_role
 
         except Exception as e:
