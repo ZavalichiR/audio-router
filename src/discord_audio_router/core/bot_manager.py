@@ -1,5 +1,5 @@
 """
-Process Manager for Discord Audio Router Bot.
+Bot Manager for Discord Audio Router Bot.
 
 This module manages separate processes for each Discord bot instance,
 enabling true multi-channel audio with process isolation.
@@ -164,7 +164,7 @@ class BotProcess:
         }
 
 
-class ProcessManager:
+class BotManager:
     """
     Manages multiple Discord bot processes.
 
@@ -174,7 +174,7 @@ class ProcessManager:
 
     def __init__(self, config):
         """
-        Initialize the process manager.
+        Initialize the bot manager.
 
         Args:
             config: Bot configuration
@@ -446,6 +446,6 @@ class ProcessManager:
         try:
             # Stop all processes
             asyncio.create_task(self.stop_all_bots())
-            logger.info("Process manager cleaned up")
+            logger.info("Bot manager cleaned up")
         except Exception as e:
-            logger.error(f"Error during process manager cleanup: {e}", exc_info=True)
+            logger.error(f"Error during bot manager cleanup: {e}", exc_info=True)

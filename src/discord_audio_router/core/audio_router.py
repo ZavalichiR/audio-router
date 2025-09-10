@@ -12,7 +12,7 @@ import discord
 from discord.ext import commands
 
 from .access_control import AccessControl
-from .process_manager import ProcessManager
+from .bot_manager import BotManager
 from .section_manager import SectionManager
 
 logger = logging.getLogger(__name__)
@@ -34,10 +34,10 @@ class AudioRouter:
             config: Bot configuration
         """
         self.config = config
-        self.process_manager = ProcessManager(config)
+        self.bot_manager = BotManager(config)
         self.access_control = AccessControl(config)
         self.section_manager = SectionManager(
-            self.process_manager, self.access_control
+            self.bot_manager, self.access_control
         )
 
         # Main bot instance
@@ -57,7 +57,7 @@ class AudioRouter:
             hasattr(self.config, "audio_receiver_tokens")
             and self.config.audio_receiver_tokens
         ):
-            self.process_manager.add_available_tokens(
+            self.bot_manager.add_available_tokens(
                 self.config.audio_receiver_tokens
             )
             logger.info(
@@ -72,7 +72,7 @@ class AudioRouter:
             )
 
         logger.info(
-            "Using process-based bot manager for true multi-channel audio"
+            "Using bot manager for true multi-channel audio"
         )
 
         logger.info("Audio router initialized")
@@ -152,7 +152,7 @@ class AudioRouter:
         """
         return {
             "active_sections": len(self.section_manager.active_sections),
-            "process_status": self.process_manager.get_status(),
-            "available_tokens": len(self.process_manager.available_tokens),
-            "used_tokens": len(self.process_manager.used_tokens),
+            "bot_status": self.bot_manager.get_status(),
+            "available_tokens": len(self.bot_manager.available_tokens),
+            "used_tokens": len(self.bot_manager.used_tokens),
         }

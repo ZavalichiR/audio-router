@@ -1191,8 +1191,8 @@ async def bot_status_command(ctx):
 
         active_bot_info = ""
         if audio_router:
-            process_status = audio_router.process_manager.get_status()
-            bot_mapping = audio_router.process_manager.get_bot_channel_mapping()
+            process_status = audio_router.bot_manager.get_status()
+            bot_mapping = audio_router.bot_manager.get_bot_channel_mapping()
             active_bot_info = f"\n**Active Bot Processes:** {process_status['alive_processes']}/{process_status['total_processes']}\n"
             if bot_mapping:
                 active_bot_info += "**Bot-Channel Mapping:**\n"

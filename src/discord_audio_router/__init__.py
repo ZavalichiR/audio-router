@@ -31,7 +31,7 @@ __email__ = "team@discord-audio-router.com"
 # Core components
 from .core.audio_router import AudioRouter
 from .core.section_manager import SectionManager, BroadcastSection
-from .core.process_manager import ProcessManager, BotProcess
+from .core.bot_manager import BotManager, BotProcess
 from .core.access_control import AccessControl
 
 # Audio components
@@ -69,7 +69,7 @@ __all__ = [
     "AudioRouter",
     "SectionManager",
     "BroadcastSection",
-    "ProcessManager",
+    "BotManager",
     "BotProcess",
     "AccessControl",
     

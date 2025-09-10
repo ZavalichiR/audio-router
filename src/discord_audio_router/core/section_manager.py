@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 import discord
 
 from .access_control import AccessControl
-from .process_manager import ProcessManager
+from .bot_manager import BotManager
 
 logger = logging.getLogger(__name__)
 
@@ -82,17 +82,17 @@ class SectionManager:
 
     def __init__(
         self,
-        process_manager: ProcessManager,
+        bot_manager: BotManager,
         access_control: AccessControl = None,
     ):
         """
         Initialize the section manager.
 
         Args:
-            process_manager: Process manager instance
+            bot_manager: Bot manager instance
             access_control: Access control instance (optional)
         """
-        self.process_manager = process_manager
+        self.bot_manager = bot_manager
         self.access_control = access_control
         self.active_sections: Dict[int, BroadcastSection] = (
             {}
@@ -641,7 +641,7 @@ class SectionManager:
                 }
 
             # Start speaker bot process
-            speaker_bot_id = await self.process_manager.start_speaker_bot(
+            speaker_bot_id = await self.bot_manager.start_speaker_bot(
                 section.speaker_channel_id, guild.id
             )
             if not speaker_bot_id:
@@ -688,7 +688,7 @@ class SectionManager:
                 # Start all bots in this batch concurrently
                 batch_tasks = []
                 for channel_id in batch:
-                    task = self.process_manager.start_listener_bot(
+                    task = self.bot_manager.start_listener_bot(
                         channel_id, guild.id, section.speaker_channel_id
                     )
                     batch_tasks.append((channel_id, task))
@@ -720,7 +720,7 @@ class SectionManager:
                 logger.info(f"Retrying {len(failed_channels)} failed channels...")
                 retry_tasks = []
                 for channel_id in failed_channels:
-                    task = self.process_manager.start_listener_bot(
+                    task = self.bot_manager.start_listener_bot(
                         channel_id, guild.id, section.speaker_channel_id
                     )
                     retry_tasks.append((channel_id, task))
@@ -740,7 +740,7 @@ class SectionManager:
 
             if not listener_bot_ids:
                 # Stop speaker bot if no listeners started
-                await self.process_manager.stop_bot(speaker_bot_id)
+                await self.bot_manager.stop_bot(speaker_bot_id)
                 return {
                     "success": False,
                     "message": "Failed to start any listener bot processes!",
@@ -797,10 +797,10 @@ class SectionManager:
 
             # Stop all bot processes
             if section.speaker_bot_id:
-                await self.process_manager.stop_bot(section.speaker_bot_id)
+                await self.bot_manager.stop_bot(section.speaker_bot_id)
 
             for listener_bot_id in section.listener_bot_ids:
-                await self.process_manager.stop_bot(listener_bot_id)
+                await self.bot_manager.stop_bot(listener_bot_id)
 
             # Clear section bot references
             section.speaker_bot_id = None
@@ -848,7 +848,7 @@ class SectionManager:
                 await self.stop_broadcast(guild)
 
             # Stop all bot processes for this guild
-            await self.process_manager.stop_bots_by_guild(guild.id)
+            await self.bot_manager.stop_bots_by_guild(guild.id)
 
             # Find and delete the category (check both with and without icon prefix)
             for category in guild.categories:

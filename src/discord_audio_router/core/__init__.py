@@ -7,14 +7,14 @@ that form the backbone of the audio routing system.
 
 from .audio_router import AudioRouter
 from .section_manager import SectionManager, BroadcastSection
-from .process_manager import ProcessManager, BotProcess
+from .bot_manager import BotManager, BotProcess
 from .access_control import AccessControl, is_broadcast_admin
 
 __all__ = [
     "AudioRouter",
     "SectionManager", 
     "BroadcastSection",
-    "ProcessManager",
+    "BotManager",
     "BotProcess",
     "AccessControl",
     "is_broadcast_admin",
