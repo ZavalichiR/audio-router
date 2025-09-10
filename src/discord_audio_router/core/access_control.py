@@ -50,7 +50,7 @@ class AccessControl:
     async def ensure_roles_exist(self, guild: discord.Guild, custom_role_name: Optional[str] = None) -> dict:
         """
         Ensure that required roles exist in the guild.
-        Creates roles if they don't exist but doesn't assign them to anyone.
+        Creates roles if they don't exist but doesn't assign them to the main bot.
 
         Args:
             guild: Discord guild
@@ -87,23 +87,7 @@ class AccessControl:
                 logger.info(f"Speaker role '{self.speaker_role_name}' already exists")
             result["speaker_role"] = speaker_role
 
-            # Ensure bot has speaker role
-            if speaker_role and guild.me:
-                try:
-                    if speaker_role not in guild.me.roles:
-                        if speaker_role.position >= guild.me.top_role.position:
-                            logger.warning(f"Cannot assign speaker role '{self.speaker_role_name}' (higher than bot's role)")
-                        else:
-                            await guild.me.add_roles(speaker_role, reason="Bot needs speaker role to join speaker channels")
-                            logger.info(f"Added speaker role to bot: {self.speaker_role_name}")
-                    else:
-                        logger.info(f"Bot already has speaker role: {self.speaker_role_name}")
-                except discord.Forbidden:
-                    logger.warning("Bot lacks permissions to assign speaker role to itself")
-                except Exception as e:
-                    logger.warning(f"Could not add speaker role to bot: {e}")
-
-            # Ensure listener role exists
+            # Ensure listener role exists (needed for receiver bots and channel permissions)
             listener_role = discord.utils.get(guild.roles, name="Listener")
             if not listener_role:
                 try:
@@ -121,21 +105,6 @@ class AccessControl:
                 logger.info("Listener role 'Listener' already exists")
             result["listener_role"] = listener_role
 
-            # Ensure bot has listener role
-            if listener_role and guild.me:
-                try:
-                    if listener_role not in guild.me.roles:
-                        if listener_role.position >= guild.me.top_role.position:
-                            logger.warning(f"Cannot assign listener role 'Listener' (higher than bot's role)")
-                        else:
-                            await guild.me.add_roles(listener_role, reason="Bot needs listener role to join listener channels")
-                            logger.info("Added listener role to bot: Listener")
-                    else:
-                        logger.info("Bot already has listener role: Listener")
-                except discord.Forbidden:
-                    logger.warning("Bot lacks permissions to assign listener role to itself")
-                except Exception as e:
-                    logger.warning(f"Could not add listener role to bot: {e}")
 
             # Ensure broadcast admin role exists
             admin_role = discord.utils.get(guild.roles, name=self.broadcast_admin_role_name)
@@ -154,6 +123,22 @@ class AccessControl:
             else:
                 logger.info(f"Broadcast admin role '{self.broadcast_admin_role_name}' already exists")
             result["broadcast_admin_role"] = admin_role
+
+            # Assign broadcast admin role to main bot
+            if admin_role and guild.me:
+                try:
+                    if admin_role not in guild.me.roles:
+                        if admin_role.position >= guild.me.top_role.position:
+                            logger.warning(f"Cannot assign broadcast admin role '{self.broadcast_admin_role_name}' (higher than bot's role)")
+                        else:
+                            await guild.me.add_roles(admin_role, reason="Main bot needs Broadcast Admin role for command permissions")
+                            logger.info(f"Added broadcast admin role to main bot: {self.broadcast_admin_role_name}")
+                    else:
+                        logger.info(f"Main bot already has broadcast admin role: {self.broadcast_admin_role_name}")
+                except discord.Forbidden:
+                    logger.warning("Bot lacks permissions to assign broadcast admin role to itself")
+                except Exception as e:
+                    logger.warning(f"Could not add broadcast admin role to bot: {e}")
 
             if custom_role_name:
                 custom_role = discord.utils.get(guild.roles, name=custom_role_name)
