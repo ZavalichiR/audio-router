@@ -8,6 +8,7 @@ through binary WebSocket protocol and direct audio processing.
 """
 
 import asyncio
+import json
 import os
 import sys
 import time
@@ -26,7 +27,6 @@ import websockets.exceptions
 from discord.ext import commands, voice_recv
 
 from discord_audio_router.audio import setup_audio_receiver
-from discord_audio_router.audio.handlers import BinaryAudioMessage
 from discord_audio_router.infrastructure import setup_logging
 
 # Configure logging
@@ -66,8 +66,9 @@ class AudioForwarderBot:
         # Audio handling
         self.voice_client: Optional[voice_recv.VoiceRecvClient] = None
         self.audio_sink: Optional[object] = None
-        self.websocket_server: Optional[websockets.WebSocketServer] = None
-        self.connected_listeners = set()
+        # WebSocket connection to centralized server
+        self.centralized_websocket: Optional[websockets.WebSocketClientProtocol] = None
+        self.centralized_server_url = os.getenv("CENTRALIZED_WEBSOCKET_URL", "ws://localhost:8765")
         self._connecting = False
         self.event_loop: Optional[asyncio.AbstractEventLoop] = None
 
@@ -95,8 +96,8 @@ class AudioForwarderBot:
             # Ensure bot has Speaker role to join speaker channels
             await self._ensure_speaker_role()
 
-            # Start WebSocket server for audio forwarding
-            await self._start_websocket_server()
+            # Connect to centralized WebSocket server
+            await self._connect_to_centralized_server()
 
             # Connect to the speaker channel
             await self.connect_to_channel()
@@ -147,21 +148,16 @@ class AudioForwarderBot:
                         f"Bot connected to channel: {after.channel.name}"
                     )
 
-    async def _start_websocket_server(self):
-        """Start WebSocket server for audio forwarding."""
+    async def _connect_to_centralized_server(self):
+        """Connect to the centralized WebSocket server."""
         try:
-            # Use a unique port for this speaker bot
-            port = 8000 + (self.channel_id % 1000)
-
             logger.info(
-                f"Starting WebSocket server on port {port} for AudioForwarder bot {self.bot_id} (channel_id: {self.channel_id})"
+                f"Connecting to centralized WebSocket server: {self.centralized_server_url}"
             )
 
-            # Start WebSocket server with settings
-            self.websocket_server = await websockets.serve(
-                self._create_websocket_handler(),
-                "localhost",
-                port,
+            # Connect to centralized server with settings
+            self.centralized_websocket = await websockets.connect(
+                self.centralized_server_url,
                 ping_interval=None,  # Disable automatic pings
                 ping_timeout=None,  # Disable ping timeout
                 close_timeout=5,  # Shorter close timeout
@@ -169,15 +165,25 @@ class AudioForwarderBot:
                 compression=None,  # Disable compression for lower latency
             )
 
-            # Wait a moment to ensure server is fully started
-            await asyncio.sleep(0.5)
+            # Register as a speaker with the centralized server
+            registration_msg = {
+                "type": "speaker_register",
+                "speaker_id": self.bot_id,
+                "channel_id": self.channel_id,
+                "guild_id": self.guild_id
+            }
+            await self.centralized_websocket.send(json.dumps(registration_msg))
+
+            # Wait for confirmation
+            response = await self.centralized_websocket.recv()
+            logger.info(f"Registration response: {response}")
 
             logger.info(
-                f"WebSocket server ready on port {port} for AudioForwarder bot {self.bot_id}"
+                f"Connected to centralized WebSocket server for AudioForwarder bot {self.bot_id}"
             )
 
             # Start connection health monitoring
-            asyncio.create_task(self._monitor_connections())
+            asyncio.create_task(self._monitor_centralized_connection())
 
             # Start voice connection monitoring
             asyncio.create_task(self._monitor_voice_connection())
@@ -186,118 +192,69 @@ class AudioForwarderBot:
             asyncio.create_task(self._monitor_performance())
 
         except Exception as e:
-            logger.error(f"Failed to start WebSocket server: {e}", exc_info=True)
+            logger.error(f"Failed to connect to centralized WebSocket server: {e}", exc_info=True)
 
-    def _create_websocket_handler(self):
-        """Create a WebSocket handler with binary protocol support."""
-        async def handler(websocket, path=None):
-            """Handle connection from listener bots with binary protocol."""
+    async def _monitor_centralized_connection(self):
+        """Monitor connection to centralized server."""
+        while True:
             try:
-                logger.info(
-                    f"AudioReceiver bot connected: {websocket.remote_address}"
-                )
-                self.connected_listeners.add(websocket)
-
-                # Send welcome message with protocol version
-                welcome_msg = {
-                    "type": "welcome",
-                    "speaker_id": self.bot_id,
-                    "channel_id": self.channel_id,
-                    "protocol_version": "binary_v1",
-                    "supports_binary": True
-                }
-                await websocket.send(str(welcome_msg).replace("'", '"'))
-
-                # Keep connection alive by listening for messages
-                try:
-                    async for message in websocket:
-                        # Handle any incoming messages from listener (like pings)
-                        try:
-                            if isinstance(message, str):
-                                data = eval(message)  # Simple parsing for control messages
-                                if data.get("type") == "ping":
-                                    await websocket.send('{"type": "pong"}')
-                                    logger.debug("Received ping from AudioReceiver, sent pong")
-                        except Exception:
-                            pass  # Ignore malformed messages
-                except websockets.exceptions.ConnectionClosed:
-                    logger.info(
-                        f"AudioReceiver bot disconnected: {websocket.remote_address}"
-                    )
-                except Exception as e:
-                    logger.error(f"Error in listener connection: {e}", exc_info=True)
-
+                await asyncio.sleep(30)  # Check every 30 seconds
+                
+                if self.centralized_websocket:
+                    try:
+                        # Try to check if connection is closed
+                        if hasattr(self.centralized_websocket, 'closed') and self.centralized_websocket.closed:
+                            logger.warning("Centralized WebSocket connection lost, attempting to reconnect...")
+                            await self._connect_to_centralized_server()
+                    except AttributeError:
+                        # Connection object doesn't have 'closed' attribute, assume it's open
+                        pass
+                    
             except Exception as e:
-                logger.error(f"Error handling listener connection: {e}", exc_info=True)
-            finally:
-                self.connected_listeners.discard(websocket)
-        
-        return handler
+                logger.error(f"Error monitoring centralized connection: {e}", exc_info=True)
+                await asyncio.sleep(5)  # Wait before retrying
 
     def _forward_audio(self, audio_data: bytes):
         """
-        Audio forwarding with binary protocol and direct processing.
+        Audio forwarding to centralized WebSocket server.
         
         This method is called directly from the audio sink without task creation,
         providing minimal latency for audio transmission.
         """
-        if not self.connected_listeners:
+        if not self.centralized_websocket:
             return
 
-        # Create binary audio message (no JSON, no Base64)
+        # Send raw binary audio data directly to centralized server
         try:
-            binary_message = BinaryAudioMessage(
-                speaker_id=self.bot_id,
-                channel_id=self.channel_id,
-                audio_data=audio_data
-            )
-            message_bytes = binary_message.to_bytes()
-            
             # Update performance counters
             self._audio_packets_sent += 1
-            self._bytes_sent += len(message_bytes)
+            self._bytes_sent += len(audio_data)
             
-            # Send to all connected listeners concurrently
+            # Send to centralized server
             # Note: This is called from the audio sink thread, so we need to schedule
-            # the WebSocket sends on the event loop using run_coroutine_threadsafe
-            if self.connected_listeners and self.event_loop:
+            # the WebSocket send on the event loop using run_coroutine_threadsafe
+            if self.event_loop:
                 future = asyncio.run_coroutine_threadsafe(
-                    self._send_binary_to_listeners(message_bytes), 
+                    self._send_binary_to_centralized(audio_data), 
                     self.event_loop
                 )
                 # Don't wait for the result to avoid blocking the audio thread
                 
         except Exception as e:
-            logger.error(f"Error creating binary audio message: {e}", exc_info=True)
+            logger.error(f"Error forwarding audio to centralized server: {e}", exc_info=True)
 
-    async def _send_binary_to_listeners(self, message_bytes: bytes):
-        """Send binary message to all connected listeners."""
-        if not self.connected_listeners:
-            return
-
-        # Send to all connected listeners concurrently
-        send_tasks = []
-        for websocket in self.connected_listeners:
-            send_tasks.append(self._safe_send_binary(websocket, message_bytes))
-
-        # Wait for all sends to complete concurrently
-        results = await asyncio.gather(*send_tasks, return_exceptions=True)
-
-        # Clean up disconnected listeners
-        disconnected = set()
-        for idx, result in enumerate(results):
-            if isinstance(result, Exception):
-                websocket = list(self.connected_listeners)[idx]
-                disconnected.add(websocket)
-                if isinstance(result, websockets.exceptions.ConnectionClosed):
-                    logger.debug(f"Listener disconnected: {websocket}")
-                else:
-                    logger.error(f"Failed to send binary audio to listener: {result}")
-
-        # Remove disconnected listeners
-        if disconnected:
-            self.connected_listeners -= disconnected
-            logger.debug(f"Removed {len(disconnected)} disconnected listeners")
+    async def _send_binary_to_centralized(self, audio_data: bytes):
+        """Send binary audio data to centralized server."""
+        try:
+            if self.centralized_websocket:
+                await self.centralized_websocket.send(audio_data)
+            else:
+                logger.warning("Centralized WebSocket connection not available")
+        except websockets.exceptions.ConnectionClosed:
+            logger.warning("Centralized WebSocket connection closed")
+            self.centralized_websocket = None
+        except Exception as e:
+            logger.error(f"Error sending audio to centralized server: {e}", exc_info=True)
 
     async def _safe_send_binary(self, websocket, message_bytes: bytes):
         """Safely send binary audio message to a single websocket."""
@@ -309,24 +266,6 @@ class AudioForwarderBot:
             logger.error(f"Error sending binary audio: {e}")
             raise  # Re-raise to be handled by caller
 
-    async def _monitor_connections(self):
-        """Monitor WebSocket connections for health."""
-        while True:
-            try:
-                await asyncio.sleep(60)  # Check every 60 seconds
-
-                if not self.connected_listeners:
-                    logger.debug("No listeners connected")
-                    continue
-
-                # Log connection status periodically
-                logger.info(
-                    f"WebSocket connections: {len(self.connected_listeners)} listeners connected"
-                )
-
-            except Exception as e:
-                logger.error(f"Error in connection monitoring: {e}", exc_info=True)
-                await asyncio.sleep(30)  # Wait before retrying
 
     async def _monitor_voice_connection(self):
         """Monitor voice connection and reconnect if needed."""
@@ -350,7 +289,7 @@ class AudioForwarderBot:
                     # Log status every 60 seconds (4 * 15 seconds)
                     if status_counter % 4 == 0:
                         logger.info(
-                            f"Voice connection healthy, {len(self.connected_listeners)} listeners connected"
+                            f"Voice connection healthy, centralized server: {'Connected' if self.centralized_websocket else 'Disconnected'}"
                         )
 
             except Exception as e:
@@ -376,7 +315,7 @@ class AudioForwarderBot:
                         f"Packets/sec: {packets_per_second:.1f}, "
                         f"Bytes/sec: {bytes_per_second:.1f}, "
                         f"Total packets: {self._audio_packets_sent}, "
-                        f"Listeners: {len(self.connected_listeners)}"
+                        f"Centralized: {'Connected' if self.centralized_websocket else 'Disconnected'}"
                     )
                     
                     # Reset counters
@@ -537,15 +476,9 @@ class AudioForwarderBot:
                 await self.voice_client.disconnect()
                 self.voice_client = None
 
-            if self.websocket_server:
-                self.websocket_server.close()
-                await self.websocket_server.wait_closed()
-                self.websocket_server = None
-
-            # Close all listener connections
-            for websocket in list(self.connected_listeners):
-                await websocket.close()
-            self.connected_listeners.clear()
+            if self.centralized_websocket:
+                await self.centralized_websocket.close()
+                self.centralized_websocket = None
 
             logger.info("AudioForwarder bot disconnected and cleaned up")
 
