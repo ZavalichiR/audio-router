@@ -493,8 +493,7 @@ class SectionManager:
                 embed.add_field(
                     name="🎛️ Available Commands",
                     value="• `!stop_broadcast` - Stop broadcasting and remove entire section\n"
-                          "• `!broadcast_status` - Check broadcast status\n"
-                          "• `!system_status` - Check system health",
+                          "• `!broadcast_status` - Check broadcast status",
                     inline=False,
                 )
 
