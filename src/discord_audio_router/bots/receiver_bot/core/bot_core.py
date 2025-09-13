@@ -2,9 +2,8 @@
 
 import asyncio
 import logging
-from typing import Optional
 
-from discord.ext import commands, voice_recv
+from discord.ext import commands
 
 from discord_audio_router.infrastructure import setup_logging
 
@@ -16,7 +15,7 @@ from ..utils.performance import PerformanceMonitor
 
 
 class AudioReceiverBot:
-    """Audio receiver bot with binary protocol and performance improvements."""
+    """Audio receiver bot with simplified connection logic."""
 
     def __init__(self):
         """Initialize the audio receiver bot."""
@@ -29,19 +28,9 @@ class AudioReceiverBot:
         # Load configuration
         self.config = BotConfig()
 
-        # Log configuration for debugging
-        self.logger.info("AudioReceiver bot configuration:")
-        self.logger.info(f"  Bot ID: {self.config.bot_id}")
-        self.logger.info(f"  Channel ID: {self.config.channel_id}")
-        self.logger.info(f"  Guild ID: {self.config.guild_id}")
-        self.logger.info(f"  Speaker Channel ID: {self.config.speaker_channel_id}")
-
         # Bot setup
         intents = self.config.get_discord_intents()
         self.bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
-
-        # Audio handling
-        self.voice_client: Optional[voice_recv.VoiceRecvClient] = None
 
         # Initialize handlers
         self.performance_monitor = PerformanceMonitor(logger=self.logger)
@@ -76,16 +65,20 @@ class AudioReceiverBot:
         # Setup bot events
         self.event_handlers.setup_events()
 
-        # Start monitoring tasks
-        self._monitoring_tasks = []
+        # Single monitoring task
+        self._performance_monitoring_task = None
+
+        # Single monitoring task
+        self._voice_monitoring_task = None
 
     async def start(self) -> None:
         """Start the audio receiver bot."""
         try:
             self.logger.info(f"Starting AudioReceiver bot {self.config.bot_id}...")
 
-            # Start monitoring tasks
-            self._start_monitoring_tasks()
+            # Start monitoring task
+            self._start_monitoring_performance_task()
+            self._start_monitoring_voice_task()
 
             # Start the bot
             await self.bot.start(self.config.bot_token)
@@ -94,16 +87,17 @@ class AudioReceiverBot:
             self.logger.error(f"Failed to start AudioReceiver bot: {e}", exc_info=True)
             raise
 
-    def _start_monitoring_tasks(self) -> None:
-        """Start background monitoring tasks."""
-        # Performance monitoring
-        self._monitoring_tasks.append(asyncio.create_task(self._monitor_performance()))
+    def _start_monitoring_performance_task(self) -> None:
+        """Start background monitoring task."""
+        self._performance_monitoring_task = asyncio.create_task(
+            self._monitor_performance()
+        )
 
     async def _monitor_performance(self) -> None:
         """Monitor and log performance statistics."""
         while True:
             try:
-                await asyncio.sleep(30)  # Log stats every 30 seconds
+                await asyncio.sleep(60)  # Log stats every 60 seconds
 
                 # Get audio buffer stats
                 buffer_stats = self.audio_handlers.get_buffer_stats()
@@ -113,16 +107,72 @@ class AudioReceiverBot:
                 self.logger.error(
                     f"Error in performance monitoring: {e}", exc_info=True
                 )
-                await asyncio.sleep(30)
+                await asyncio.sleep(60)
+
+    def _start_monitoring_voice_task(self) -> None:
+        """Start background monitoring task."""
+        self._voice_monitoring_task = asyncio.create_task(
+            self._monitor_voice_connection()
+        )
+
+    async def _monitor_voice_connection(self) -> None:
+        """Monitor voice connection and reconnect if needed."""
+        while True:
+            try:
+                await asyncio.sleep(20)  # Check every 20 seconds
+
+                guild = self.bot.get_guild(self.config.guild_id)
+                if not guild:
+                    self.logger.warning(f"Guild {self.config.guild_id} not found")
+                    continue
+
+                voice_client = guild.voice_client
+                target_channel_id = self.config.channel_id
+
+                # Determine if reconnect is needed
+                should_reconnect = (
+                    not voice_client
+                    or not voice_client.is_connected()
+                    or voice_client.channel.id != target_channel_id
+                )
+
+                if should_reconnect and not self.event_handlers._connecting:
+                    self.logger.info("Voice monitoring detected need to reconnect")
+                    await self.event_handlers.connect_to_channel()
+                elif voice_client and voice_client.is_connected():
+                    # Log status every 5 minutes (5 * 60 seconds)
+                    if hasattr(self, "_status_counter"):
+                        self._status_counter += 1
+                    else:
+                        self._status_counter = 1
+
+                    if self._status_counter % 5 == 0:
+                        connected = (
+                            "Connected"
+                            if self.websocket_handlers.websocket
+                            else "Disconnected"
+                        )
+                        self.logger.info(
+                            f"Voice connection healthy, centralized server: {connected}"
+                        )
+
+            except Exception as e:
+                self.logger.error(
+                    f"Error in voice connection monitoring: {e}", exc_info=True
+                )
+                await asyncio.sleep(20)
 
     async def stop(self) -> None:
         """Stop the audio receiver bot."""
         try:
             self.logger.info(f"Stopping AudioReceiver bot {self.config.bot_id}...")
 
-            # Cancel monitoring tasks
-            for task in self._monitoring_tasks:
-                task.cancel()
+            # Cancel monitoring task
+            if self._performance_monitoring_task:
+                self._performance_monitoring_task.cancel()
+
+            if self._voice_monitoring_task:
+                self._voice_monitoring_task.cancel()
 
             # Disconnect and cleanup
             await self.disconnect()
@@ -139,9 +189,9 @@ class AudioReceiverBot:
     async def disconnect(self) -> None:
         """Disconnect from voice channel and cleanup."""
         try:
-            if self.voice_client:
-                await self.voice_client.disconnect()
-                self.voice_client = None
+            guild = self.bot.get_guild(self.config.guild_id)
+            if guild and guild.voice_client:
+                await guild.voice_client.disconnect()
 
             # Stop audio playback
             self.audio_handlers.stop_audio_playback()
@@ -157,6 +207,7 @@ class AudioReceiverBot:
 
 async def main():
     """Main function to run the audio receiver bot."""
+    audioreceiver_bot = None
     try:
         # Create and start the audio receiver bot
         audioreceiver_bot = AudioReceiverBot()
@@ -170,7 +221,7 @@ async def main():
         logging.critical(f"Fatal error in AudioReceiver bot: {e}")
         raise
     finally:
-        if "audioreceiver_bot" in locals():
+        if audioreceiver_bot:
             await audioreceiver_bot.stop()
 
 

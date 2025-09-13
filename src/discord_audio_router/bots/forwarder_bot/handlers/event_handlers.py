@@ -31,71 +31,48 @@ class EventHandlers:
         self.config = config
         self.logger = logger
         self._connecting = False
+        self._initialized = False
 
     def setup_events(self) -> None:
         """Setup bot event handlers."""
 
         @self.bot.event
         async def on_ready():
-            self.logger.info(
-                f"AudioForwarder bot {self.config.bot_id} ready: {self.bot.user}"
-            )
-            self.logger.info(
-                f"Target channel: {self.config.channel_id}, Guild: {self.config.guild_id}"
-            )
+            if not self._initialized:
+                self._initialized = True
+                self.logger.info(
+                    f"AudioForwarder bot ready: {self.bot.user} (ID: {self.config.bot_id})"
+                )
+                # Ensure the bot has the correct role and connect websockets
+                await self._ensure_speaker_role()
+                await self.websocket_handlers.connect()
 
-            # Ensure bot has Speaker role to join speaker channels
-            await self._ensure_speaker_role()
+                # First-time voice connection
+                await asyncio.sleep(1)
+                await self.connect_to_channel()
 
-            # Connect to centralized WebSocket server
-            await self.websocket_handlers.connect()
-
-            # Connect to the speaker channel
+        @self.bot.event
+        async def on_resumed():
+            self.logger.info("Session resumed—reconnecting voice if needed")
             await self.connect_to_channel()
 
         @self.bot.event
-        async def on_connect():
-            self.logger.info(
-                f"AudioForwarder bot {self.config.bot_id} connected to Discord"
-            )
-
-        @self.bot.event
-        async def on_disconnect():
-            self.logger.warning(
-                f"AudioForwarder bot {self.config.bot_id} disconnected from Discord"
-            )
-
-        @self.bot.event
         async def on_voice_state_update(member, before, after):
-            """Handle voice state updates to prevent bot from leaving when users mute/unmute."""
-            # Only care about voice state changes for our bot
-            if member.id == self.bot.user.id:
-                # Check if the bot was actually disconnected (moved to no channel)
-                if before.channel and after.channel is None:
-                    self.logger.warning("Bot was disconnected from voice channel!")
-                    # Only reconnect if we're not already trying to connect
-                    if not self._connecting:
-                        await asyncio.sleep(2)
-                        await self.connect_to_channel()
-                # Check if the bot was moved to a different channel
-                elif (
-                    before.channel
-                    and after.channel
-                    and before.channel.id != after.channel.id
-                ):
-                    self.logger.warning(
-                        f"Bot was moved from {before.channel.name} to {after.channel.name}"
-                    )
-                    # If moved away from our target channel, try to reconnect
-                    if (
-                        after.channel.id != self.config.channel_id
-                        and not self._connecting
-                    ):
-                        await asyncio.sleep(2)
-                        await self.connect_to_channel()
-                # If bot just connected (before.channel is None, after.channel exists)
-                elif not before.channel and after.channel:
-                    self.logger.info(f"Bot connected to channel: {after.channel.name}")
+            # Only look at our bot in the right guild
+            if member.id != self.bot.user.id or member.guild.id != self.config.guild_id:
+                return
+
+            # True disconnect (kicked / lost connection)
+            if before.channel and not after.channel:
+                self.logger.warning("Bot was disconnected from voice channel")
+                await self.connect_to_channel()
+
+            # Moved out of the target channel
+            elif after.channel and after.channel.id != self.config.channel_id:
+                self.logger.warning(f"Bot moved to wrong channel: {after.channel.name}")
+                await self.connect_to_channel()
+
+    # Ignore all other state updates (including the initial join or self-deafen fli
 
     async def _ensure_speaker_role(self) -> None:
         """Ensure the AudioForwarder bot has the Speaker role to join speaker channels."""
@@ -103,181 +80,119 @@ class EventHandlers:
             guild = self.bot.get_guild(self.config.guild_id)
             if not guild:
                 self.logger.warning(
-                    f"Guild {self.config.guild_id} not found in cache, attempting to fetch..."
+                    f"Guild {self.config.guild_id} not in cache, fetching..."
                 )
-                try:
-                    # Try to fetch the guild directly from Discord
-                    guild = await self.bot.fetch_guild(self.config.guild_id)
-                    self.logger.info(f"Successfully fetched guild: {guild.name}")
-                except discord.NotFound:
-                    self.logger.error(
-                        f"Guild {self.config.guild_id} not found on Discord"
-                    )
-                    return
-                except Exception as e:
-                    self.logger.error(f"Error fetching guild: {e}")
-                    return
+                guild = await self.bot.fetch_guild(self.config.guild_id)
+                self.logger.info(f"Fetched guild: {guild.name}")
 
             bot_member = guild.get_member(self.bot.user.id)
             if not bot_member:
                 self.logger.error(f"Bot member not found in guild {guild.name}")
                 return
 
-            # Look for the Speaker role
             speaker_role = discord.utils.get(guild.roles, name="Speaker")
             if not speaker_role:
-                self.logger.warning(
-                    "Speaker role not found - AudioForwarder bot may not be able to join speaker channels"
-                )
+                self.logger.warning("Speaker role not found in guild roles")
                 return
 
-            # Check if bot already has the Speaker role
             if speaker_role in bot_member.roles:
-                self.logger.info(
-                    f"AudioForwarder bot already has Speaker role: {speaker_role.name}"
-                )
+                self.logger.info("Bot already has Speaker role")
                 return
 
-            # Try to add the Speaker role to the bot
             try:
                 await bot_member.add_roles(
                     speaker_role,
-                    reason="AudioForwarder bot needs Speaker role to join speaker channels",
+                    reason="AudioForwarder bot needs Speaker role",
                 )
-                self.logger.info(
-                    f"Added Speaker role to AudioForwarder bot: {speaker_role.name}"
-                )
+                self.logger.info("Added Speaker role to bot")
             except discord.Forbidden:
-                self.logger.warning(
-                    "Cannot add Speaker role to AudioForwarder bot - insufficient permissions"
-                )
+                self.logger.warning("Insufficient permissions to add Speaker role")
             except Exception as e:
-                self.logger.error(
-                    f"Error adding Speaker role to AudioForwarder bot: {e}",
-                    exc_info=True,
-                )
-
+                self.logger.error(f"Error adding role: {e}", exc_info=True)
         except Exception as e:
-            self.logger.error(
-                f"Error ensuring Speaker role for AudioForwarder bot: {e}",
-                exc_info=True,
-            )
+            self.logger.error(f"Error in _ensure_speaker_role: {e}", exc_info=True)
 
     async def connect_to_channel(self) -> bool:
         """Connect to the speaker channel and start audio capture."""
+        if self._connecting:
+            self.logger.info("Connection attempt already in progress")
+            return False
+        self._connecting = True
         try:
-            # Prevent multiple simultaneous connection attempts
-            if self._connecting:
-                self.logger.info("Connection already in progress, skipping...")
+            guild = self.bot.get_guild(self.config.guild_id)
+            if not guild:
+                guild = await self.bot.fetch_guild(self.config.guild_id)
+
+            channel = guild.get_channel(self.config.channel_id)
+            if not channel:
+                self.logger.error(f"Channel {self.config.channel_id} not found")
                 return False
 
-            self._connecting = True
-            self.logger.info(
-                f"Attempting to connect to voice channel {self.config.channel_id}"
-            )
+            voice_client = guild.voice_client
+            if (
+                voice_client
+                and voice_client.is_connected()
+                and voice_client.channel.id == self.config.channel_id
+            ):
+                self.logger.info("Already connected to target voice channel")
+            else:
+                if voice_client:
+                    await voice_client.disconnect()
+                from discord.ext import voice_recv
 
-            try:
-                # Check if already connected and working properly
-                if (
-                    self.bot_instance.voice_client
-                    and self.bot_instance.voice_client.is_connected()
-                ):
-                    # Check if we're in the right channel
-                    if (
-                        hasattr(self.bot_instance.voice_client, "channel")
-                        and self.bot_instance.voice_client.channel
-                        and self.bot_instance.voice_client.channel.id
-                        == self.config.channel_id
-                    ):
-                        self.logger.info("Already connected to correct voice channel")
-                        return True
-                    else:
-                        self.logger.info("Connected to wrong channel, reconnecting...")
-                        await self.bot_instance.voice_client.disconnect()
-                        self.bot_instance.voice_client = None
-
-                guild = self.bot.get_guild(self.config.guild_id)
-                if not guild:
-                    self.logger.warning(
-                        f"Guild {self.config.guild_id} not found in cache, attempting to fetch..."
-                    )
-                    try:
-                        # Try to fetch the guild directly from Discord
-                        guild = await self.bot.fetch_guild(self.config.guild_id)
-                        self.logger.info(f"Successfully fetched guild: {guild.name}")
-                    except discord.NotFound:
-                        self.logger.error(
-                            f"Guild {self.config.guild_id} not found on Discord"
-                        )
-                        return False
-                    except Exception as e:
-                        self.logger.error(f"Error fetching guild: {e}")
-                        return False
-
-                channel = guild.get_channel(self.config.channel_id)
-                if not channel:
-                    self.logger.error(f"Channel {self.config.channel_id} not found")
-                    return False
-
-                # Connect to voice channel
-                try:
-                    from discord.ext import voice_recv
-
-                    self.bot_instance.voice_client = await channel.connect(
-                        cls=voice_recv.VoiceRecvClient
-                    )
-                except Exception as connect_error:
-                    if "Already connected to a voice channel" in str(connect_error):
-                        self.logger.warning(
-                            "Already connected to a voice channel, disconnecting first..."
-                        )
-                        # Try to disconnect from any existing connection
-                        if hasattr(self.bot, "voice_clients"):
-                            for vc in self.bot.voice_clients:
-                                await vc.disconnect()
-                        # Wait a moment and try again
-                        await asyncio.sleep(1)
-                        from discord.ext import voice_recv
-
-                        self.bot_instance.voice_client = await channel.connect(
-                            cls=voice_recv.VoiceRecvClient
-                        )
-                    else:
-                        raise connect_error
-
+                # Inside connect_to_channel, after retrieving `channel`
+                # Debug: verify channel type and bot permissions
                 self.logger.info(
-                    f"Voice client connected: {self.bot_instance.voice_client}"
+                    f"About to connect to channel {channel.name} ({channel.id}): "
+                    f"type={type(channel).__name__}, kind={channel.type}"
                 )
+                perms = channel.permissions_for(channel.guild.me)
+                self.logger.info(
+                    f"Bot permissions in channel: connect={perms.connect}, "
+                    f"speak={perms.speak}, view_channel={perms.view_channel}"
+                )
+                try:
+                    voice_client = await channel.connect(
+                        cls=voice_recv.VoiceRecvClient,
+                        timeout=30.0,
+                    )
+                except discord.errors.ConnectionClosed as e:
+                    if e.code == 4006:
+                        self.logger.warning("Voice session invalidated, retrying...")
+                        await asyncio.sleep(5)
+                        voice_client = await channel.connect(
+                            cls=voice_recv.VoiceRecvClient,
+                            timeout=30.0,
+                        )
+                    else:
+                        raise
 
-                # Self-deafen to prevent hearing our own audio (prevents feedback)
-                await self.bot_instance.voice_client.guild.change_voice_state(
+                await asyncio.sleep(1)
+                if not voice_client.is_connected():
+                    raise Exception("Failed to connect voice client")
+
+                await guild.change_voice_state(
                     channel=channel,
                     self_deaf=True,
-                    self_mute=False,  # We want to capture audio, so don't mute
+                    self_mute=False,
                 )
-                self.logger.info("Voice state updated: self-deafened")
 
-                # Setup audio capture with direct callback
+                self.logger.info("Voice client connected and self-deafened")
+
+            # Setup audio receiver
+            try:
                 self.bot_instance.audio_sink = await setup_audio_receiver(
-                    self.bot_instance.voice_client,
+                    guild.voice_client,
                     self.websocket_handlers.forward_audio,
                 )
+                self.logger.info("Audio sink setup complete")
+            except Exception as e:
+                self.logger.error(f"Audio sink setup failed: {e}")
+                self.bot_instance.audio_sink = None
 
-                self.logger.info(
-                    f"Connected to speaker channel: {channel.name} (self-deafened)"
-                )
-                self.logger.info(
-                    f"Audio sink setup complete: {self.bot_instance.audio_sink is not None}"
-                )
-                return True
-
-            finally:
-                # Always reset the connecting flag
-                self._connecting = False
-
+            return True
         except Exception as e:
-            self.logger.error(
-                f"Failed to connect to speaker channel: {e}", exc_info=True
-            )
-            self._connecting = False
+            self.logger.error(f"connect_to_channel error: {e}", exc_info=True)
             return False
+        finally:
+            self._connecting = False

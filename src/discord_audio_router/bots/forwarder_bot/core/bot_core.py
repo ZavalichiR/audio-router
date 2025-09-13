@@ -4,18 +4,17 @@ import asyncio
 import logging
 from typing import Optional
 
-from discord.ext import commands, voice_recv
+from discord.ext import commands
 
 from discord_audio_router.infrastructure import setup_logging
 
 from ..handlers.event_handlers import EventHandlers
 from ..handlers.websocket_handlers import WebSocketHandlers
 from ..utils.config import BotConfig
-from ..utils.performance import PerformanceMonitor
 
 
 class AudioForwarderBot:
-    """Audio forwarder bot with binary protocol and performance improvements."""
+    """Audio forwarder bot with simplified connection logic."""
 
     def __init__(self):
         """Initialize the audio forwarder bot."""
@@ -32,8 +31,7 @@ class AudioForwarderBot:
         intents = self.config.get_discord_intents()
         self.bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
-        # Audio handling
-        self.voice_client: Optional[voice_recv.VoiceRecvClient] = None
+        # Audio handling - removed local voice_client storage
         self.audio_sink: Optional[object] = None
 
         # Initialize handlers
@@ -45,6 +43,10 @@ class AudioForwarderBot:
             logger=self.logger,
         )
 
+        # Store the event loop for use in audio callbacks
+        event_loop = asyncio.get_running_loop()
+        self.websocket_handlers.set_event_loop(event_loop)
+
         self.event_handlers = EventHandlers(
             bot=self,
             websocket_handlers=self.websocket_handlers,
@@ -52,26 +54,19 @@ class AudioForwarderBot:
             logger=self.logger,
         )
 
-        # Performance monitoring
-        self.performance_monitor = PerformanceMonitor(logger=self.logger)
-
         # Setup bot events
         self.event_handlers.setup_events()
 
-        # Start monitoring tasks
-        self._monitoring_tasks = []
+        # Single monitoring task
+        self._voice_monitoring_task = None
 
     async def start(self) -> None:
         """Start the audio forwarder bot."""
         try:
             self.logger.info(f"Starting AudioForwarder bot {self.config.bot_id}...")
 
-            # Store the event loop for use in audio callbacks
-            event_loop = asyncio.get_running_loop()
-            self.websocket_handlers.set_event_loop(event_loop)
-
-            # Start monitoring tasks
-            self._start_monitoring_tasks()
+            # Start monitoring task
+            self._start_monitoring_task()
 
             # Start the bot
             await self.bot.start(self.config.bot_token)
@@ -80,34 +75,44 @@ class AudioForwarderBot:
             self.logger.error(f"Failed to start AudioForwarder bot: {e}", exc_info=True)
             raise
 
-    def _start_monitoring_tasks(self) -> None:
-        """Start background monitoring tasks."""
-        # Voice connection monitoring
-        self._monitoring_tasks.append(
-            asyncio.create_task(self._monitor_voice_connection())
+    def _start_monitoring_task(self) -> None:
+        """Start background monitoring task."""
+        self._voice_monitoring_task = asyncio.create_task(
+            self._monitor_voice_connection()
         )
-
-        # Performance monitoring
-        self._monitoring_tasks.append(asyncio.create_task(self._monitor_performance()))
 
     async def _monitor_voice_connection(self) -> None:
         """Monitor voice connection and reconnect if needed."""
-        status_counter = 0
         while True:
             try:
-                await asyncio.sleep(15)  # Check every 15 seconds
-                status_counter += 1
+                await asyncio.sleep(20)  # Check every 20 seconds
 
-                if not self.voice_client or not self.voice_client.is_connected():
-                    self.logger.warning(
-                        "Voice client disconnected, attempting to reconnect..."
-                    )
-                    # Only reconnect if we're not already trying to connect
-                    if not self.event_handlers._connecting:
-                        await self.event_handlers.connect_to_channel()
-                else:
-                    # Log status every 60 seconds (4 * 15 seconds)
-                    if status_counter % 4 == 0:
+                guild = self.bot.get_guild(self.config.guild_id)
+                if not guild:
+                    self.logger.warning(f"Guild {self.config.guild_id} not found")
+                    continue
+
+                voice_client = guild.voice_client
+                target_channel_id = self.config.channel_id
+
+                # Check if we need to connect/reconnect
+                should_reconnect = (
+                    not voice_client
+                    or not voice_client.is_connected()
+                    or voice_client.channel.id != target_channel_id
+                )
+
+                if should_reconnect and not self.event_handlers._connecting:
+                    self.logger.info("Voice monitoring detected need to reconnect")
+                    await self.event_handlers.connect_to_channel()
+                elif voice_client and voice_client.is_connected():
+                    # Log status every 5 minutes (5 * 60 seconds)
+                    if hasattr(self, "_status_counter"):
+                        self._status_counter += 1
+                    else:
+                        self._status_counter = 1
+
+                    if self._status_counter % 5 == 0:
                         self.logger.info(
                             f"Voice connection healthy, centralized server: {'Connected' if self.websocket_handlers.websocket else 'Disconnected'}"
                         )
@@ -116,29 +121,16 @@ class AudioForwarderBot:
                 self.logger.error(
                     f"Error in voice connection monitoring: {e}", exc_info=True
                 )
-                await asyncio.sleep(15)  # Wait before retrying
-
-    async def _monitor_performance(self) -> None:
-        """Monitor and log performance statistics."""
-        while True:
-            try:
-                await asyncio.sleep(30)  # Log stats every 30 seconds
-                await self.performance_monitor.log_performance_stats()
-
-            except Exception as e:
-                self.logger.error(
-                    f"Error in performance monitoring: {e}", exc_info=True
-                )
-                await asyncio.sleep(30)
+                await asyncio.sleep(20)
 
     async def stop(self) -> None:
         """Stop the audio forwarder bot."""
         try:
             self.logger.info(f"Stopping AudioForwarder bot {self.config.bot_id}...")
 
-            # Cancel monitoring tasks
-            for task in self._monitoring_tasks:
-                task.cancel()
+            # Cancel monitoring task
+            if self._voice_monitoring_task:
+                self._voice_monitoring_task.cancel()
 
             # Disconnect and cleanup
             await self.disconnect()
@@ -155,9 +147,9 @@ class AudioForwarderBot:
     async def disconnect(self) -> None:
         """Disconnect from voice channel and cleanup."""
         try:
-            if self.voice_client:
-                await self.voice_client.disconnect()
-                self.voice_client = None
+            guild = self.bot.get_guild(self.config.guild_id)
+            if guild and guild.voice_client:
+                await guild.voice_client.disconnect()
 
             await self.websocket_handlers.disconnect()
 
@@ -169,6 +161,7 @@ class AudioForwarderBot:
 
 async def main():
     """Main function to run the audio forwarder bot."""
+    audioforwarder_bot = None
     try:
         # Create and start the audio forwarder bot
         audioforwarder_bot = AudioForwarderBot()
@@ -182,7 +175,7 @@ async def main():
         logging.critical(f"Fatal error in AudioForwarder bot: {e}")
         raise
     finally:
-        if "audioforwarder_bot" in locals():
+        if audioforwarder_bot:
             await audioforwarder_bot.stop()
 
 
