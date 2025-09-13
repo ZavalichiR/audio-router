@@ -14,11 +14,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from discord_audio_router.infrastructure import setup_logging
+
 # Configure logging
 logger = setup_logging(
     component_name="bot_manager",
     log_file="logs/section_manager.log",
 )
+
 
 class BotProcess:
     """Represents a bot process instance."""
@@ -62,13 +64,9 @@ class BotProcess:
 
             # Determine which script to run
             if self.bot_type == "speaker":
-                script_path = (
-                    Path(__file__).parent.parent / "bots" / "forwarder_bot.py"
-                )
+                script_path = Path(__file__).parent.parent / "bots" / "forwarder_bot.py"
             elif self.bot_type == "listener":
-                script_path = (
-                    Path(__file__).parent.parent / "bots" / "receiver_bot.py"
-                )
+                script_path = Path(__file__).parent.parent / "bots" / "receiver_bot.py"
             else:
                 logger.error(f"Unknown bot type: {self.bot_type}")
                 return False
@@ -87,9 +85,7 @@ class BotProcess:
             )
 
             # For listener bots, add speaker channel ID if available
-            if self.bot_type == "listener" and hasattr(
-                self, "speaker_channel_id"
-            ):
+            if self.bot_type == "listener" and hasattr(self, "speaker_channel_id"):
                 env["SPEAKER_CHANNEL_ID"] = str(self.speaker_channel_id)
 
             # Start the process
@@ -111,7 +107,9 @@ class BotProcess:
             return True
 
         except Exception as e:
-            logger.error(f"Failed to start bot process {self.bot_id}: {e}", exc_info=True)
+            logger.error(
+                f"Failed to start bot process {self.bot_id}: {e}", exc_info=True
+            )
             self.is_running = False
             return False
 
@@ -128,7 +126,9 @@ class BotProcess:
 
                 # Wait for graceful shutdown
                 try:
-                    self.process.wait(timeout=10.0)  # Increased timeout for graceful shutdown
+                    self.process.wait(
+                        timeout=10.0
+                    )  # Increased timeout for graceful shutdown
                 except subprocess.TimeoutExpired:
                     # Force kill if graceful shutdown fails
                     logger.warning(f"Force killing bot process {self.bot_id}")
@@ -142,7 +142,9 @@ class BotProcess:
             return True
 
         except Exception as e:
-            logger.error(f"Error stopping bot process {self.bot_id}: {e}", exc_info=True)
+            logger.error(
+                f"Error stopping bot process {self.bot_id}: {e}", exc_info=True
+            )
             return False
 
     def is_alive(self) -> bool:
@@ -186,24 +188,21 @@ class BotManager:
         self.bot_processes: Dict[str, BotProcess] = {}
         self.available_tokens: List[str] = []
         self.used_tokens: set = set()
-        
+
         # Simple token list - Channel-1 gets Token-1, Channel-2 gets Token-2, etc.
 
     def add_available_tokens(self, tokens: List[str]):
         """Add available bot tokens."""
         self.available_tokens.extend(tokens)
         logger.info(f"Added {len(tokens)} available bot tokens")
-        
+
         # Log token order for debugging
         for i, token in enumerate(tokens):
             # Show first few and last few characters of token for identification
             token_preview = f"{token[:8]}...{token[-8:]}" if len(token) > 16 else token
-            logger.info(f"Token #{i+1}: {token_preview}")
+            logger.info(f"Token #{i + 1}: {token_preview}")
 
-
-    async def start_speaker_bot(
-        self, channel_id: int, guild_id: int
-    ) -> Optional[str]:
+    async def start_speaker_bot(self, channel_id: int, guild_id: int) -> Optional[str]:
         """
         Start a speaker bot process.
 
@@ -218,10 +217,7 @@ class BotManager:
             bot_id = f"audioforwarder_{channel_id}"
 
             # Check if already running
-            if (
-                bot_id in self.bot_processes
-                and self.bot_processes[bot_id].is_alive()
-            ):
+            if bot_id in self.bot_processes and self.bot_processes[bot_id].is_alive():
                 logger.info(f"AudioForwarder bot {bot_id} is already running")
                 return bot_id
 
@@ -243,9 +239,7 @@ class BotManager:
                 logger.info(f"Started AudioForwarder bot process: {bot_id}")
                 return bot_id
             else:
-                logger.error(
-                    f"Failed to start AudioForwarder bot process: {bot_id}"
-                )
+                logger.error(f"Failed to start AudioForwarder bot process: {bot_id}")
                 return None
 
         except Exception as e:
@@ -253,7 +247,11 @@ class BotManager:
             return None
 
     async def start_listener_bot(
-        self, channel_id: int, guild_id: int, speaker_channel_id: int, channel_number: int
+        self,
+        channel_id: int,
+        guild_id: int,
+        speaker_channel_id: int,
+        channel_number: int,
     ) -> Optional[str]:
         """
         Start a listener bot process.
@@ -271,20 +269,21 @@ class BotManager:
             bot_id = f"audioreceiver_{channel_id}"
 
             # Check if already running
-            if (
-                bot_id in self.bot_processes
-                and self.bot_processes[bot_id].is_alive()
-            ):
+            if bot_id in self.bot_processes and self.bot_processes[bot_id].is_alive():
                 logger.info(f"AudioReceiver bot {bot_id} is already running")
                 return bot_id
 
             # Get token based on channel number (Channel-1 gets Token-1, Channel-2 gets Token-2, etc.)
             if channel_number > len(self.available_tokens):
-                logger.error(f"Channel number {channel_number} exceeds available tokens ({len(self.available_tokens)})")
+                logger.error(
+                    f"Channel number {channel_number} exceeds available tokens ({len(self.available_tokens)})"
+                )
                 return None
-                
+
             token = self.available_tokens[channel_number - 1]  # Channel-1 = index 0
-            logger.info(f"Assigned token #{channel_number} to Channel-{channel_number} (bot_id: {bot_id}) in guild {guild_id}")
+            logger.info(
+                f"Assigned token #{channel_number} to Channel-{channel_number} (bot_id: {bot_id}) in guild {guild_id}"
+            )
 
             # Create bot process
             bot_process = BotProcess(
@@ -303,16 +302,18 @@ class BotManager:
             if bot_process.start():
                 self.bot_processes[bot_id] = bot_process
                 logger.info(f"Started AudioReceiver bot process: {bot_id}")
-                
+
                 # Give the bot a moment to initialize before considering it ready
                 await asyncio.sleep(0.5)
-                
+
                 # Verify the process is still running
                 if not bot_process.is_alive():
-                    logger.error(f"AudioReceiver bot process {bot_id} died immediately after startup")
+                    logger.error(
+                        f"AudioReceiver bot process {bot_id} died immediately after startup"
+                    )
                     del self.bot_processes[bot_id]
                     return None
-                
+
                 return bot_id
             else:
                 logger.error(f"Failed to start AudioReceiver bot process: {bot_id}")
@@ -344,7 +345,7 @@ class BotManager:
             success = await asyncio.get_event_loop().run_in_executor(
                 None, bot_process.stop
             )
-            
+
             if success:
                 # Remove from processes
                 del self.bot_processes[bot_id]

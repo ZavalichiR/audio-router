@@ -13,7 +13,7 @@ from .buffers import AudioBuffer
 
 __all__ = [
     "OpusAudioSink",
-    "OpusAudioSource", 
+    "OpusAudioSource",
     "AudioBuffer",
     "setup_audio_receiver",
 ]

@@ -14,9 +14,9 @@ def load_urls():
     if not file_path.exists():
         print("Bot URLs file not found at data/bot_urls.json")
         return []
-    
+
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         print(f"Error loading URLs: {e}")
@@ -27,9 +27,9 @@ def save_urls(urls):
     """Save URLs to the JSON file."""
     file_path = Path("data/bot_urls.json")
     file_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     try:
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             json.dump(urls, f, indent=2)
         print(f"Saved {len(urls)} URLs to {file_path}")
         return True
@@ -44,7 +44,7 @@ def list_urls():
     if not urls:
         print("No URLs found.")
         return
-    
+
     print(f"Found {len(urls)} URLs:")
     for i, url in enumerate(urls, 1):
         print(f"{i:2d}. {url}")
@@ -56,7 +56,7 @@ def add_url(url):
     if url in urls:
         print("URL already exists.")
         return
-    
+
     urls.append(url)
     if save_urls(urls):
         print(f"Added URL: {url}")
@@ -68,7 +68,7 @@ def remove_url(index):
     if not urls:
         print("No URLs to remove.")
         return
-    
+
     try:
         index = int(index) - 1  # Convert to 0-based index
         if 0 <= index < len(urls):
@@ -89,9 +89,9 @@ def main():
         print("  python manage_urls.py add <url>")
         print("  python manage_urls.py remove <index>")
         return
-    
+
     command = sys.argv[1].lower()
-    
+
     if command == "list":
         list_urls()
     elif command == "add":

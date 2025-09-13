@@ -20,6 +20,7 @@ logger = setup_logging(
     log_file="logs/access_control.log",
 )
 
+
 class AccessControl:
     """
     Simplified access control system for broadcast sections.
@@ -39,7 +40,9 @@ class AccessControl:
         """
         self.config = config
         self.speaker_role_name = getattr(config, "speaker_role_name", "Speaker")
-        self.broadcast_admin_role_name = getattr(config, "broadcast_admin_role_name", "Broadcast Admin")
+        self.broadcast_admin_role_name = getattr(
+            config, "broadcast_admin_role_name", "Broadcast Admin"
+        )
         self.auto_create_roles = getattr(config, "auto_create_roles", True)
 
         logger.info(
@@ -47,7 +50,9 @@ class AccessControl:
             f"Admin: '{self.broadcast_admin_role_name}'"
         )
 
-    async def ensure_roles_exist(self, guild: discord.Guild, custom_role_name: Optional[str] = None) -> dict:
+    async def ensure_roles_exist(
+        self, guild: discord.Guild, custom_role_name: Optional[str] = None
+    ) -> dict[str, Optional[discord.Role]]:
         """
         Ensure that required roles exist in the guild.
         Creates roles if they don't exist but doesn't assign them to the main bot.
@@ -60,9 +65,19 @@ class AccessControl:
             Dict with role information: {'speaker_role': role, 'listener_role': role, 'broadcast_admin_role': role, 'custom_role': role}
         """
         if not self.auto_create_roles:
-            return {"speaker_role": None, "listener_role": None, "broadcast_admin_role": None, "custom_role": None}
+            return {
+                "speaker_role": None,
+                "listener_role": None,
+                "broadcast_admin_role": None,
+                "custom_role": None,
+            }
 
-        result = {"speaker_role": None, "listener_role": None, "broadcast_admin_role": None, "custom_role": None}
+        result = {
+            "speaker_role": None,
+            "listener_role": None,
+            "broadcast_admin_role": None,
+            "custom_role": None,
+        }
 
         try:
             if not guild.me.guild_permissions.manage_roles:
@@ -105,9 +120,10 @@ class AccessControl:
                 logger.info("Listener role 'Listener' already exists")
             result["listener_role"] = listener_role
 
-
             # Ensure broadcast admin role exists
-            admin_role = discord.utils.get(guild.roles, name=self.broadcast_admin_role_name)
+            admin_role = discord.utils.get(
+                guild.roles, name=self.broadcast_admin_role_name
+            )
             if not admin_role:
                 try:
                     admin_role = await guild.create_role(
@@ -115,13 +131,19 @@ class AccessControl:
                         color=discord.Color.red(),
                         reason="Created for broadcast control access",
                     )
-                    logger.info(f"Created broadcast admin role: {self.broadcast_admin_role_name}")
+                    logger.info(
+                        f"Created broadcast admin role: {self.broadcast_admin_role_name}"
+                    )
                 except discord.Forbidden:
                     logger.error("Bot lacks permissions to create broadcast admin role")
                 except Exception as e:
-                    logger.error(f"Failed to create broadcast admin role: {e}", exc_info=True)
+                    logger.error(
+                        f"Failed to create broadcast admin role: {e}", exc_info=True
+                    )
             else:
-                logger.info(f"Broadcast admin role '{self.broadcast_admin_role_name}' already exists")
+                logger.info(
+                    f"Broadcast admin role '{self.broadcast_admin_role_name}' already exists"
+                )
             result["broadcast_admin_role"] = admin_role
 
             # Assign broadcast admin role to main bot
@@ -129,14 +151,25 @@ class AccessControl:
                 try:
                     if admin_role not in guild.me.roles:
                         if admin_role.position >= guild.me.top_role.position:
-                            logger.warning(f"Cannot assign broadcast admin role '{self.broadcast_admin_role_name}' (higher than bot's role)")
+                            logger.warning(
+                                f"Cannot assign broadcast admin role '{self.broadcast_admin_role_name}' (higher than bot's role)"
+                            )
                         else:
-                            await guild.me.add_roles(admin_role, reason="Main bot needs Broadcast Admin role for command permissions")
-                            logger.info(f"Added broadcast admin role to main bot: {self.broadcast_admin_role_name}")
+                            await guild.me.add_roles(
+                                admin_role,
+                                reason="Main bot needs Broadcast Admin role for command permissions",
+                            )
+                            logger.info(
+                                f"Added broadcast admin role to main bot: {self.broadcast_admin_role_name}"
+                            )
                     else:
-                        logger.info(f"Main bot already has broadcast admin role: {self.broadcast_admin_role_name}")
+                        logger.info(
+                            f"Main bot already has broadcast admin role: {self.broadcast_admin_role_name}"
+                        )
                 except discord.Forbidden:
-                    logger.warning("Bot lacks permissions to assign broadcast admin role to itself")
+                    logger.warning(
+                        "Bot lacks permissions to assign broadcast admin role to itself"
+                    )
                 except Exception as e:
                     logger.warning(f"Could not add broadcast admin role to bot: {e}")
 
@@ -191,18 +224,24 @@ class AccessControl:
                     connect=False,
                     speak=False,
                     view_channel=True,
-                ) if custom_role else None,
+                )
+                if custom_role
+                else None,
                 speaker_role: discord.PermissionOverwrite(
                     connect=True,
                     speak=True,
                     view_channel=True,
-                ) if speaker_role else None,
+                )
+                if speaker_role
+                else None,
                 broadcast_admin_role: discord.PermissionOverwrite(
                     connect=True,
                     speak=True,
                     view_channel=True,
                     manage_channels=True,
-                ) if broadcast_admin_role else None,
+                )
+                if broadcast_admin_role
+                else None,
                 speaker_channel.guild.me: discord.PermissionOverwrite(
                     view_channel=True,
                     connect=True,
@@ -233,17 +272,23 @@ class AccessControl:
                         connect=True,
                         speak=True,
                         view_channel=True,
-                    ) if custom_role else None,
+                    )
+                    if custom_role
+                    else None,
                     listener_role: discord.PermissionOverwrite(
                         connect=True,
                         speak=True,
                         view_channel=True,
-                    ) if listener_role else None,
+                    )
+                    if listener_role
+                    else None,
                     broadcast_admin_role: discord.PermissionOverwrite(
                         connect=True,
                         speak=True,
                         manage_channels=True,
-                    ) if broadcast_admin_role else None,
+                    )
+                    if broadcast_admin_role
+                    else None,
                     listener_channel.guild.me: discord.PermissionOverwrite(
                         view_channel=True,  # Ensure bot can see the channel
                         connect=True,
@@ -253,8 +298,12 @@ class AccessControl:
                 }
                 for role, overwrite in listener_overwrites.items():
                     if role and overwrite:
-                        await listener_channel.set_permissions(role, overwrite=overwrite)
-                logger.info(f"Set listener channel permissions for: {listener_channel.name}")
+                        await listener_channel.set_permissions(
+                            role, overwrite=overwrite
+                        )
+                logger.info(
+                    f"Set listener channel permissions for: {listener_channel.name}"
+                )
 
             return True
 
@@ -262,8 +311,11 @@ class AccessControl:
             logger.error("Bot lacks permissions to set voice channel permissions")
             return False
         except Exception as e:
-            logger.error(f"Failed to set up voice channel permissions: {e}", exc_info=True)
+            logger.error(
+                f"Failed to set up voice channel permissions: {e}", exc_info=True
+            )
             return False
+
 
 def is_broadcast_admin(role_name: str = "Broadcast Admin"):
     """
@@ -276,8 +328,10 @@ def is_broadcast_admin(role_name: str = "Broadcast Admin"):
     Args:
         role_name: Name of the broadcast admin role (defaults to "Broadcast Admin")
     """
+
     def predicate(ctx):
         if ctx.author.guild_permissions.administrator:
             return True
         return role_name in {role.name for role in ctx.author.roles}
+
     return commands.check(predicate)

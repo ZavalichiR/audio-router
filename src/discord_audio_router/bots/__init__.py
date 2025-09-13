@@ -12,6 +12,6 @@ from .forwarder_bot import AudioForwarderBot
 from .receiver_bot import AudioReceiverBot
 
 __all__ = [
-    "AudioForwarderBot", 
+    "AudioForwarderBot",
     "AudioReceiverBot",
 ]

@@ -22,6 +22,7 @@ logger = setup_logging(
     log_file="logs/section_manager.log",
 )
 
+
 class BroadcastSection:
     """
     Represents a broadcast section with speaker and listener channels.
@@ -57,7 +58,7 @@ class BroadcastSection:
         self.control_channel_id: Optional[int] = None
         self.speaker_bot_id: Optional[str] = None
         self.listener_bot_ids: List[str] = []
-        self.original_message: Optional[Any] = None
+        self.original_message: Optional[discord.Message] = None
 
     def get_status(self) -> Dict[str, Any]:
         """Get the current status of this section."""
@@ -107,9 +108,11 @@ class SectionManager:
         if self.cleanup_task and not self.cleanup_task.done():
             logger.debug("Auto-cleanup task is already running")
             return
-            
+
         self.cleanup_task = asyncio.create_task(self._auto_cleanup_loop(main_bot))
-        logger.info(f"Started auto-cleanup task (timeout: {self.auto_cleanup_timeout // 60} minutes)")
+        logger.info(
+            f"Started auto-cleanup task (timeout: {self.auto_cleanup_timeout // 60} minutes)"
+        )
 
     async def stop_auto_cleanup(self):
         """Stop the auto-cleanup task."""
@@ -136,58 +139,75 @@ class SectionManager:
         """Check for broadcasts that have been inactive too long."""
         current_time = time.time()
         inactive_guilds = []
-        
+
         for guild_id, section in self.active_sections.items():
             if not section.is_active:
                 logger.debug("Section is not active")
                 continue
-                
+
             logger.debug("Checking if speaker channel has been empty for too long")
             # Check if speaker channel has been empty for too long
             if await self._is_speaker_channel_empty(main_bot, guild_id, section):
                 if guild_id not in self.last_activity:
                     logger.debug("Guild is not in last activity")
                     self.last_activity[guild_id] = current_time
-                elif current_time - self.last_activity[guild_id] > self.auto_cleanup_timeout:
+                elif (
+                    current_time - self.last_activity[guild_id]
+                    > self.auto_cleanup_timeout
+                ):
                     logger.debug("Guild has been inactive for too long")
                     inactive_guilds.append(guild_id)
             else:
                 # Reset activity timestamp if someone is in speaker channel
                 self.last_activity[guild_id] = current_time
-        
+
         # Auto-stop inactive broadcasts
         if inactive_guilds:
-            logger.info(f"Auto-cleanup found {len(inactive_guilds)} inactive broadcasts: {inactive_guilds}")
-        
+            logger.info(
+                f"Auto-cleanup found {len(inactive_guilds)} inactive broadcasts: {inactive_guilds}"
+            )
+
         for guild_id in inactive_guilds:
-            logger.info(f"Auto-stopping inactive broadcast for guild {guild_id} (inactive for {self.auto_cleanup_timeout // 60} minutes)")
+            logger.info(
+                f"Auto-stopping inactive broadcast for guild {guild_id} (inactive for {self.auto_cleanup_timeout // 60} minutes)"
+            )
             # Fetch guild and use existing stop_broadcast method
             guild = main_bot.get_guild(guild_id)
             if guild:
                 await self.stop_broadcast(guild)
             else:
-                logger.warning(f"Could not fetch guild {guild_id} for auto-cleanup, using fallback method")
+                logger.warning(
+                    f"Could not fetch guild {guild_id} for auto-cleanup, using fallback method"
+                )
                 await self.stop_broadcast_by_guild_id(guild_id)
 
-    async def _is_speaker_channel_empty(self, main_bot: discord.Client, guild_id: int, section: BroadcastSection) -> bool:
+    async def _is_speaker_channel_empty(
+        self, main_bot: discord.Client, guild_id: int, section: BroadcastSection
+    ) -> bool:
         """Check if the speaker channel is empty (no human users)."""
         try:
             guild = main_bot.get_guild(guild_id)
             if not guild:
                 logger.debug(f"Could not fetch guild {guild_id}, considering inactive")
                 return True
-                
+
             speaker_channel = guild.get_channel(section.speaker_channel_id)
             if not speaker_channel:
-                logger.debug(f"Could not fetch speaker channel {section.speaker_channel_id}, considering inactive")
+                logger.debug(
+                    f"Could not fetch speaker channel {section.speaker_channel_id}, considering inactive"
+                )
                 return True
-                
+
             # Count human members (non-bots) in the speaker channel
-            human_members = [member for member in speaker_channel.members if not member.bot]
+            human_members = [
+                member for member in speaker_channel.members if not member.bot
+            ]
             is_empty = len(human_members) == 0
-            logger.debug(f"Speaker channel '{speaker_channel.name}' has {len(human_members)} human members (empty: {is_empty})")
+            logger.debug(
+                f"Speaker channel '{speaker_channel.name}' has {len(human_members)} human members (empty: {is_empty})"
+            )
             return is_empty
-            
+
         except Exception as e:
             logger.error(f"Error checking speaker channel for guild {guild_id}: {e}")
             return True  # Consider inactive on error
@@ -205,26 +225,47 @@ class SectionManager:
         Returns:
             Tuple of (is_valid, validation_message)
         """
-        voice_channels = [ch for ch in category.channels if isinstance(ch, discord.VoiceChannel)]
-        text_channels = [ch for ch in category.channels if isinstance(ch, discord.TextChannel)]
+        voice_channels = [
+            ch for ch in category.channels if isinstance(ch, discord.VoiceChannel)
+        ]
+        text_channels = [
+            ch for ch in category.channels if isinstance(ch, discord.TextChannel)
+        ]
 
         speaker_channel = next(
-            (ch for ch in voice_channels if "🎤" in ch.name or "speaker" in ch.name.lower()), None
+            (
+                ch
+                for ch in voice_channels
+                if "🎤" in ch.name or "speaker" in ch.name.lower()
+            ),
+            None,
         )
         listener_channels = [
-            ch for ch in voice_channels if ch.name.startswith("Channel-") and ch.name[8:].isdigit()
+            ch
+            for ch in voice_channels
+            if ch.name.startswith("Channel-") and ch.name[8:].isdigit()
         ]
         control_channel = next(
-            (ch for ch in text_channels if "control" in ch.name.lower() or "broadcast" in ch.name.lower()),
+            (
+                ch
+                for ch in text_channels
+                if "control" in ch.name.lower() or "broadcast" in ch.name.lower()
+            ),
             None,
         )
 
         if not speaker_channel:
             return False, "Missing speaker channel"
         if not listener_channels:
-            return False, "No listener channels found (expected Channel-1, Channel-2, etc.)"
+            return (
+                False,
+                "No listener channels found (expected Channel-1, Channel-2, etc.)",
+            )
         if len(listener_channels) != expected_listener_count:
-            return False, f"Expected {expected_listener_count} listener channels, found {len(listener_channels)}"
+            return (
+                False,
+                f"Expected {expected_listener_count} listener channels, found {len(listener_channels)}",
+            )
         if not control_channel:
             return False, "Missing control channel"
 
@@ -238,7 +279,10 @@ class SectionManager:
                 return False, f"Invalid listener channel name: {channel.name}"
 
         if expected_numbers != actual_numbers:
-            return False, f"Listener channels not properly numbered. Expected Channel-1 to Channel-{expected_listener_count}"
+            return (
+                False,
+                f"Listener channels not properly numbered. Expected Channel-1 to Channel-{expected_listener_count}",
+            )
 
         return True, "Structure is valid"
 
@@ -262,23 +306,45 @@ class SectionManager:
             Dict with adoption results
         """
         try:
-            if not guild.me.guild_permissions.manage_channels or not guild.me.guild_permissions.manage_roles:
+            if (
+                not guild.me.guild_permissions.manage_channels
+                or not guild.me.guild_permissions.manage_roles
+            ):
                 return {
                     "success": False,
                     "message": "Bot lacks 'Manage Channels' or 'Manage Roles' permissions",
                 }
 
-            voice_channels = [ch for ch in existing_category.channels if isinstance(ch, discord.VoiceChannel)]
-            text_channels = [ch for ch in existing_category.channels if isinstance(ch, discord.TextChannel)]
+            voice_channels = [
+                ch
+                for ch in existing_category.channels
+                if isinstance(ch, discord.VoiceChannel)
+            ]
+            text_channels = [
+                ch
+                for ch in existing_category.channels
+                if isinstance(ch, discord.TextChannel)
+            ]
 
             speaker_channel = next(
-                (ch for ch in voice_channels if "🎤" in ch.name or "speaker" in ch.name.lower()), None
+                (
+                    ch
+                    for ch in voice_channels
+                    if "🎤" in ch.name or "speaker" in ch.name.lower()
+                ),
+                None,
             )
             listener_channels = [
-                ch for ch in voice_channels if ch.name.startswith("Channel-") and ch.name[8:].isdigit()
+                ch
+                for ch in voice_channels
+                if ch.name.startswith("Channel-") and ch.name[8:].isdigit()
             ]
             control_channel = next(
-                (ch for ch in text_channels if "control" in ch.name.lower() or "broadcast" in ch.name.lower()),
+                (
+                    ch
+                    for ch in text_channels
+                    if "control" in ch.name.lower() or "broadcast" in ch.name.lower()
+                ),
                 None,
             )
 
@@ -289,21 +355,31 @@ class SectionManager:
 
             overwrites = {
                 guild.default_role: discord.PermissionOverwrite(view_channel=True),
-                guild.me: discord.PermissionOverwrite(view_channel=True, manage_channels=True),
+                guild.me: discord.PermissionOverwrite(
+                    view_channel=True, manage_channels=True
+                ),
             }
             if role_name:
                 target_role = discord.utils.get(guild.roles, name=role_name)
                 if target_role:
-                    overwrites[guild.default_role] = discord.PermissionOverwrite(view_channel=False)
-                    overwrites[target_role] = discord.PermissionOverwrite(view_channel=True)
-            
+                    overwrites[guild.default_role] = discord.PermissionOverwrite(
+                        view_channel=False
+                    )
+                    overwrites[target_role] = discord.PermissionOverwrite(
+                        view_channel=True
+                    )
+
             # Always ensure Speaker and Listener roles can see the category (for bots)
             speaker_role = discord.utils.get(guild.roles, name="Speaker")
             listener_role = discord.utils.get(guild.roles, name="Listener")
             if speaker_role:
-                overwrites[speaker_role] = discord.PermissionOverwrite(view_channel=True)
+                overwrites[speaker_role] = discord.PermissionOverwrite(
+                    view_channel=True
+                )
             if listener_role:
-                overwrites[listener_role] = discord.PermissionOverwrite(view_channel=True)
+                overwrites[listener_role] = discord.PermissionOverwrite(
+                    view_channel=True
+                )
 
             await existing_category.edit(overwrites=overwrites)
 
@@ -339,23 +415,38 @@ class SectionManager:
                 if control_channel and guild.me.guild_permissions.manage_channels:
                     try:
                         control_overwrites = {
-                            guild.default_role: discord.PermissionOverwrite(read_messages=False, send_messages=False),
+                            guild.default_role: discord.PermissionOverwrite(
+                                read_messages=False, send_messages=False
+                            ),
                             guild.me: discord.PermissionOverwrite(
-                                read_messages=True, send_messages=True, manage_messages=True, embed_links=True
+                                read_messages=True,
+                                send_messages=True,
+                                manage_messages=True,
+                                embed_links=True,
                             ),
                             broadcast_admin_role: discord.PermissionOverwrite(
                                 read_messages=True, send_messages=True, embed_links=True
-                            ) if broadcast_admin_role else None,
+                            )
+                            if broadcast_admin_role
+                            else None,
                             custom_role: discord.PermissionOverwrite(
                                 read_messages=True, send_messages=True, embed_links=True
-                            ) if custom_role else None,
+                            )
+                            if custom_role
+                            else None,
                         }
                         for role, overwrite in control_overwrites.items():
                             if role and overwrite:
-                                await control_channel.set_permissions(role, overwrite=overwrite)
-                        logger.info(f"Set up control channel permissions for: {control_channel.name}")
+                                await control_channel.set_permissions(
+                                    role, overwrite=overwrite
+                                )
+                        logger.info(
+                            f"Set up control channel permissions for: {control_channel.name}"
+                        )
                     except discord.Forbidden:
-                        logger.warning(f"Cannot set control channel permissions for: {control_channel.name}")
+                        logger.warning(
+                            f"Cannot set control channel permissions for: {control_channel.name}"
+                        )
 
             logger.info(f"Adopted existing section '{section_name}' in {guild.name}")
 
@@ -370,10 +461,16 @@ class SectionManager:
 
         except discord.Forbidden:
             logger.error("Bot lacks permissions to adopt category")
-            return {"success": False, "message": "Bot lacks permissions to adopt category"}
+            return {
+                "success": False,
+                "message": "Bot lacks permissions to adopt category",
+            }
         except Exception as e:
             logger.error(f"Error adopting existing category: {e}", exc_info=True)
-            return {"success": False, "message": f"Failed to adopt existing category: {str(e)}"}
+            return {
+                "success": False,
+                "message": f"Failed to adopt existing category: {str(e)}",
+            }
 
     async def _create_new_section(
         self,
@@ -397,14 +494,20 @@ class SectionManager:
             Dict with creation results
         """
         try:
-            if not guild.me.guild_permissions.manage_channels or not guild.me.guild_permissions.manage_roles:
+            if (
+                not guild.me.guild_permissions.manage_channels
+                or not guild.me.guild_permissions.manage_roles
+            ):
                 return {
                     "success": False,
                     "message": "Bot lacks 'Manage Channels' or 'Manage Roles' permissions",
                 }
 
             if listener_count < 0:
-                return {"success": False, "message": "Listener count cannot be negative"}
+                return {
+                    "success": False,
+                    "message": "Listener count cannot be negative",
+                }
 
             control_channel = await category.create_text_channel(
                 name="broadcast-control",
@@ -436,39 +539,65 @@ class SectionManager:
                 broadcast_admin_role = roles.get("broadcast_admin_role")
                 custom_role = roles.get("custom_role")
 
-                permission_setup_success = await self.access_control.setup_voice_channel_permissions(
-                    speaker_channel,
-                    [guild.get_channel(cid) for cid in listener_channel_ids if guild.get_channel(cid)],
-                    broadcast_admin_role,
-                    speaker_role,
-                    listener_role,
-                    custom_role,
+                permission_setup_success = (
+                    await self.access_control.setup_voice_channel_permissions(
+                        speaker_channel,
+                        [
+                            guild.get_channel(cid)
+                            for cid in listener_channel_ids
+                            if guild.get_channel(cid)
+                        ],
+                        broadcast_admin_role,
+                        speaker_role,
+                        listener_role,
+                        custom_role,
+                    )
                 )
-                logger.info(f"Voice channel permission setup: {'success' if permission_setup_success else 'failed'}")
+                logger.info(
+                    f"Voice channel permission setup: {'success' if permission_setup_success else 'failed'}"
+                )
             else:
-                logger.warning("No access control configured - skipping role-based permission setup")
+                logger.warning(
+                    "No access control configured - skipping role-based permission setup"
+                )
 
             if self.access_control and guild.me.guild_permissions.manage_channels:
                 try:
                     control_overwrites = {
-                        guild.default_role: discord.PermissionOverwrite(read_messages=False, send_messages=False),
+                        guild.default_role: discord.PermissionOverwrite(
+                            read_messages=False, send_messages=False
+                        ),
                         guild.me: discord.PermissionOverwrite(
-                            read_messages=True, send_messages=True, manage_messages=True, embed_links=True
+                            read_messages=True,
+                            send_messages=True,
+                            manage_messages=True,
+                            embed_links=True,
                         ),
                         broadcast_admin_role: discord.PermissionOverwrite(
                             read_messages=True, send_messages=True, embed_links=True
-                        ) if broadcast_admin_role else None,
+                        )
+                        if broadcast_admin_role
+                        else None,
                     }
                     for role, overwrite in control_overwrites.items():
                         if role and overwrite:
-                            await control_channel.set_permissions(role, overwrite=overwrite)
+                            await control_channel.set_permissions(
+                                role, overwrite=overwrite
+                            )
 
                 except discord.Forbidden:
-                    logger.warning(f"Cannot set control channel permissions: {control_channel.name}")
+                    logger.warning(
+                        f"Cannot set control channel permissions: {control_channel.name}"
+                    )
                 except Exception as e:
-                    logger.error(f"Unexpected error setting control channel permissions: {e}", exc_info=True)
+                    logger.error(
+                        f"Unexpected error setting control channel permissions: {e}",
+                        exc_info=True,
+                    )
             else:
-                logger.warning("No access control or insufficient permissions - control channel remains public")
+                logger.warning(
+                    "No access control or insufficient permissions - control channel remains public"
+                )
 
             section = BroadcastSection(
                 guild_id=guild.id,
@@ -487,62 +616,100 @@ class SectionManager:
                     description="Your broadcast section is ready to use!",
                     color=discord.Color.green(),
                 )
-                embed.add_field(name="🎤 Speaker Channel", value=f"<#{speaker_channel.id}>", inline=True)
-                embed.add_field(name="📢 Listener Channels", value=f"{listener_count} channels created", inline=True)
-                embed.add_field(name="🎛️ Control Channel", value=f"<#{control_channel.id}>", inline=True)
+                embed.add_field(
+                    name="🎤 Speaker Channel",
+                    value=f"<#{speaker_channel.id}>",
+                    inline=True,
+                )
+                embed.add_field(
+                    name="📢 Listener Channels",
+                    value=f"{listener_count} channels created",
+                    inline=True,
+                )
+                embed.add_field(
+                    name="🎛️ Control Channel",
+                    value=f"<#{control_channel.id}>",
+                    inline=True,
+                )
                 embed.add_field(
                     name="🎛️ Available Commands",
                     value="• `!stop_broadcast` - Stop broadcasting and remove entire section\n"
-                          "• `!broadcast_status` - Check broadcast status",
+                    "• `!broadcast_status` - Check broadcast status",
                     inline=False,
                 )
 
                 if self.access_control and broadcast_admin_role:
                     role_info = []
                     if speaker_role:
-                        role_info.append(f"• **{speaker_role.name}** - Required to join speaker channel")
+                        role_info.append(
+                            f"• **{speaker_role.name}** - Required to join speaker channel"
+                        )
                     if broadcast_admin_role:
-                        role_info.append(f"• **{broadcast_admin_role.name}** - Required to use bot commands")
+                        role_info.append(
+                            f"• **{broadcast_admin_role.name}** - Required to use bot commands"
+                        )
                     if role_name and custom_role:
-                        role_info.append(f"• **{custom_role.name}** - Required to view the section")
+                        role_info.append(
+                            f"• **{custom_role.name}** - Required to view the section"
+                        )
 
                     if role_info:
-                        embed.add_field(name="👥 Role Information", value="\n".join(role_info), inline=False)
+                        embed.add_field(
+                            name="👥 Role Information",
+                            value="\n".join(role_info),
+                            inline=False,
+                        )
                         embed.add_field(
                             name="📝 Setup Instructions",
                             value="**To get started:**\n"
-                                  "1. **Assign Roles:** Give users the appropriate roles\n"
-                                  f"2. **Join Channels:**\n"
-                                  f"   • Speakers join: <#{speaker_channel.id}>\n"
-                                  f"   • Listeners join: <#{listener_channel_ids[0] if listener_channel_ids else 'N/A'}> (and others)\n"
-                                  "3. **Need Help?** Run `!help` for full setup guide",
+                            "1. **Assign Roles:** Give users the appropriate roles\n"
+                            f"2. **Join Channels:**\n"
+                            f"   • Speakers join: <#{speaker_channel.id}>\n"
+                            f"   • Listeners join: <#{listener_channel_ids[0] if listener_channel_ids else 'N/A'}> (and others)\n"
+                            "3. **Need Help?** Run `!help` for full setup guide",
                             inline=False,
                         )
 
                 await control_channel.send(embed=embed)
                 welcome_message_sent = True
-                logger.info(f"Sent welcome message to control channel: {control_channel.name}")
+                logger.info(
+                    f"Sent welcome message to control channel: {control_channel.name}"
+                )
             except discord.Forbidden:
-                logger.warning(f"Cannot send welcome message to {control_channel.name}: Bot lacks send message permission")
+                logger.warning(
+                    f"Cannot send welcome message to {control_channel.name}: Bot lacks send message permission"
+                )
                 try:
                     if guild.me.guild_permissions.manage_channels:
                         await control_channel.set_permissions(
-                            guild.me, read_messages=True, send_messages=True, manage_messages=True, embed_links=True
+                            guild.me,
+                            read_messages=True,
+                            send_messages=True,
+                            manage_messages=True,
+                            embed_links=True,
                         )
                         await control_channel.send(embed=embed)
                         welcome_message_sent = True
                         logger.info("Sent welcome message after fixing permissions")
                     else:
-                        logger.error("Bot lacks 'Manage Channels' permission to fix control channel")
+                        logger.error(
+                            "Bot lacks 'Manage Channels' permission to fix control channel"
+                        )
                 except Exception as fix_error:
-                    logger.error(f"Failed to fix permissions and send welcome message: {fix_error}")
+                    logger.error(
+                        f"Failed to fix permissions and send welcome message: {fix_error}"
+                    )
             except Exception as e:
                 logger.warning(f"Failed to send welcome message: {e}")
 
             if not welcome_message_sent:
-                logger.error(f"CRITICAL: Could not send welcome message to {control_channel.name}")
+                logger.error(
+                    f"CRITICAL: Could not send welcome message to {control_channel.name}"
+                )
 
-            logger.info(f"Created broadcast section '{section_name}' in {guild.name} with {listener_count} listeners")
+            logger.info(
+                f"Created broadcast section '{section_name}' in {guild.name} with {listener_count} listeners"
+            )
 
             return {
                 "success": True,
@@ -556,10 +723,16 @@ class SectionManager:
 
         except discord.Forbidden:
             logger.error("Bot lacks permissions to create section")
-            return {"success": False, "message": "Bot lacks permissions to create section"}
+            return {
+                "success": False,
+                "message": "Bot lacks permissions to create section",
+            }
         except Exception as e:
             logger.error(f"Error creating new section: {e}", exc_info=True)
-            return {"success": False, "message": f"Failed to create broadcast section: {str(e)}"}
+            return {
+                "success": False,
+                "message": f"Failed to create broadcast section: {str(e)}",
+            }
 
     async def create_broadcast_section(
         self,
@@ -581,7 +754,10 @@ class SectionManager:
             Dict with creation results
         """
         try:
-            if not guild.me.guild_permissions.manage_channels or not guild.me.guild_permissions.manage_roles:
+            if (
+                not guild.me.guild_permissions.manage_channels
+                or not guild.me.guild_permissions.manage_roles
+            ):
                 return {
                     "success": False,
                     "message": "Bot lacks 'Manage Channels' or 'Manage Roles' permissions",
@@ -597,14 +773,18 @@ class SectionManager:
                     "simple_message": f"✅ Using existing broadcast section '{existing_section.section_name}'! Go to the control channel and use `!start_broadcast` to begin.",
                 }
 
-            existing_category = discord.utils.get(guild.categories, name=section_name) or discord.utils.get(
-                guild.categories, name=f"🔴 {section_name}"
-            )
+            existing_category = discord.utils.get(
+                guild.categories, name=section_name
+            ) or discord.utils.get(guild.categories, name=f"🔴 {section_name}")
 
             if existing_category:
-                structure_valid, validation_message = self._validate_section_structure(existing_category, listener_count)
+                structure_valid, validation_message = self._validate_section_structure(
+                    existing_category, listener_count
+                )
                 if structure_valid:
-                    return await self._adopt_existing_category(guild, existing_category, section_name, role_name)
+                    return await self._adopt_existing_category(
+                        guild, existing_category, section_name, role_name
+                    )
                 else:
                     return {
                         "success": False,
@@ -619,9 +799,13 @@ class SectionManager:
             if role_name:
                 target_role = discord.utils.get(guild.roles, name=role_name)
                 if target_role:
-                    category_overwrites[guild.default_role] = discord.PermissionOverwrite(view_channel=False)
-                    category_overwrites[target_role] = discord.PermissionOverwrite(view_channel=True)
-            
+                    category_overwrites[guild.default_role] = (
+                        discord.PermissionOverwrite(view_channel=False)
+                    )
+                    category_overwrites[target_role] = discord.PermissionOverwrite(
+                        view_channel=True
+                    )
+
             category = await guild.create_category(
                 name=category_name,
                 overwrites=category_overwrites,
@@ -631,18 +815,30 @@ class SectionManager:
             try:
                 await category.edit(position=0)
             except discord.Forbidden:
-                logger.warning("Could not position category at top: Insufficient permissions")
+                logger.warning(
+                    "Could not position category at top: Insufficient permissions"
+                )
             except discord.HTTPException as e:
                 logger.warning(f"Could not position category at top: {e}")
 
-            return await self._create_new_section(guild, category, section_name, listener_count, role_name)
+            return await self._create_new_section(
+                guild, category, section_name, listener_count, role_name
+            )
 
         except discord.Forbidden:
             logger.error("Bot lacks permissions to create category")
-            return {"success": False, "message": "Bot lacks permissions to create category"}
+            return {
+                "success": False,
+                "message": "Bot lacks permissions to create category",
+            }
         except Exception as e:
-            logger.error(f"Error creating broadcast section in {guild.name}: {e}", exc_info=True)
-            return {"success": False, "message": f"Failed to create broadcast section: {str(e)}"}
+            logger.error(
+                f"Error creating broadcast section in {guild.name}: {e}", exc_info=True
+            )
+            return {
+                "success": False,
+                "message": f"Failed to create broadcast section: {str(e)}",
+            }
 
     async def start_broadcast(self, guild: discord.Guild) -> Dict[str, Any]:
         """
@@ -656,21 +852,33 @@ class SectionManager:
         """
         try:
             if guild.id not in self.active_sections:
-                return {"success": False, "message": "No active broadcast section found in this server!"}
+                return {
+                    "success": False,
+                    "message": "No active broadcast section found in this server!",
+                }
 
             section = self.active_sections[guild.id]
             if section.is_active:
-                return {"success": False, "message": "Broadcast is already active for this section!"}
+                return {
+                    "success": False,
+                    "message": "Broadcast is already active for this section!",
+                }
 
-            speaker_bot_id = await self.bot_manager.start_speaker_bot(section.speaker_channel_id, guild.id)
+            speaker_bot_id = await self.bot_manager.start_speaker_bot(
+                section.speaker_channel_id, guild.id
+            )
             if not speaker_bot_id:
-                return {"success": False, "message": "Failed to start speaker bot process!"}
+                return {
+                    "success": False,
+                    "message": "Failed to start speaker bot process!",
+                }
 
             def extract_channel_number(channel_id):
                 channel = guild.get_channel(channel_id)
                 if not channel:
                     return float("inf")
                 import re
+
                 match = re.search(r"Channel-(\d+)", channel.name)
                 return int(match.group(1)) if match else float("inf")
 
@@ -680,10 +888,20 @@ class SectionManager:
 
             for i in range(0, len(section.listener_channel_ids), batch_size):
                 batch = section.listener_channel_ids[i : i + batch_size]
-                logger.info(f"Starting batch {i // batch_size + 1}: channels {[guild.get_channel(cid).name if guild.get_channel(cid) else cid for cid in batch]}")
+                logger.info(
+                    f"Starting batch {i // batch_size + 1}: channels {[guild.get_channel(cid).name if guild.get_channel(cid) else cid for cid in batch]}"
+                )
 
                 batch_tasks = [
-                    (channel_id, self.bot_manager.start_listener_bot(channel_id, guild.id, section.speaker_channel_id, extract_channel_number(channel_id)))
+                    (
+                        channel_id,
+                        self.bot_manager.start_listener_bot(
+                            channel_id,
+                            guild.id,
+                            section.speaker_channel_id,
+                            extract_channel_number(channel_id),
+                        ),
+                    )
                     for channel_id in batch
                 ]
 
@@ -692,16 +910,34 @@ class SectionManager:
                         listener_bot_id = await task
                         if listener_bot_id:
                             listener_bot_ids.append(listener_bot_id)
-                            channel_name = guild.get_channel(channel_id).name if guild.get_channel(channel_id) else str(channel_id)
-                            logger.info(f"✅ Started listener bot for {channel_name} (ID: {listener_bot_id})")
+                            channel_name = (
+                                guild.get_channel(channel_id).name
+                                if guild.get_channel(channel_id)
+                                else str(channel_id)
+                            )
+                            logger.info(
+                                f"✅ Started listener bot for {channel_name} (ID: {listener_bot_id})"
+                            )
                         else:
                             failed_channels.append(channel_id)
-                            channel_name = guild.get_channel(channel_id).name if guild.get_channel(channel_id) else str(channel_id)
-                            logger.warning(f"❌ Failed to start listener bot for {channel_name}")
+                            channel_name = (
+                                guild.get_channel(channel_id).name
+                                if guild.get_channel(channel_id)
+                                else str(channel_id)
+                            )
+                            logger.warning(
+                                f"❌ Failed to start listener bot for {channel_name}"
+                            )
                     except Exception as e:
                         failed_channels.append(channel_id)
-                        channel_name = guild.get_channel(channel_id).name if guild.get_channel(channel_id) else str(channel_id)
-                        logger.error(f"❌ Exception starting listener bot for {channel_name}: {e}")
+                        channel_name = (
+                            guild.get_channel(channel_id).name
+                            if guild.get_channel(channel_id)
+                            else str(channel_id)
+                        )
+                        logger.error(
+                            f"❌ Exception starting listener bot for {channel_name}: {e}"
+                        )
 
                 if i + batch_size < len(section.listener_channel_ids):
                     logger.info("Waiting 2 seconds before starting next batch...")
@@ -710,7 +946,15 @@ class SectionManager:
             if failed_channels:
                 logger.info(f"Retrying {len(failed_channels)} failed channels...")
                 retry_tasks = [
-                    (channel_id, self.bot_manager.start_listener_bot(channel_id, guild.id, section.speaker_channel_id, extract_channel_number(channel_id)))
+                    (
+                        channel_id,
+                        self.bot_manager.start_listener_bot(
+                            channel_id,
+                            guild.id,
+                            section.speaker_channel_id,
+                            extract_channel_number(channel_id),
+                        ),
+                    )
                     for channel_id in failed_channels
                 ]
 
@@ -719,23 +963,40 @@ class SectionManager:
                         listener_bot_id = await task
                         if listener_bot_id:
                             listener_bot_ids.append(listener_bot_id)
-                            channel_name = guild.get_channel(channel_id).name if guild.get_channel(channel_id) else str(channel_id)
-                            logger.info(f"✅ Retry successful for {channel_name} (ID: {listener_bot_id})")
+                            channel_name = (
+                                guild.get_channel(channel_id).name
+                                if guild.get_channel(channel_id)
+                                else str(channel_id)
+                            )
+                            logger.info(
+                                f"✅ Retry successful for {channel_name} (ID: {listener_bot_id})"
+                            )
                     except Exception as e:
-                        channel_name = guild.get_channel(channel_id).name if guild.get_channel(channel_id) else str(channel_id)
+                        channel_name = (
+                            guild.get_channel(channel_id).name
+                            if guild.get_channel(channel_id)
+                            else str(channel_id)
+                        )
                         logger.error(f"❌ Retry failed for {channel_name}: {e}")
 
-            logger.info(f"Successfully started {len(listener_bot_ids)} out of {len(section.listener_channel_ids)} listener bots")
+            logger.info(
+                f"Successfully started {len(listener_bot_ids)} out of {len(section.listener_channel_ids)} listener bots"
+            )
 
             if not listener_bot_ids:
                 await self.bot_manager.stop_bot(speaker_bot_id)
-                return {"success": False, "message": "Failed to start any listener bot processes!"}
+                return {
+                    "success": False,
+                    "message": "Failed to start any listener bot processes!",
+                }
 
             section.speaker_bot_id = speaker_bot_id
             section.listener_bot_ids = listener_bot_ids
             section.is_active = True
 
-            logger.info(f"Started broadcast for section '{section.section_name}' in {guild.name}")
+            logger.info(
+                f"Started broadcast for section '{section.section_name}' in {guild.name}"
+            )
 
             return {
                 "success": True,
@@ -745,7 +1006,9 @@ class SectionManager:
             }
 
         except Exception as e:
-            logger.error(f"Error starting broadcast in {guild.name}: {e}", exc_info=True)
+            logger.error(
+                f"Error starting broadcast in {guild.name}: {e}", exc_info=True
+            )
             return {"success": False, "message": f"Failed to start broadcast: {str(e)}"}
 
     async def stop_broadcast(self, guild: discord.Guild) -> Dict[str, Any]:
@@ -760,24 +1023,29 @@ class SectionManager:
         """
         try:
             if guild.id not in self.active_sections:
-                return {"success": False, "message": "No active broadcast section found in this server!"}
+                return {
+                    "success": False,
+                    "message": "No active broadcast section found in this server!",
+                }
 
             section = self.active_sections[guild.id]
             if section.is_active:
                 # Stop all bots concurrently for better performance
                 stop_tasks = []
-                
+
                 if section.speaker_bot_id:
                     stop_tasks.append(self.bot_manager.stop_bot(section.speaker_bot_id))
-                
+
                 for listener_bot_id in section.listener_bot_ids:
                     stop_tasks.append(self.bot_manager.stop_bot(listener_bot_id))
-                
+
                 # Wait for all bots to stop concurrently
                 if stop_tasks:
-                    logger.info(f"Stopping {len(stop_tasks)} bot processes concurrently...")
+                    logger.info(
+                        f"Stopping {len(stop_tasks)} bot processes concurrently..."
+                    )
                     results = await asyncio.gather(*stop_tasks, return_exceptions=True)
-                    
+
                     # Log any failures
                     for i, result in enumerate(results):
                         if isinstance(result, Exception):
@@ -788,22 +1056,29 @@ class SectionManager:
                 section.speaker_bot_id = None
                 section.listener_bot_ids.clear()
                 section.is_active = False
-                
+
                 # Clean up activity tracking for auto-cleanup
                 if guild.id in self.last_activity:
                     del self.last_activity[guild.id]
 
             for category in guild.categories:
-                if category.name == section.section_name or category.name == f"🔴 {section.section_name}":
+                if (
+                    category.name == section.section_name
+                    or category.name == f"🔴 {section.section_name}"
+                ):
                     for channel in category.channels:
                         try:
                             await channel.delete(reason="Cleaning up broadcast section")
                         except discord.Forbidden:
-                            logger.warning(f"Cannot delete channel {channel.name}: Insufficient permissions")
+                            logger.warning(
+                                f"Cannot delete channel {channel.name}: Insufficient permissions"
+                            )
                     try:
                         await category.delete(reason="Cleaning up broadcast section")
                     except discord.Forbidden:
-                        logger.warning(f"Cannot delete category {category.name}: Insufficient permissions")
+                        logger.warning(
+                            f"Cannot delete category {category.name}: Insufficient permissions"
+                        )
                     break
 
             del self.active_sections[guild.id]
@@ -816,9 +1091,14 @@ class SectionManager:
 
         except discord.Forbidden:
             logger.error("Bot lacks permissions to cleanup section")
-            return {"success": False, "message": "Bot lacks permissions to cleanup section"}
+            return {
+                "success": False,
+                "message": "Bot lacks permissions to cleanup section",
+            }
         except Exception as e:
-            logger.error(f"Error cleaning up section in {guild.name}: {e}", exc_info=True)
+            logger.error(
+                f"Error cleaning up section in {guild.name}: {e}", exc_info=True
+            )
             return {"success": False, "message": f"Failed to cleanup section: {str(e)}"}
 
     async def get_section_status(self, guild: discord.Guild) -> Dict[str, Any]:
@@ -832,7 +1112,10 @@ class SectionManager:
             Dict with status information
         """
         if guild.id not in self.active_sections:
-            return {"active": False, "message": "No active broadcast section in this server"}
+            return {
+                "active": False,
+                "message": "No active broadcast section in this server",
+            }
 
         section = self.active_sections[guild.id]
         return {

@@ -63,25 +63,23 @@ class AudioReceiverBot:
             raise ValueError("CHANNEL_ID environment variable is required")
 
         if not self.speaker_channel_id:
-            raise ValueError(
-                "SPEAKER_CHANNEL_ID environment variable is required"
-            )
+            raise ValueError("SPEAKER_CHANNEL_ID environment variable is required")
 
         # Bot setup
         intents = discord.Intents.default()
         intents.voice_states = True
         intents.guilds = True
 
-        self.bot = commands.Bot(
-            command_prefix="!", intents=intents, help_command=None
-        )
+        self.bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
         # Audio handling
         self.voice_client: Optional[voice_recv.VoiceRecvClient] = None
         self.audio_buffer: Optional[AudioBuffer] = None
         self.audio_source: Optional[OpusAudioSource] = None
         self.websocket: Optional[websockets.WebSocketClientProtocol] = None
-        self.centralized_server_url = os.getenv("CENTRALIZED_WEBSOCKET_URL", "ws://localhost:8765")
+        self.centralized_server_url = os.getenv(
+            "CENTRALIZED_WEBSOCKET_URL", "ws://localhost:8765"
+        )
         self._reconnecting = False
 
         # Performance tracking
@@ -99,12 +97,8 @@ class AudioReceiverBot:
 
         @self.bot.event
         async def on_ready():
-            logger.info(
-                f"AudioReceiver bot {self.bot_id} ready: {self.bot.user}"
-            )
-            logger.info(
-                f"Target channel: {self.channel_id}, Guild: {self.guild_id}"
-            )
+            logger.info(f"AudioReceiver bot {self.bot_id} ready: {self.bot.user}")
+            logger.info(f"Target channel: {self.channel_id}, Guild: {self.guild_id}")
 
             # Ensure the bot has the Listener role
             await self._ensure_listener_role()
@@ -117,15 +111,11 @@ class AudioReceiverBot:
 
         @self.bot.event
         async def on_connect():
-            logger.info(
-                f"AudioReceiver bot {self.bot_id} connected to Discord"
-            )
+            logger.info(f"AudioReceiver bot {self.bot_id} connected to Discord")
 
         @self.bot.event
         async def on_disconnect():
-            logger.warning(
-                f"AudioReceiver bot {self.bot_id} disconnected from Discord"
-            )
+            logger.warning(f"AudioReceiver bot {self.bot_id} disconnected from Discord")
 
     async def _connect_to_speaker(self):
         """Connect to the AudioForwarder bot's WebSocket server with binary protocol support."""
@@ -166,7 +156,7 @@ class AudioReceiverBot:
                         "listener_id": self.bot_id,
                         "speaker_id": f"audioforwarder_{self.speaker_channel_id}",  # Match the actual forwarder bot ID format
                         "channel_id": self.channel_id,
-                        "guild_id": self.guild_id
+                        "guild_id": self.guild_id,
                     }
                     await self.websocket.send(json.dumps(registration_msg))
 
@@ -200,9 +190,7 @@ class AudioReceiverBot:
                         logger.error("Max retries reached, giving up")
                         raise
                 except Exception as e:
-                    logger.error(
-                        f"Unexpected error on attempt {attempt + 1}: {e}"
-                    )
+                    logger.error(f"Unexpected error on attempt {attempt + 1}: {e}")
                     if attempt < max_retries - 1:
                         await asyncio.sleep(retry_delay)
                         retry_delay *= 2
@@ -229,12 +217,8 @@ class AudioReceiverBot:
                 return
             except Exception as e:
                 retry_count += 1
-                logger.warning(
-                    f"Retry {retry_count}/{max_retries} failed: {e}"
-                )
-                retry_delay = min(
-                    retry_delay * 1.5, 30.0
-                )  # Exponential backoff
+                logger.warning(f"Retry {retry_count}/{max_retries} failed: {e}")
+                retry_delay = min(retry_delay * 1.5, 30.0)  # Exponential backoff
 
         logger.error(
             "Failed to connect to centralized WebSocket server after maximum retries"
@@ -246,7 +230,7 @@ class AudioReceiverBot:
             try:
                 await asyncio.sleep(15)  # Ping every 15 seconds
 
-                if self.websocket and not getattr(self.websocket, 'closed', True):
+                if self.websocket and not getattr(self.websocket, "closed", True):
                     try:
                         await self.websocket.send('{"type": "ping"}')
                         logger.debug("Sent ping to centralized server")
@@ -309,25 +293,31 @@ class AudioReceiverBot:
                                 await self.audio_buffer.put(message)
                                 self._audio_packets_received += 1
                                 self._bytes_received += len(message)
-                                
+
                                 # Debug logging for first few packets only
                                 if self._audio_packets_received <= 3:
                                     buffer_stats = self.audio_buffer.get_stats()
-                                    logger.debug(f"🎵 Received audio packet #{self._audio_packets_received}: {len(message)} bytes. Buffer stats: {buffer_stats}")
+                                    logger.debug(
+                                        f"🎵 Received audio packet #{self._audio_packets_received}: {len(message)} bytes. Buffer stats: {buffer_stats}"
+                                    )
                             else:
-                                logger.warning("Received binary audio but no buffer available")
+                                logger.warning(
+                                    "Received binary audio but no buffer available"
+                                )
                         else:
                             # Text control message
                             try:
                                 # Simple parsing for control messages
                                 data = eval(message)
-                                
+
                                 if data.get("type") == "listener_registered":
                                     logger.info(
                                         f"Successfully registered as listener: {data.get('listener_id')}"
                                     )
                                     self._binary_protocol_enabled = True
-                                    logger.info("Binary protocol enabled for audio transmission")
+                                    logger.info(
+                                        "Binary protocol enabled for audio transmission"
+                                    )
 
                                 elif data.get("type") == "pong":
                                     # Handle pong responses
@@ -359,17 +349,19 @@ class AudioReceiverBot:
         while True:
             try:
                 await asyncio.sleep(30)  # Log stats every 30 seconds
-                
+
                 current_time = time.time()
                 uptime = current_time - self._start_time
                 time_since_last = current_time - self._last_stats_time
-                
+
                 if time_since_last > 0:
                     packets_per_second = self._audio_packets_received / time_since_last
                     bytes_per_second = self._bytes_received / time_since_last
-                    
-                    buffer_stats = self.audio_buffer.get_stats() if self.audio_buffer else {}
-                    
+
+                    buffer_stats = (
+                        self.audio_buffer.get_stats() if self.audio_buffer else {}
+                    )
+
                     logger.info(
                         f"Performance stats - Uptime: {uptime:.1f}s, "
                         f"Packets/sec: {packets_per_second:.1f}, "
@@ -379,7 +371,7 @@ class AudioReceiverBot:
                         f"Jitter delay: {buffer_stats.get('jitter_delay', 0):.3f}s, "
                         f"Binary protocol: {self._binary_protocol_enabled}"
                     )
-                    
+
                     # Reset counters
                     self._audio_packets_received = 0
                     self._bytes_received = 0
@@ -405,39 +397,53 @@ class AudioReceiverBot:
             # Look for the Listener role
             listener_role = discord.utils.get(guild.roles, name="Listener")
             if not listener_role:
-                logger.warning("Listener role not found - AudioReceiver bot may not be able to join listener channels")
+                logger.warning(
+                    "Listener role not found - AudioReceiver bot may not be able to join listener channels"
+                )
                 return
 
             # Check if bot already has the Listener role
             if listener_role in bot_member.roles:
-                logger.info(f"AudioReceiver bot already has Listener role: {listener_role.name}")
+                logger.info(
+                    f"AudioReceiver bot already has Listener role: {listener_role.name}"
+                )
                 return
 
             # Try to add the Listener role to the bot
             try:
                 await bot_member.add_roles(
                     listener_role,
-                    reason="AudioReceiver bot needs Listener role to join listener channels"
+                    reason="AudioReceiver bot needs Listener role to join listener channels",
                 )
-                logger.info(f"Added Listener role to AudioReceiver bot: {listener_role.name}")
+                logger.info(
+                    f"Added Listener role to AudioReceiver bot: {listener_role.name}"
+                )
             except discord.Forbidden:
-                logger.warning("Cannot add Listener role to AudioReceiver bot - insufficient permissions")
+                logger.warning(
+                    "Cannot add Listener role to AudioReceiver bot - insufficient permissions"
+                )
             except Exception as e:
-                logger.error(f"Error adding Listener role to AudioReceiver bot: {e}", exc_info=True)
+                logger.error(
+                    f"Error adding Listener role to AudioReceiver bot: {e}",
+                    exc_info=True,
+                )
 
         except Exception as e:
-            logger.error(f"Error ensuring Listener role for AudioReceiver bot: {e}", exc_info=True)
+            logger.error(
+                f"Error ensuring Listener role for AudioReceiver bot: {e}",
+                exc_info=True,
+            )
 
     async def connect_to_channel(self) -> bool:
         """Connect to the listener channel and start audio playback."""
         try:
-            logger.info(
-                f"Attempting to connect to voice channel {self.channel_id}"
-            )
+            logger.info(f"Attempting to connect to voice channel {self.channel_id}")
 
             guild = self.bot.get_guild(self.guild_id)
             if not guild:
-                logger.warning(f"Guild {self.guild_id} not found in cache, attempting to fetch...")
+                logger.warning(
+                    f"Guild {self.guild_id} not found in cache, attempting to fetch..."
+                )
                 try:
                     # Try to fetch the guild directly from Discord
                     guild = await self.bot.fetch_guild(self.guild_id)
@@ -469,9 +475,7 @@ class AudioReceiverBot:
 
             # Connect to voice channel
             logger.info("Attempting to connect to voice channel...")
-            self.voice_client = await channel.connect(
-                cls=voice_recv.VoiceRecvClient
-            )
+            self.voice_client = await channel.connect(cls=voice_recv.VoiceRecvClient)
             logger.info("Voice client connected successfully")
 
             # Self-deafen to prevent hearing other audio, but don't self-mute (we need to play audio)
@@ -490,21 +494,23 @@ class AudioReceiverBot:
             logger.info(f"Voice client state: {self.voice_client.is_connected()}")
             logger.info(f"Audio source type: {type(self.audio_source)}")
             logger.info(f"Audio source is_opus: {self.audio_source.is_opus()}")
-            
+
             # Start the audio source first
             self.audio_source.start()
             logger.info("Audio source started successfully")
-            
+
             # Then start playing
             self.voice_client.play(self.audio_source)
             logger.info("Voice client play() called")
-            
+
             # Check if the voice client is actually playing
             logger.info(f"Voice client is_playing: {self.voice_client.is_playing()}")
-            
+
             # Wait a moment and check again
             await asyncio.sleep(0.1)
-            logger.info(f"Voice client is_playing after delay: {self.voice_client.is_playing()}")
+            logger.info(
+                f"Voice client is_playing after delay: {self.voice_client.is_playing()}"
+            )
 
             logger.info(
                 f"Connected to listener channel: {channel.name} (ready to play audio)"

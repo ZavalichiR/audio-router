@@ -21,7 +21,7 @@ __all__ = [
     "setup_logging",
     "get_logger",
     "AudioRouterError",
-    "ConfigurationError", 
+    "ConfigurationError",
     "BotProcessError",
     "AudioProcessingError",
     "NetworkError",

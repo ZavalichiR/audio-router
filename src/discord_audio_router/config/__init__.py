@@ -12,6 +12,6 @@ from .settings import SimpleConfig, SimpleConfigManager, config_manager
 
 __all__ = [
     "SimpleConfig",
-    "SimpleConfigManager", 
+    "SimpleConfigManager",
     "config_manager",
 ]

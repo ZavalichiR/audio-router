@@ -64,7 +64,6 @@ __all__ = [
     "__version__",
     "__author__",
     "__email__",
-    
     # Core components
     "AudioRouter",
     "SectionManager",
@@ -72,22 +71,18 @@ __all__ = [
     "BotManager",
     "BotProcess",
     "AccessControl",
-    
     # Audio components
     "OpusAudioSink",
     "OpusAudioSource",
     "AudioBuffer",
     "setup_audio_receiver",
-    
     # Networking components
     "AudioRelayServer",
     "AudioRoute",
-    
     # Configuration
     "SimpleConfig",
     "SimpleConfigManager",
     "config_manager",
-    
     # Infrastructure
     "setup_logging",
     "get_logger",
@@ -96,7 +91,6 @@ __all__ = [
     "BotProcessError",
     "AudioProcessingError",
     "NetworkError",
-    
     # Bot implementations
     "AudioForwarderBot",
     "AudioReceiverBot",

@@ -59,16 +59,16 @@ class AudioForwarderBot:
         intents.voice_states = True
         intents.guilds = True
 
-        self.bot = commands.Bot(
-            command_prefix="!", intents=intents, help_command=None
-        )
+        self.bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
         # Audio handling
         self.voice_client: Optional[voice_recv.VoiceRecvClient] = None
         self.audio_sink: Optional[object] = None
         # WebSocket connection to centralized server
         self.centralized_websocket: Optional[websockets.WebSocketClientProtocol] = None
-        self.centralized_server_url = os.getenv("CENTRALIZED_WEBSOCKET_URL", "ws://localhost:8765")
+        self.centralized_server_url = os.getenv(
+            "CENTRALIZED_WEBSOCKET_URL", "ws://localhost:8765"
+        )
         self._connecting = False
         self.event_loop: Optional[asyncio.AbstractEventLoop] = None
 
@@ -86,12 +86,8 @@ class AudioForwarderBot:
 
         @self.bot.event
         async def on_ready():
-            logger.info(
-                f"AudioForwarder bot {self.bot_id} ready: {self.bot.user}"
-            )
-            logger.info(
-                f"Target channel: {self.channel_id}, Guild: {self.guild_id}"
-            )
+            logger.info(f"AudioForwarder bot {self.bot_id} ready: {self.bot.user}")
+            logger.info(f"Target channel: {self.channel_id}, Guild: {self.guild_id}")
 
             # Ensure bot has Speaker role to join speaker channels
             await self._ensure_speaker_role()
@@ -104,9 +100,7 @@ class AudioForwarderBot:
 
         @self.bot.event
         async def on_connect():
-            logger.info(
-                f"AudioForwarder bot {self.bot_id} connected to Discord"
-            )
+            logger.info(f"AudioForwarder bot {self.bot_id} connected to Discord")
 
         @self.bot.event
         async def on_disconnect():
@@ -136,17 +130,12 @@ class AudioForwarderBot:
                         f"Bot was moved from {before.channel.name} to {after.channel.name}"
                     )
                     # If moved away from our target channel, try to reconnect
-                    if (
-                        after.channel.id != self.channel_id
-                        and not self._connecting
-                    ):
+                    if after.channel.id != self.channel_id and not self._connecting:
                         await asyncio.sleep(2)
                         await self.connect_to_channel()
                 # If bot just connected (before.channel is None, after.channel exists)
                 elif not before.channel and after.channel:
-                    logger.info(
-                        f"Bot connected to channel: {after.channel.name}"
-                    )
+                    logger.info(f"Bot connected to channel: {after.channel.name}")
 
     async def _connect_to_centralized_server(self):
         """Connect to the centralized WebSocket server."""
@@ -170,7 +159,7 @@ class AudioForwarderBot:
                 "type": "speaker_register",
                 "speaker_id": self.bot_id,
                 "channel_id": self.channel_id,
-                "guild_id": self.guild_id
+                "guild_id": self.guild_id,
             }
             await self.centralized_websocket.send(json.dumps(registration_msg))
 
@@ -192,32 +181,41 @@ class AudioForwarderBot:
             asyncio.create_task(self._monitor_performance())
 
         except Exception as e:
-            logger.error(f"Failed to connect to centralized WebSocket server: {e}", exc_info=True)
+            logger.error(
+                f"Failed to connect to centralized WebSocket server: {e}", exc_info=True
+            )
 
     async def _monitor_centralized_connection(self):
         """Monitor connection to centralized server."""
         while True:
             try:
                 await asyncio.sleep(30)  # Check every 30 seconds
-                
+
                 if self.centralized_websocket:
                     try:
                         # Try to check if connection is closed
-                        if hasattr(self.centralized_websocket, 'closed') and self.centralized_websocket.closed:
-                            logger.warning("Centralized WebSocket connection lost, attempting to reconnect...")
+                        if (
+                            hasattr(self.centralized_websocket, "closed")
+                            and self.centralized_websocket.closed
+                        ):
+                            logger.warning(
+                                "Centralized WebSocket connection lost, attempting to reconnect..."
+                            )
                             await self._connect_to_centralized_server()
                     except AttributeError:
                         # Connection object doesn't have 'closed' attribute, assume it's open
                         pass
-                    
+
             except Exception as e:
-                logger.error(f"Error monitoring centralized connection: {e}", exc_info=True)
+                logger.error(
+                    f"Error monitoring centralized connection: {e}", exc_info=True
+                )
                 await asyncio.sleep(5)  # Wait before retrying
 
     def _forward_audio(self, audio_data: bytes):
         """
         Audio forwarding to centralized WebSocket server.
-        
+
         This method is called directly from the audio sink without task creation,
         providing minimal latency for audio transmission.
         """
@@ -229,19 +227,20 @@ class AudioForwarderBot:
             # Update performance counters
             self._audio_packets_sent += 1
             self._bytes_sent += len(audio_data)
-            
+
             # Send to centralized server
             # Note: This is called from the audio sink thread, so we need to schedule
             # the WebSocket send on the event loop using run_coroutine_threadsafe
             if self.event_loop:
-                future = asyncio.run_coroutine_threadsafe(
-                    self._send_binary_to_centralized(audio_data), 
-                    self.event_loop
+                asyncio.run_coroutine_threadsafe(
+                    self._send_binary_to_centralized(audio_data), self.event_loop
                 )
                 # Don't wait for the result to avoid blocking the audio thread
-                
+
         except Exception as e:
-            logger.error(f"Error forwarding audio to centralized server: {e}", exc_info=True)
+            logger.error(
+                f"Error forwarding audio to centralized server: {e}", exc_info=True
+            )
 
     async def _send_binary_to_centralized(self, audio_data: bytes):
         """Send binary audio data to centralized server."""
@@ -254,7 +253,9 @@ class AudioForwarderBot:
             logger.warning("Centralized WebSocket connection closed")
             self.centralized_websocket = None
         except Exception as e:
-            logger.error(f"Error sending audio to centralized server: {e}", exc_info=True)
+            logger.error(
+                f"Error sending audio to centralized server: {e}", exc_info=True
+            )
 
     async def _safe_send_binary(self, websocket, message_bytes: bytes):
         """Safely send binary audio message to a single websocket."""
@@ -266,7 +267,6 @@ class AudioForwarderBot:
             logger.error(f"Error sending binary audio: {e}")
             raise  # Re-raise to be handled by caller
 
-
     async def _monitor_voice_connection(self):
         """Monitor voice connection and reconnect if needed."""
         status_counter = 0
@@ -275,10 +275,7 @@ class AudioForwarderBot:
                 await asyncio.sleep(15)  # Check every 15 seconds
                 status_counter += 1
 
-                if (
-                    not self.voice_client
-                    or not self.voice_client.is_connected()
-                ):
+                if not self.voice_client or not self.voice_client.is_connected():
                     logger.warning(
                         "Voice client disconnected, attempting to reconnect..."
                     )
@@ -293,7 +290,9 @@ class AudioForwarderBot:
                         )
 
             except Exception as e:
-                logger.error(f"Error in voice connection monitoring: {e}", exc_info=True)
+                logger.error(
+                    f"Error in voice connection monitoring: {e}", exc_info=True
+                )
                 await asyncio.sleep(15)  # Wait before retrying
 
     async def _monitor_performance(self):
@@ -301,15 +300,15 @@ class AudioForwarderBot:
         while True:
             try:
                 await asyncio.sleep(30)  # Log stats every 30 seconds
-                
+
                 current_time = time.time()
                 uptime = current_time - self._start_time
                 time_since_last = current_time - self._last_stats_time
-                
+
                 if time_since_last > 0:
                     packets_per_second = self._audio_packets_sent / time_since_last
                     bytes_per_second = self._bytes_sent / time_since_last
-                    
+
                     logger.info(
                         f"Performance stats - Uptime: {uptime:.1f}s, "
                         f"Packets/sec: {packets_per_second:.1f}, "
@@ -317,7 +316,7 @@ class AudioForwarderBot:
                         f"Total packets: {self._audio_packets_sent}, "
                         f"Centralized: {'Connected' if self.centralized_websocket else 'Disconnected'}"
                     )
-                    
+
                     # Reset counters
                     self._audio_packets_sent = 0
                     self._bytes_sent = 0
@@ -332,7 +331,9 @@ class AudioForwarderBot:
         try:
             guild = self.bot.get_guild(self.guild_id)
             if not guild:
-                logger.warning(f"Guild {self.guild_id} not found in cache, attempting to fetch...")
+                logger.warning(
+                    f"Guild {self.guild_id} not found in cache, attempting to fetch..."
+                )
                 try:
                     # Try to fetch the guild directly from Discord
                     guild = await self.bot.fetch_guild(self.guild_id)
@@ -352,28 +353,42 @@ class AudioForwarderBot:
             # Look for the Speaker role
             speaker_role = discord.utils.get(guild.roles, name="Speaker")
             if not speaker_role:
-                logger.warning("Speaker role not found - AudioForwarder bot may not be able to join speaker channels")
+                logger.warning(
+                    "Speaker role not found - AudioForwarder bot may not be able to join speaker channels"
+                )
                 return
 
             # Check if bot already has the Speaker role
             if speaker_role in bot_member.roles:
-                logger.info(f"AudioForwarder bot already has Speaker role: {speaker_role.name}")
+                logger.info(
+                    f"AudioForwarder bot already has Speaker role: {speaker_role.name}"
+                )
                 return
 
             # Try to add the Speaker role to the bot
             try:
                 await bot_member.add_roles(
                     speaker_role,
-                    reason="AudioForwarder bot needs Speaker role to join speaker channels"
+                    reason="AudioForwarder bot needs Speaker role to join speaker channels",
                 )
-                logger.info(f"Added Speaker role to AudioForwarder bot: {speaker_role.name}")
+                logger.info(
+                    f"Added Speaker role to AudioForwarder bot: {speaker_role.name}"
+                )
             except discord.Forbidden:
-                logger.warning("Cannot add Speaker role to AudioForwarder bot - insufficient permissions")
+                logger.warning(
+                    "Cannot add Speaker role to AudioForwarder bot - insufficient permissions"
+                )
             except Exception as e:
-                logger.error(f"Error adding Speaker role to AudioForwarder bot: {e}", exc_info=True)
+                logger.error(
+                    f"Error adding Speaker role to AudioForwarder bot: {e}",
+                    exc_info=True,
+                )
 
         except Exception as e:
-            logger.error(f"Error ensuring Speaker role for AudioForwarder bot: {e}", exc_info=True)
+            logger.error(
+                f"Error ensuring Speaker role for AudioForwarder bot: {e}",
+                exc_info=True,
+            )
 
     async def connect_to_channel(self) -> bool:
         """Connect to the speaker channel and start audio capture."""
@@ -384,9 +399,7 @@ class AudioForwarderBot:
                 return False
 
             self._connecting = True
-            logger.info(
-                f"Attempting to connect to voice channel {self.channel_id}"
-            )
+            logger.info(f"Attempting to connect to voice channel {self.channel_id}")
 
             try:
                 # Check if already connected and working properly
@@ -397,20 +410,18 @@ class AudioForwarderBot:
                         and self.voice_client.channel
                         and self.voice_client.channel.id == self.channel_id
                     ):
-                        logger.info(
-                            "Already connected to correct voice channel"
-                        )
+                        logger.info("Already connected to correct voice channel")
                         return True
                     else:
-                        logger.info(
-                            "Connected to wrong channel, reconnecting..."
-                        )
+                        logger.info("Connected to wrong channel, reconnecting...")
                         await self.voice_client.disconnect()
                         self.voice_client = None
 
                 guild = self.bot.get_guild(self.guild_id)
                 if not guild:
-                    logger.warning(f"Guild {self.guild_id} not found in cache, attempting to fetch...")
+                    logger.warning(
+                        f"Guild {self.guild_id} not found in cache, attempting to fetch..."
+                    )
                     try:
                         # Try to fetch the guild directly from Discord
                         guild = await self.bot.fetch_guild(self.guild_id)
@@ -433,9 +444,7 @@ class AudioForwarderBot:
                         cls=voice_recv.VoiceRecvClient
                     )
                 except Exception as connect_error:
-                    if "Already connected to a voice channel" in str(
-                        connect_error
-                    ):
+                    if "Already connected to a voice channel" in str(connect_error):
                         logger.warning(
                             "Already connected to a voice channel, disconnecting first..."
                         )
@@ -473,9 +482,7 @@ class AudioForwarderBot:
                 logger.info(
                     f"Connected to speaker channel: {channel.name} (self-deafened)"
                 )
-                logger.info(
-                    f"Audio sink setup complete: {self.audio_sink is not None}"
-                )
+                logger.info(f"Audio sink setup complete: {self.audio_sink is not None}")
                 return True
 
             finally:

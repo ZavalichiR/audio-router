@@ -5,14 +5,18 @@ This module provides a clean, simple configuration system focused on
 the core requirements without unnecessary complexity.
 """
 
-import logging
 import os
 from dataclasses import dataclass
 from typing import List
 
 from dotenv import load_dotenv
 
-logger = logging.getLogger(__name__)
+from discord_audio_router.infrastructure.logging import setup_logging
+
+logger = setup_logging(
+    component_name="main_bot",
+    log_file="logs/main_bot.log",
+)
 
 
 @dataclass
@@ -35,7 +39,7 @@ class SimpleConfig:
     listener_role_name: str = "Listener"
     broadcast_admin_role_name: str = "Broadcast Admin"
     auto_create_roles: bool = True
-    
+
     # Auto-cleanup configuration
     auto_cleanup_timeout: int = 10
 
@@ -155,7 +159,7 @@ class SimpleConfigManager:
                 logger.warning("Could not find .env file to parse multi-line tokens")
                 return tokens
 
-            with open(env_file_path, 'r', encoding='utf-8') as f:
+            with open(env_file_path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
 
             in_tokens_section = False
@@ -165,7 +169,9 @@ class SimpleConfigManager:
                     if stripped.startswith("AUDIO_RECEIVER_TOKENS=["):
                         in_tokens_section = True
                         # Check if tokens are on the same line
-                        after_bracket = stripped[len("AUDIO_RECEIVER_TOKENS=["):].strip()
+                        after_bracket = stripped[
+                            len("AUDIO_RECEIVER_TOKENS=[") :
+                        ].strip()
                         if after_bracket and after_bracket != "]":
                             # Handle inline tokens, e.g. AUDIO_RECEIVER_TOKENS=["token1","token2"]
                             inline = after_bracket
@@ -208,16 +214,11 @@ class SimpleConfigManager:
 
     def _get_broadcast_admin_role_name(self) -> str:
         """Get broadcast admin role name from environment variables."""
-        return self._get_optional_env(
-            "BROADCAST_ADMIN_ROLE_NAME", "Broadcast Admin"
-        )
+        return self._get_optional_env("BROADCAST_ADMIN_ROLE_NAME", "Broadcast Admin")
 
     def _get_auto_create_roles(self) -> bool:
         """Get auto-create roles setting from environment variables."""
-        return (
-            self._get_optional_env("AUTO_CREATE_ROLES", "true").lower()
-            == "true"
-        )
+        return self._get_optional_env("AUTO_CREATE_ROLES", "true").lower() == "true"
 
     def _get_auto_cleanup_timeout(self) -> int:
         """Get auto-cleanup timeout from environment variables."""
@@ -225,11 +226,15 @@ class SimpleConfigManager:
             timeout_str = self._get_optional_env("AUTO_CLEANUP_TIMEOUT", "10")
             timeout = int(timeout_str)
             if timeout < 0:
-                logger.warning("AUTO_CLEANUP_TIMEOUT cannot be negative, using default 30 minutes")
+                logger.warning(
+                    "AUTO_CLEANUP_TIMEOUT cannot be negative, using default 30 minutes"
+                )
                 return 10
             return timeout
         except ValueError:
-            logger.warning(f"Invalid AUTO_CLEANUP_TIMEOUT value: {timeout_str}, using default 30 minutes")
+            logger.warning(
+                f"Invalid AUTO_CLEANUP_TIMEOUT value: {timeout_str}, using default 30 minutes"
+            )
             return 10
 
     def get_config(self) -> SimpleConfig:
@@ -243,12 +248,8 @@ class SimpleConfigManager:
             ValueError: If required configuration is missing
         """
         try:
-            audio_broadcast_token = self._get_required_env(
-                "AUDIO_BROADCAST_TOKEN"
-            )
-            audio_forwarder_token = self._get_required_env(
-                "AUDIO_FORWARDER_TOKEN"
-            )
+            audio_broadcast_token = self._get_required_env("AUDIO_BROADCAST_TOKEN")
+            audio_forwarder_token = self._get_required_env("AUDIO_FORWARDER_TOKEN")
             audio_receiver_tokens = self._get_audio_receiver_tokens()
 
             config = SimpleConfig(

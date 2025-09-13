@@ -36,11 +36,11 @@ def setup_logging(
     # Get log level from environment if not provided
     if log_level is None:
         log_level = os.getenv("LOG_LEVEL", "INFO")
-    
+
     # Get verbose logging setting
     verbose_logging = os.getenv("VERBOSE_LOGGING", "false").lower() == "true"
     debug_mode = os.getenv("DEBUG", "false").lower() == "true"
-    
+
     # Adjust log level based on debug/verbose settings
     if debug_mode:
         log_level = "DEBUG"
@@ -71,9 +71,7 @@ def setup_logging(
             return logger
 
         except ImportError:
-            print(
-                "Warning: PyYAML not available, falling back to basic logging"
-            )
+            print("Warning: PyYAML not available, falling back to basic logging")
         except Exception as e:
             print(
                 f"Warning: Failed to load YAML logging config: {e}, falling back to basic logging"

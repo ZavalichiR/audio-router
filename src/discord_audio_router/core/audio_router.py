@@ -62,9 +62,7 @@ class AudioRouter:
             hasattr(self.config, "audio_receiver_tokens")
             and self.config.audio_receiver_tokens
         ):
-            self.bot_manager.add_available_tokens(
-                self.config.audio_receiver_tokens
-            )
+            self.bot_manager.add_available_tokens(self.config.audio_receiver_tokens)
             logger.info(
                 f"Added {len(self.config.audio_receiver_tokens)} AudioReceiver bot tokens"
             )
@@ -76,9 +74,7 @@ class AudioRouter:
                 "AudioReceiver bot tokens are required. Configure AUDIO_RECEIVER_TOKENS in your .env file."
             )
 
-        logger.info(
-            "Using bot manager for true multi-channel audio"
-        )
+        logger.info("Using bot manager for true multi-channel audio")
 
         logger.debug("Starting auto-cleanup task for inactive broadcasts")
         await self.section_manager.start_auto_cleanup(main_bot)
@@ -86,7 +82,11 @@ class AudioRouter:
         logger.info("Audio router initialized")
 
     async def create_broadcast_section(
-        self, guild: discord.Guild, section_name: str, listener_count: int, role_name: str = None
+        self,
+        guild: discord.Guild,
+        section_name: str,
+        listener_count: int,
+        role_name: str = None,
     ) -> Dict[str, Any]:
         """
         Create a broadcast section.

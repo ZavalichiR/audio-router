@@ -12,7 +12,7 @@ from .access_control import AccessControl, is_broadcast_admin
 
 __all__ = [
     "AudioRouter",
-    "SectionManager", 
+    "SectionManager",
     "BroadcastSection",
     "BotManager",
     "BotProcess",

@@ -71,18 +71,14 @@ class AudioRelayServer:
 
         # Audio routing state
         self.audio_routes: Dict[str, AudioRoute] = {}  # speaker_id -> route
-        self.guild_routes: Dict[int, Dict[int, AudioRoute]] = {}  # guild_id -> {speaker_channel: route}
-        self.connected_speakers: Dict[
-            str, websockets.WebSocketServerProtocol
-        ] = {}
-        self.connected_listeners: Dict[
-            str, websockets.WebSocketServerProtocol
-        ] = {}
+        self.guild_routes: Dict[
+            int, Dict[int, AudioRoute]
+        ] = {}  # guild_id -> {speaker_channel: route}
+        self.connected_speakers: Dict[str, websockets.WebSocketServerProtocol] = {}
+        self.connected_listeners: Dict[str, websockets.WebSocketServerProtocol] = {}
 
         # Reverse lookup for fast cleanup
-        self.websocket_to_id: Dict[websockets.WebSocketServerProtocol, str] = (
-            {}
-        )
+        self.websocket_to_id: Dict[websockets.WebSocketServerProtocol, str] = {}
 
         # Statistics
         self.stats = {
@@ -94,9 +90,11 @@ class AudioRelayServer:
 
         self.ping_interval = ping_interval
         self._health_task: Optional[asyncio.Task] = None
-        
+
         # Connection pool optimization
-        self._connection_semaphore = asyncio.Semaphore(100)  # Limit concurrent connections
+        self._connection_semaphore = asyncio.Semaphore(
+            100
+        )  # Limit concurrent connections
 
     async def start(self):
         """Start the audio relay server."""
@@ -109,12 +107,8 @@ class AudioRelayServer:
                 max_size=2**20,  # 1MB max message size
                 compression=None,  # Disable compression for lower latency
             )
-            logger.info(
-                f"Audio relay server started on {self.host}:{self.port}"
-            )
-            self._health_task = asyncio.create_task(
-                self._monitor_connections()
-            )
+            logger.info(f"Audio relay server started on {self.host}:{self.port}")
+            self._health_task = asyncio.create_task(self._monitor_connections())
             return True
         except Exception as e:
             logger.error(f"Failed to start audio relay server: {e}", exc_info=True)
@@ -154,12 +148,15 @@ class AudioRelayServer:
                             # Use existing binary audio forwarding function
                             await self._forward_binary_audio(speaker_id, message)
                         else:
-                            logger.warning(f"Received binary message from unregistered connection")
+                            logger.warning(
+                                "Received binary message from unregistered connection"
+                            )
             except websockets.exceptions.ConnectionClosed:
                 logger.info(f"Connection closed: {client_address}")
             except Exception as e:
                 logger.error(
-                    f"Error handling connection from {client_address}: {e}", exc_info=True
+                    f"Error handling connection from {client_address}: {e}",
+                    exc_info=True,
                 )
             finally:
                 await self._cleanup_connection(websocket)
@@ -185,7 +182,6 @@ class AudioRelayServer:
             logger.error(f"Failed to parse message: {e}", exc_info=True)
         except Exception as e:
             logger.error(f"Error processing message: {e}", exc_info=True)
-
 
     async def _handle_speaker_register(self, websocket, data):
         """Handle speaker bot registration."""
@@ -237,9 +233,7 @@ class AudioRelayServer:
                 {
                     "type": "speaker_registered",
                     "speaker_id": speaker_id,
-                    "listener_count": len(
-                        self.audio_routes[speaker_id].listener_ids
-                    ),
+                    "listener_count": len(self.audio_routes[speaker_id].listener_ids),
                 }
             )
         )
@@ -289,7 +283,6 @@ class AudioRelayServer:
                 }
             )
         )
-
 
     async def _safe_send_audio(self, websocket, message, listener_id):
         try:
@@ -342,7 +335,9 @@ class AudioRelayServer:
                     if isinstance(result, websockets.exceptions.ConnectionClosed):
                         logger.debug(f"Listener {listener_id} disconnected")
                     else:
-                        logger.error(f"Error sending binary audio to listener {listener_id}: {result}")
+                        logger.error(
+                            f"Error sending binary audio to listener {listener_id}: {result}"
+                        )
 
             # Batch cleanup of disconnected listeners
             for listener_id in disconnected_listeners:
@@ -350,7 +345,9 @@ class AudioRelayServer:
                 self.connected_listeners.pop(listener_id, None)
 
             if disconnected_listeners:
-                logger.debug(f"Removed {len(disconnected_listeners)} disconnected listeners")
+                logger.debug(
+                    f"Removed {len(disconnected_listeners)} disconnected listeners"
+                )
 
             # Update statistics
             successful_sends = len(listeners_to_send) - len(disconnected_listeners)
@@ -359,7 +356,6 @@ class AudioRelayServer:
 
         except Exception as e:
             logger.error(f"Error forwarding binary audio: {e}", exc_info=True)
-
 
     async def _handle_ping(self, websocket, data):
         """Handle ping messages for connection health checks."""
@@ -393,7 +389,11 @@ class AudioRelayServer:
                     route = self.audio_routes[id_]
                     route.is_active = False
                     # Remove from guild routes
-                    if route.guild_id in self.guild_routes and route.speaker_channel_id in self.guild_routes[route.guild_id]:
+                    if (
+                        route.guild_id in self.guild_routes
+                        and route.speaker_channel_id
+                        in self.guild_routes[route.guild_id]
+                    ):
                         del self.guild_routes[route.guild_id][route.speaker_channel_id]
                         if not self.guild_routes[route.guild_id]:
                             del self.guild_routes[route.guild_id]
