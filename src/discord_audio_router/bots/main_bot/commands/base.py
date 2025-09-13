@@ -14,7 +14,7 @@ from discord.ext import commands
 from discord_audio_router.config.settings import SimpleConfig
 from discord_audio_router.core import AudioRouter
 from discord_audio_router.subscription import SubscriptionManager
-from discord_audio_router.bots.utils.embed_builder import EmbedBuilder
+from ..utils.embed_builder import EmbedBuilder
 
 
 class BaseCommandHandler:

@@ -11,7 +11,7 @@ from typing import Optional, Any
 import discord
 from discord.ext import commands
 
-from discord_audio_router.bots.utils.embed_builder import EmbedBuilder
+from ..utils.embed_builder import EmbedBuilder
 from discord_audio_router.core.audio_router import AudioRouter
 from discord_audio_router.subscription.subscription_manager import SubscriptionManager
 

@@ -18,7 +18,7 @@ if __name__ == "__main__":
     if str(src_path) not in sys.path:
         sys.path.insert(0, str(src_path))
 
-from discord_audio_router.bots.core import main
+from discord_audio_router.bots.main_bot import main
 
 if __name__ == "__main__":
     asyncio.run(main())

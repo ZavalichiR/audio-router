@@ -13,17 +13,17 @@ from typing import Optional
 import discord
 from discord.ext import commands
 
-from discord_audio_router.bots.commands.base import BaseCommandHandler
+from ..commands.base import BaseCommandHandler
 from discord_audio_router.config.settings import config_manager
 from discord_audio_router.core.audio_router import AudioRouter
 from discord_audio_router.infrastructure import setup_logging
-from discord_audio_router.bots.commands import (
+from ..commands import (
     BroadcastCommands,
     SetupCommands,
     InfoCommands,
 )
-from discord_audio_router.bots.handlers import EventHandlers
-from discord_audio_router.bots.utils import PermissionUtils
+from ..handlers import EventHandlers
+from ..utils import PermissionUtils
 from discord_audio_router.subscription.subscription_manager import SubscriptionManager
 
 

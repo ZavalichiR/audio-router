@@ -11,8 +11,8 @@ from typing import Optional
 import discord
 from discord.ext import commands
 
-from discord_audio_router.bots.commands.base import BaseCommandHandler
-from discord_audio_router.bots.utils.embed_builder import EmbedBuilder
+from .base import BaseCommandHandler
+from ..utils.embed_builder import EmbedBuilder
 
 
 class BroadcastCommands(BaseCommandHandler):
