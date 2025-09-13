@@ -26,8 +26,8 @@ from discord_audio_router.infrastructure import setup_logging
 
 # Configure logging
 logger = setup_logging(
-    component_name="websocket_server",
-    log_file="logs/websocket_server.log",
+    component_name="websocket_relay",
+    log_file="logs/websocket_relay.log",
 )
 
 

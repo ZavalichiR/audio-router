@@ -2,7 +2,6 @@
 FastAPI application for subscription management.
 """
 
-import logging
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Depends
@@ -10,8 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from ..subscription import SubscriptionManager, SubscriptionTier
+from discord_audio_router.infrastructure import setup_logging
 
-logger = logging.getLogger(__name__)
+logger = setup_logging("api.app")
 
 
 class SubscriptionRequest(BaseModel):

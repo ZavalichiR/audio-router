@@ -7,14 +7,15 @@ Opus audio packets with both async and synchronous interfaces.
 """
 
 import asyncio
-import logging
 import queue
 import threading
 import time
 from collections import deque
 from typing import Optional
 
-logger = logging.getLogger(__name__)
+from discord_audio_router.infrastructure import setup_logging
+
+logger = setup_logging("audio.buffers")
 
 
 class AudioBuffer:

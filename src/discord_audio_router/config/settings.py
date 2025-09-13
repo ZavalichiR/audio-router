@@ -29,7 +29,6 @@ class SimpleConfig:
 
     # Optional configuration with defaults
     command_prefix: str = "!"
-    log_level: str = "INFO"
 
     # AudioReceiver bot tokens (for multiple bot instances)
     audio_receiver_tokens: List[str] = None
@@ -256,7 +255,6 @@ class SimpleConfigManager:
                 audio_broadcast_token=audio_broadcast_token,
                 audio_forwarder_token=audio_forwarder_token,
                 command_prefix=self._get_optional_env("BOT_PREFIX", "!"),
-                log_level=self._get_optional_env("LOG_LEVEL", "INFO"),
                 audio_receiver_tokens=audio_receiver_tokens,
                 speaker_role_name=self._get_speaker_role_name(),
                 listener_role_name=self._get_listener_role_name(),

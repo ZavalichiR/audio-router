@@ -22,9 +22,9 @@ class BaseCommandHandler:
 
     def __init__(
         self,
+        logger: logging.Logger,
         audio_router: Optional[AudioRouter] = None,
         subscription_manager: Optional[SubscriptionManager] = None,
-        logger: Optional[logging.Logger] = None,
         config: Optional[SimpleConfig] = None,
     ):
         """Initialize the base command handler."""

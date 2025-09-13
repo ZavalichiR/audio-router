@@ -11,12 +11,12 @@ class AudioHandlers:
 
     def __init__(
         self,
+        logger: logging.Logger,
         performance_monitor: Optional[object] = None,
-        logger: Optional[logging.Logger] = None,
     ):
         """Initialize audio handlers."""
         self.performance_monitor = performance_monitor
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger
         self.audio_buffer: Optional[AudioBuffer] = None
         self.audio_source: Optional[OpusAudioSource] = None
 

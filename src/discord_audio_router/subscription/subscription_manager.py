@@ -5,14 +5,14 @@ This module provides the main interface for managing subscription tiers
 and determining listener limits based on server subscriptions.
 """
 
-import logging
 from typing import Optional
 
 from .database import SubscriptionDatabase
 from .discord_api import DiscordAPI
 from .models import ServerSubscription, SubscriptionTier, SUBSCRIPTION_TIERS
+from discord_audio_router.infrastructure import setup_logging
 
-logger = logging.getLogger(__name__)
+logger = setup_logging("subscription.manager")
 
 
 class SubscriptionManager:

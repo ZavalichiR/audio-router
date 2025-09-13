@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from typing import Optional, Any
+from typing import Any
 
 import discord
 from discord.ext import commands
@@ -22,14 +22,14 @@ class EventHandlers:
         bot: Any,
         websocket_handlers: WebSocketHandlers,
         config: BotConfig,
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger,
     ):
         """Initialize event handlers."""
         self.bot_instance = bot
         self.bot: commands.Bot = bot.bot
         self.websocket_handlers = websocket_handlers
         self.config = config
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger
         self._connecting = False
 
     def setup_events(self) -> None:

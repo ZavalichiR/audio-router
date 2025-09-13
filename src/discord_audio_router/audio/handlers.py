@@ -6,7 +6,6 @@ significant latency and quality improvements.
 """
 
 import asyncio
-import logging
 import struct
 import threading
 import time
@@ -15,8 +14,9 @@ from typing import Callable, Optional, Tuple
 
 import discord
 from discord.ext import voice_recv
+from discord_audio_router.infrastructure import setup_logging
 
-logger = logging.getLogger(__name__)
+logger = setup_logging("audio.handlers")
 
 
 class AudioBuffer:

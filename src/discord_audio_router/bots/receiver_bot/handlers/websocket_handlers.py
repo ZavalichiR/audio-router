@@ -19,7 +19,7 @@ class WebSocketHandlers:
         guild_id: int,
         speaker_channel_id: int,
         server_url: str,
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger,
     ):
         """Initialize WebSocket handlers."""
         self.bot_id = bot_id
@@ -27,7 +27,7 @@ class WebSocketHandlers:
         self.guild_id = guild_id
         self.speaker_channel_id = speaker_channel_id
         self.server_url = server_url
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger
         self.websocket: Optional[websockets.WebSocketClientProtocol] = None
         self.audio_callback: Optional[Callable] = None
         self._reconnecting = False

@@ -22,9 +22,9 @@ class EventHandlers:
     def __init__(
         self,
         bot: Any,
+        logger: logging.Logger,
         audio_router: Optional[AudioRouter] = None,
         subscription_manager: Optional[SubscriptionManager] = None,
-        logger: Optional[logging.Logger] = None,
     ):
         """Initialize event handlers."""
         self.bot_instance = bot  # This is the AudioRouterBot instance

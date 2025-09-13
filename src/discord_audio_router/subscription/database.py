@@ -2,14 +2,14 @@
 Database operations for subscription management.
 """
 
-import logging
 import sqlite3
 from pathlib import Path
 from typing import List, Optional
 
 from .models import ServerSubscription, SubscriptionTier
+from discord_audio_router.infrastructure import setup_logging
 
-logger = logging.getLogger(__name__)
+logger = setup_logging("subscription.database")
 
 
 class SubscriptionDatabase:

@@ -6,7 +6,6 @@ A robust process manager for starting, stopping, and monitoring all bot componen
 Always starts all components with comprehensive error handling and validation.
 """
 
-import logging
 import os
 import signal
 import subprocess
@@ -14,6 +13,13 @@ import sys
 import time
 from pathlib import Path
 from typing import Dict, List
+
+# Add src to path for imports
+src_path = Path(__file__).parent / "src"
+if str(src_path) not in sys.path:
+    sys.path.insert(0, str(src_path))
+
+from discord_audio_router.infrastructure import setup_logging
 
 
 class ProcessManager:
@@ -27,20 +33,12 @@ class ProcessManager:
         self.running = False
         self.logger = self._setup_logging()
 
-    def _setup_logging(self) -> logging.Logger:
+    def _setup_logging(self):
         """Set up logging for the launcher."""
-        # Ensure logs directory exists
-        Path("logs").mkdir(exist_ok=True)
-
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            handlers=[
-                logging.StreamHandler(),
-                logging.FileHandler("logs/launcher.log"),
-            ],
+        return setup_logging(
+            component_name="launcher",
+            log_file="logs/launcher.log",
         )
-        return logging.getLogger("launcher")
 
     def _load_environment(self) -> bool:
         """Load environment variables from config file."""

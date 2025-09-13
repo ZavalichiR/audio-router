@@ -34,8 +34,8 @@ class AudioRouterBot:
         """Initialize the bot with all necessary components."""
         # Setup logging
         self.logger = setup_logging(
-            component_name="main_bot",
-            log_file="logs/main_bot.log",
+            component_name="audiobroadcast_bot",
+            log_file="logs/audiobroadcast_bot.log",
         )
 
         # Load configuration
@@ -74,9 +74,9 @@ class AudioRouterBot:
         """Setup event handlers for the bot."""
         self.event_handlers = EventHandlers(
             bot=self,
+            logger=self.logger,
             audio_router=self.audio_router,
             subscription_manager=self.subscription_manager,
-            logger=self.logger,
         )
 
         # Register event handlers
@@ -89,21 +89,21 @@ class AudioRouterBot:
         # Initialize command handlers
         self.command_handlers: dict[str, BaseCommandHandler] = {
             "broadcast": BroadcastCommands(
+                logger=self.logger,
                 audio_router=self.audio_router,
                 subscription_manager=self.subscription_manager,
-                logger=self.logger,
                 config=self.config,
             ),
             "setup": SetupCommands(
+                logger=self.logger,
                 audio_router=self.audio_router,
                 subscription_manager=self.subscription_manager,
-                logger=self.logger,
                 config=self.config,
             ),
             "info": InfoCommands(
+                logger=self.logger,
                 audio_router=self.audio_router,
                 subscription_manager=self.subscription_manager,
-                logger=self.logger,
                 config=self.config,
             ),
         }

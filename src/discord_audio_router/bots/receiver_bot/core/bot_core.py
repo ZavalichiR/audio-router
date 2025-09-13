@@ -47,8 +47,8 @@ class AudioReceiverBot:
         self.performance_monitor = PerformanceMonitor(logger=self.logger)
 
         self.audio_handlers = AudioHandlers(
-            performance_monitor=self.performance_monitor,
             logger=self.logger,
+            performance_monitor=self.performance_monitor,
         )
 
         self.websocket_handlers = WebSocketHandlers(

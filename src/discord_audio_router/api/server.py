@@ -3,15 +3,15 @@ API server runner for subscription management.
 """
 
 import asyncio
-import logging
 import os
 from typing import Optional
 
 import uvicorn
 
 from .app import create_app
+from discord_audio_router.infrastructure import setup_logging
 
-logger = logging.getLogger(__name__)
+logger = setup_logging("api.server")
 
 
 async def run_api_server(

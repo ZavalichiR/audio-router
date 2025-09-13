@@ -1,17 +1,15 @@
 """Performance monitoring utilities for the Audio Receiver Bot."""
 
 import time
-from typing import Optional
-
 import logging
 
 
 class PerformanceMonitor:
     """Performance monitoring for the Audio Receiver Bot."""
 
-    def __init__(self, logger: Optional[logging.Logger] = None):
+    def __init__(self, logger: logging.Logger):
         """Initialize performance monitor."""
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger
         self._audio_packets_received = 0
         self._bytes_received = 0
         self._start_time = time.time()

@@ -3,10 +3,11 @@ Discord API utilities for subscription management.
 """
 
 import aiohttp
-import logging
 from typing import Optional, Dict, Any
 
-logger = logging.getLogger(__name__)
+from discord_audio_router.infrastructure import setup_logging
+
+logger = setup_logging("subscription.discord_api")
 
 
 class DiscordAPI:

@@ -2,29 +2,51 @@ version: 1
 disable_existing_loggers: false
 
 formatters:
+  # Development formatter - detailed with file/line info
+  development:
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(funcName)s - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+  
+  # Production formatter - clean and minimal
+  production:
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+  
+  # Standard formatter - balanced
   standard:
     format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     datefmt: '%Y-%m-%d %H:%M:%S'
   
-  detailed:
-    format: '%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(funcName)s - %(message)s'
-    datefmt: '%Y-%m-%d %H:%M:%S'
-  
+  # JSON formatter for structured logging
   json:
     format: '{"timestamp": "%(asctime)s", "logger": "%(name)s", "level": "%(levelname)s", "message": "%(message)s", "module": "%(filename)s", "line": %(lineno)d}'
     datefmt: '%Y-%m-%d %H:%M:%S'
 
 handlers:
-  console:
+  # Console handlers
+  console_dev:
+    class: logging.StreamHandler
+    level: DEBUG
+    formatter: development
+    stream: ext://sys.stdout
+  
+  console_prod:
+    class: logging.StreamHandler
+    level: WARNING
+    formatter: production
+    stream: ext://sys.stdout
+  
+  console_standard:
     class: logging.StreamHandler
     level: INFO
     formatter: standard
     stream: ext://sys.stdout
   
+  # File handlers for main bots
   file_audiobroadcast:
     class: logging.handlers.RotatingFileHandler
     level: DEBUG
-    formatter: detailed
+    formatter: development
     filename: logs/audiobroadcast_bot.log
     maxBytes: 10485760  # 10MB
     backupCount: 5
@@ -33,7 +55,7 @@ handlers:
   file_audioforwarder:
     class: logging.handlers.RotatingFileHandler
     level: DEBUG
-    formatter: detailed
+    formatter: development
     filename: logs/audioforwarder_bot.log
     maxBytes: 10485760  # 10MB
     backupCount: 5
@@ -42,7 +64,7 @@ handlers:
   file_audioreceiver:
     class: logging.handlers.RotatingFileHandler
     level: DEBUG
-    formatter: detailed
+    formatter: development
     filename: logs/audioreceiver_bot.log
     maxBytes: 10485760  # 10MB
     backupCount: 5
@@ -51,60 +73,199 @@ handlers:
   file_relay:
     class: logging.handlers.RotatingFileHandler
     level: DEBUG
-    formatter: detailed
+    formatter: development
     filename: logs/websocket_relay.log
     maxBytes: 10485760  # 10MB
     backupCount: 5
     encoding: utf-8
   
-  file_startup:
+  file_launcher:
     class: logging.handlers.RotatingFileHandler
     level: DEBUG
-    formatter: detailed
-    filename: logs/bot_startup.log
+    formatter: development
+    filename: logs/launcher.log
     maxBytes: 10485760  # 10MB
     backupCount: 5
     encoding: utf-8
+  
+  # Production file handlers (WARNING and above)
+  file_prod_audiobroadcast:
+    class: logging.handlers.RotatingFileHandler
+    level: WARNING
+    formatter: production
+    filename: logs/audiobroadcast_bot.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 3
+    encoding: utf-8
+  
+  file_prod_audioforwarder:
+    class: logging.handlers.RotatingFileHandler
+    level: WARNING
+    formatter: production
+    filename: logs/audioforwarder_bot.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 3
+    encoding: utf-8
+  
+  file_prod_audioreceiver:
+    class: logging.handlers.RotatingFileHandler
+    level: WARNING
+    formatter: production
+    filename: logs/audioreceiver_bot.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 3
+    encoding: utf-8
+  
+  file_prod_relay:
+    class: logging.handlers.RotatingFileHandler
+    level: WARNING
+    formatter: production
+    filename: logs/websocket_relay.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 3
+    encoding: utf-8
+  
+  file_prod_launcher:
+    class: logging.handlers.RotatingFileHandler
+    level: WARNING
+    formatter: production
+    filename: logs/launcher.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 3
+    encoding: utf-8
 
 loggers:
-  # Main application loggers
+  # Main application loggers - Development configuration
   audiobroadcast_bot:
-    level: INFO
-    handlers: [console, file_audiobroadcast]
+    level: DEBUG
+    handlers: [console_dev, file_audiobroadcast]
     propagate: false
   
   audioforwarder_bot:
-    level: INFO
-    handlers: [console, file_audioforwarder]
+    level: DEBUG
+    handlers: [console_dev, file_audioforwarder]
     propagate: false
   
   audioreceiver_bot:
-    level: INFO
-    handlers: [console, file_audioreceiver]
+    level: DEBUG
+    handlers: [console_dev, file_audioreceiver]
     propagate: false
   
   websocket_relay:
-    level: INFO
-    handlers: [console, file_relay]
+    level: DEBUG
+    handlers: [console_dev, file_relay]
+    propagate: false
+  
+  launcher:
+    level: DEBUG
+    handlers: [console_dev, file_launcher]
     propagate: false
   
   # Core component loggers
   bots.core:
-    level: INFO
-    handlers: [console, file_audiobroadcast]
+    level: DEBUG
+    handlers: [console_dev, file_audiobroadcast]
     propagate: false
   
   bots.config:
-    level: INFO
-    handlers: [console, file_audiobroadcast]
+    level: DEBUG
+    handlers: [console_dev, file_audiobroadcast]
     propagate: false
   
   bots.audio_handler:
-    level: INFO
-    handlers: [console, file_audiobroadcast]
+    level: DEBUG
+    handlers: [console_dev, file_audiobroadcast]
     propagate: false
   
-  # Third-party library loggers (suppress noisy ones)
+  # Bot sub-component loggers
+  forwarder_bot.events:
+    level: DEBUG
+    handlers: [console_dev, file_audioforwarder]
+    propagate: false
+  
+  forwarder_bot.websocket:
+    level: DEBUG
+    handlers: [console_dev, file_audioforwarder]
+    propagate: false
+  
+  forwarder_bot.performance:
+    level: DEBUG
+    handlers: [console_dev, file_audioforwarder]
+    propagate: false
+  
+  receiver_bot.events:
+    level: DEBUG
+    handlers: [console_dev, file_audioreceiver]
+    propagate: false
+  
+  receiver_bot.websocket:
+    level: DEBUG
+    handlers: [console_dev, file_audioreceiver]
+    propagate: false
+  
+  receiver_bot.audio:
+    level: DEBUG
+    handlers: [console_dev, file_audioreceiver]
+    propagate: false
+  
+  receiver_bot.performance:
+    level: DEBUG
+    handlers: [console_dev, file_audioreceiver]
+    propagate: false
+  
+  # Infrastructure loggers
+  infrastructure:
+    level: DEBUG
+    handlers: [console_dev, file_launcher]
+    propagate: false
+  
+  networking:
+    level: DEBUG
+    handlers: [console_dev, file_relay]
+    propagate: false
+  
+  subscription:
+    level: DEBUG
+    handlers: [console_dev, file_launcher]
+    propagate: false
+  
+  # Module-specific loggers
+  audio.handlers:
+    level: DEBUG
+    handlers: [console_dev, file_audiobroadcast]
+    propagate: false
+  
+  audio.buffers:
+    level: DEBUG
+    handlers: [console_dev, file_audiobroadcast]
+    propagate: false
+  
+  subscription.database:
+    level: DEBUG
+    handlers: [console_dev, file_launcher]
+    propagate: false
+  
+  subscription.discord_api:
+    level: DEBUG
+    handlers: [console_dev, file_launcher]
+    propagate: false
+  
+  subscription.manager:
+    level: DEBUG
+    handlers: [console_dev, file_launcher]
+    propagate: false
+  
+  api.app:
+    level: DEBUG
+    handlers: [console_dev, file_launcher]
+    propagate: false
+  
+  api.server:
+    level: DEBUG
+    handlers: [console_dev, file_launcher]
+    propagate: false
+  
+  # Third-party library loggers (always suppress noisy ones)
   discord.voice_state:
     level: WARNING
     handlers: [file_audiobroadcast]
@@ -136,5 +297,5 @@ loggers:
     propagate: false
 
 root:
-  level: INFO
-  handlers: [console, file_startup]
+  level: DEBUG
+  handlers: [console_dev, file_launcher]

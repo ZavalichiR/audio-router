@@ -18,14 +18,14 @@ class WebSocketHandlers:
         channel_id: int,
         guild_id: int,
         server_url: str,
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger,
     ):
         """Initialize WebSocket handlers."""
         self.bot_id = bot_id
         self.channel_id = channel_id
         self.guild_id = guild_id
         self.server_url = server_url
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger
         self.websocket: Optional[websockets.WebSocketClientProtocol] = None
         self.event_loop: Optional[asyncio.AbstractEventLoop] = None
 

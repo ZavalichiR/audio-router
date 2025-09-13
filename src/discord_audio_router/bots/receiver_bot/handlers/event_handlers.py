@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from typing import Optional, Any
+from typing import Any
 
 import discord
 from discord.ext import commands, voice_recv
@@ -22,7 +22,7 @@ class EventHandlers:
         websocket_handlers: WebSocketHandlers,
         audio_handlers: Any,
         config: BotConfig,
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger,
     ):
         """Initialize event handlers."""
         self.bot_instance = bot
@@ -30,7 +30,7 @@ class EventHandlers:
         self.websocket_handlers = websocket_handlers
         self.audio_handlers = audio_handlers
         self.config = config
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger
 
     def setup_events(self) -> None:
         """Setup bot event handlers."""
