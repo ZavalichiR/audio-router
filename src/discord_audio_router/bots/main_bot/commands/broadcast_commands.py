@@ -65,7 +65,10 @@ class BroadcastCommands(BaseCommandHandler):
 
             # Create the broadcast section
             result = await self.audio_router.create_broadcast_section(
-                ctx.guild, section_name, listener_count, role_name=role_name
+                ctx.guild,
+                section_name,
+                listener_count,
+                custom_role_name=role_name,
             )
 
             if not result["success"]:

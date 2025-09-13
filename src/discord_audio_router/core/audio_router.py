@@ -86,7 +86,7 @@ class AudioRouter:
         guild: discord.Guild,
         section_name: str,
         listener_count: int,
-        role_name: str = None,
+        custom_role_name: str = None,
     ) -> Dict[str, Any]:
         """
         Create a broadcast section.
@@ -95,13 +95,13 @@ class AudioRouter:
             guild: Discord guild
             section_name: Name of the section
             listener_count: Number of listener channels
-            role_name: Optional role name for category visibility restriction
+            custom_role_name: Optional role name for category visibility restriction
 
         Returns:
             Dict with creation results
         """
         return await self.section_manager.create_broadcast_section(
-            guild, section_name, listener_count, role_name=role_name
+            guild, section_name, listener_count, custom_role_name=custom_role_name
         )
 
     async def start_broadcast(self, guild: discord.Guild) -> Dict[str, Any]:
