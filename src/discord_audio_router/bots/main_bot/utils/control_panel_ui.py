@@ -106,14 +106,12 @@ class ControlPanelView(discord.ui.View):
         self,
         settings: ControlPanelSettings,
         max_listeners: int,
-        update_callback: Callable[[], None],
         start_broadcast_callback: Callable[[], None],
         stop_broadcast_callback: Callable[[], None],
     ):
         super().__init__(timeout=None)  # Persistent view
         self.settings = settings
         self.max_listeners = max_listeners
-        self.update_callback = update_callback
         self.start_broadcast_callback = start_broadcast_callback
         self.stop_broadcast_callback = stop_broadcast_callback
         self._setup_buttons()
@@ -208,7 +206,7 @@ class ControlPanelView(discord.ui.View):
                 pass
 
     @discord.ui.button(
-        label="Setup",
+        label="Setup Settings",
         style=discord.ButtonStyle.secondary,
         emoji="⚙️",
         row=0,
@@ -277,7 +275,7 @@ def create_control_panel_embed(
     action_text = (
         "**▶️ Start Broadcast** - Begin audio streaming with current settings\n"
         "**⏹️ Stop Broadcast** - End current broadcast and cleanup\n"
-        "**⚙️ Setup** - Configure section name, listeners, and permissions"
+        "**⚙️ Setup Settings** - Configure section name, listeners, and permissions"
     )
 
     embed.add_field(name="", value=action_text, inline=False)

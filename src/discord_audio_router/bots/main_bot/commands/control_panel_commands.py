@@ -11,7 +11,7 @@ import discord
 from discord.ext import commands
 
 from .base import BaseCommandHandler
-from ..utils.control_panel_storage import get_storage
+from ..utils.control_panel_storage import get_storage, ControlPanelSettings
 from ..utils.control_panel_ui import ControlPanelView, create_control_panel_embed
 from ..utils.embed_builder import EmbedBuilder
 
@@ -64,7 +64,6 @@ class ControlPanelCommands(BaseCommandHandler):
             view = ControlPanelView(
                 settings=settings,
                 max_listeners=max_listeners,
-                update_callback=lambda *args: self._refresh_control_panel(ctx.guild),
                 start_broadcast_callback=self._start_broadcast_from_panel,
                 stop_broadcast_callback=self._stop_broadcast_from_panel,
             )
@@ -132,6 +131,21 @@ class ControlPanelCommands(BaseCommandHandler):
         except Exception as e:
             await ctx.send(f"❌ Failed to update settings: {str(e)}", ephemeral=True)
 
+    def _log_settings(self, settings: ControlPanelSettings) -> None:
+        """Log current settings in a consistent format."""
+        self.logger.info(
+            f"Using settings: section_name={settings.section_name}, "
+            f"listener_channels={settings.listener_channels}, "
+            f"permission_role={settings.permission_role}"
+        )
+
+    def _log_broadcast_creation(self, settings: ControlPanelSettings) -> None:
+        """Log broadcast section creation in a consistent format."""
+        self.logger.info(
+            f"Creating broadcast section: {settings.section_name} "
+            f"with {settings.listener_channels} listeners"
+        )
+
     async def _refresh_control_panel(self, guild: discord.Guild) -> None:
         """Refresh the control panel for a guild."""
         try:
@@ -155,7 +169,6 @@ class ControlPanelCommands(BaseCommandHandler):
             view = ControlPanelView(
                 settings=settings,
                 max_listeners=max_listeners,
-                update_callback=lambda *args: self._refresh_control_panel(guild),
                 start_broadcast_callback=lambda ctx: self._start_broadcast_from_panel_guild(
                     guild
                 ),  # Fixed
@@ -197,9 +210,7 @@ class ControlPanelCommands(BaseCommandHandler):
 
             guild_id = ctx.guild.id
             settings = self.storage.get_settings(guild_id)
-            self.logger.info(
-                f"Using settings: section_name={settings.section_name}, listener_channels={settings.listener_channels}, permission_role={settings.permission_role}"
-            )
+            self._log_settings(settings)
 
             # Check if there's already an active broadcast
             if guild_id in self.audio_router.section_manager.active_sections:
@@ -209,22 +220,15 @@ class ControlPanelCommands(BaseCommandHandler):
                 )
                 return
 
-            # Show loading message (like the command does)
-            loading_message = await ctx.send("🔄 Starting broadcast...", ephemeral=True)
-
             # Clean up existing section if needed (same as command)
             if ctx.guild.id in self.audio_router.section_manager.active_sections:
                 self.logger.info("Cleaning up existing section before creating new one")
-                cleanup_result = await self._cleanup_existing_section(
-                    ctx, loading_message
-                )
+                cleanup_result = await self._cleanup_existing_section(ctx, None)
                 if not cleanup_result:
                     return
 
             # Create broadcast section directly
-            self.logger.info(
-                f"Creating broadcast section: {settings.section_name} with {settings.listener_channels} listeners"
-            )
+            self._log_broadcast_creation(settings)
             result = await self.audio_router.create_broadcast_section(
                 ctx.guild,
                 settings.section_name,
@@ -236,9 +240,6 @@ class ControlPanelCommands(BaseCommandHandler):
                 self.logger.error(
                     f"Failed to create broadcast section: {result['message']}"
                 )
-                await loading_message.edit(
-                    content=f"❌ Failed to create broadcast section: {result['message']}"
-                )
                 return
 
             # Start the broadcast
@@ -248,15 +249,7 @@ class ControlPanelCommands(BaseCommandHandler):
                 self.logger.error(
                     f"Failed to start broadcast: {start_result['message']}"
                 )
-                await loading_message.edit(
-                    content=f"❌ Failed to start broadcast: {start_result['message']}"
-                )
                 return
-
-            # Success message
-            await loading_message.edit(
-                content=f"✅ Broadcast started successfully! Section: {settings.section_name}"
-            )
 
             # Refresh the panel
             await self._refresh_control_panel(ctx.guild)
@@ -295,24 +288,11 @@ class ControlPanelCommands(BaseCommandHandler):
             section_name = section.section_name
             self.logger.info(f"Stopping broadcast for section: {section_name}")
 
-            # Show loading message (like the command does)
-            loading_message = await ctx.send(
-                f"🔄 Stopping audio forwarding for '{section_name}'...", ephemeral=True
-            )
-
             # Stop the broadcast directly
             stop_result = await self.audio_router.stop_broadcast(ctx.guild)
             if not stop_result["success"]:
                 self.logger.error(f"Failed to stop broadcast: {stop_result['message']}")
-                await loading_message.edit(
-                    content=f"❌ Failed to stop broadcast: {stop_result['message']}"
-                )
                 return
-
-            # Success message
-            await loading_message.edit(
-                content=f"✅ Broadcast stopped successfully! Section: {section_name}"
-            )
 
             # Refresh the panel
             await self._refresh_control_panel(ctx.guild)
@@ -324,19 +304,15 @@ class ControlPanelCommands(BaseCommandHandler):
             await ctx.send(f"❌ Failed to stop broadcast: {str(e)}", ephemeral=True)
 
     async def _cleanup_existing_section(
-        self, ctx: commands.Context, loading_message
+        self, ctx: commands.Context, loading_message=None
     ) -> bool:
         """Clean up existing section and return success status."""
-        await loading_message.edit(
-            content="🔄 Found an existing broadcast section. Cleaning it up first..."
-        )
-
         cleanup_result = await self.audio_router.section_manager.stop_broadcast(
             ctx.guild
         )
         if not cleanup_result["success"]:
-            await loading_message.edit(
-                content=f"❌ Failed to cleanup existing section: {cleanup_result['message']}"
+            self.logger.error(
+                f"Failed to cleanup existing section: {cleanup_result['message']}"
             )
             return False
         return True
@@ -356,9 +332,7 @@ class ControlPanelCommands(BaseCommandHandler):
 
             guild_id = guild.id
             settings = self.storage.get_settings(guild_id)
-            self.logger.info(
-                f"Using settings: section_name={settings.section_name}, listener_channels={settings.listener_channels}, permission_role={settings.permission_role}"
-            )
+            self._log_settings(settings)
 
             # Check if there's already an active broadcast
             if guild_id in self.audio_router.section_manager.active_sections:
@@ -378,9 +352,7 @@ class ControlPanelCommands(BaseCommandHandler):
                     return
 
             # Create broadcast section directly
-            self.logger.info(
-                f"Creating broadcast section: {settings.section_name} with {settings.listener_channels} listeners"
-            )
+            self._log_broadcast_creation(settings)
             result = await self.audio_router.create_broadcast_section(
                 guild,
                 settings.section_name,
