@@ -311,7 +311,8 @@ class BotManager:
                     logger.error(
                         f"AudioReceiver bot process {bot_id} died immediately after startup"
                     )
-                    del self.bot_processes[bot_id]
+                    if bot_id in self.bot_processes:
+                        del self.bot_processes[bot_id]
                     return None
 
                 return bot_id
@@ -348,7 +349,8 @@ class BotManager:
 
             if success:
                 # Remove from processes
-                del self.bot_processes[bot_id]
+                if bot_id in self.bot_processes:
+                    del self.bot_processes[bot_id]
                 logger.info(f"Successfully stopped and removed bot process: {bot_id}")
                 return True
             else:
