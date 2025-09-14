@@ -12,5 +12,12 @@ from .base import BaseCommandHandler
 from .broadcast_commands import BroadcastCommands
 from .setup_commands import SetupCommands
 from .info_commands import InfoCommands
+from .control_panel_commands import ControlPanelCommands
 
-__all__ = ["BaseCommandHandler", "BroadcastCommands", "SetupCommands", "InfoCommands"]
+__all__ = [
+    "BaseCommandHandler",
+    "BroadcastCommands",
+    "SetupCommands",
+    "InfoCommands",
+    "ControlPanelCommands",
+]

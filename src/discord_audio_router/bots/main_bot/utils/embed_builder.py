@@ -96,7 +96,8 @@ class EmbedBuilder:
             name="🎤 Broadcast Commands",
             value="• `!start_broadcast 'Name' [N]` - Start a new broadcast section (visible to everyone)\n"
             "• `!start_broadcast 'Name' [N] --role 'RoleName'` - Start broadcast visible only to specified role\n"
-            "• `!stop_broadcast` - Stop and clean up current broadcast",
+            "• `!stop_broadcast` - Stop and clean up current broadcast\n"
+            "• `!control_panel` - Open interactive control panel for easy broadcast management",
             inline=False,
         )
 

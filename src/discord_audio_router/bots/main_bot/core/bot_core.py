@@ -21,6 +21,7 @@ from ..commands import (
     BroadcastCommands,
     SetupCommands,
     InfoCommands,
+    ControlPanelCommands,
 )
 from ..handlers import EventHandlers
 from ..utils import PermissionUtils
@@ -106,6 +107,12 @@ class AudioRouterBot:
                 subscription_manager=self.subscription_manager,
                 config=self.config,
             ),
+            "control_panel": ControlPanelCommands(
+                logger=self.logger,
+                audio_router=self.audio_router,
+                subscription_manager=self.subscription_manager,
+                config=self.config,
+            ),
         }
 
         # Register commands
@@ -152,6 +159,14 @@ class AudioRouterBot:
         async def bot_status_wrapper(ctx):
             info_handler: InfoCommands = self.command_handlers["info"]
             await info_handler.bot_status_command(ctx)
+
+        @self.bot.command(name="control_panel")
+        @PermissionUtils.get_broadcast_admin_decorator(self.audio_router)
+        async def control_panel_wrapper(ctx):
+            control_panel_handler: ControlPanelCommands = self.command_handlers[
+                "control_panel"
+            ]
+            await control_panel_handler.control_panel_command(ctx)
 
     def update_components(self, audio_router=None, subscription_manager=None) -> None:
         """Update the audio router and subscription manager instances."""
