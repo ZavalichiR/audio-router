@@ -165,7 +165,7 @@ class AccessControl:
         overwrites: Dict[discord.Role, discord.PermissionOverwrite] = {
             guild.default_role: discord.PermissionOverwrite(
                 connect=not bool(roles.get("custom")),
-                speak=False,
+                speak=not bool(roles.get("custom")),
                 view_channel=not bool(roles.get("custom")),
             ),
             guild.me: discord.PermissionOverwrite(
