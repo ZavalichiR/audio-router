@@ -60,6 +60,41 @@ class ControlPanelSettings:
         return settings
 
 
+class ControlPanelInfo:
+    """Data class for control panel message information."""
+
+    def __init__(
+        self,
+        guild_id: int,
+        channel_id: int,
+        message_id: int,
+        created_at: float = None,
+    ):
+        self.guild_id = guild_id
+        self.channel_id = channel_id
+        self.message_id = message_id
+        self.created_at = created_at or time.time()
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "guild_id": self.guild_id,
+            "channel_id": self.channel_id,
+            "message_id": self.message_id,
+            "created_at": self.created_at,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ControlPanelInfo":
+        """Create from dictionary."""
+        return ControlPanelInfo(
+            guild_id=data["guild_id"],
+            channel_id=data["channel_id"],
+            message_id=data["message_id"],
+            created_at=data.get("created_at", time.time()),
+        )
+
+
 class ControlPanelStorage:
     """Manages persistent storage for control panel settings."""
 
@@ -67,9 +102,12 @@ class ControlPanelStorage:
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(exist_ok=True)
         self.settings_file = self.data_dir / "control_panel_settings.json"
+        self.panels_file = self.data_dir / "control_panel_panels.json"
         self._lock = threading.RLock()
         self._settings_cache: Dict[int, ControlPanelSettings] = {}
+        self._panels_cache: Dict[int, ControlPanelInfo] = {}
         self._load_settings()
+        self._load_panels()
 
     def _load_settings(self) -> None:
         """Load settings from file."""
@@ -159,20 +197,73 @@ class ControlPanelStorage:
             logger.info(f"Updated control panel settings for guild {guild_id}")
             return settings
 
-    def delete_settings(self, guild_id: int) -> bool:
-        """Delete settings for a guild."""
-        with self._lock:
-            if guild_id in self._settings_cache:
-                del self._settings_cache[guild_id]
-                self._save_settings()
-                logger.info(f"Deleted control panel settings for guild {guild_id}")
-                return True
-            return False
+    def _load_panels(self) -> None:
+        """Load panel information from file."""
+        if not self.panels_file.exists():
+            logger.info("Control panel panels file not found, using defaults")
+            return
 
-    def get_all_settings(self) -> Dict[int, ControlPanelSettings]:
-        """Get all settings (read-only copy)."""
+        try:
+            with open(self.panels_file, "r", encoding="utf-8") as f:
+                with self._lock:
+                    fcntl.flock(f.fileno(), fcntl.LOCK_SH)  # Shared lock for reading
+                    data = json.load(f)
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)  # Release lock
+
+            for guild_id_str, panel_data in data.items():
+                guild_id = int(guild_id_str)
+                self._panels_cache[guild_id] = ControlPanelInfo.from_dict(panel_data)
+
+            logger.info(f"Loaded {len(self._panels_cache)} control panel records")
+        except Exception as e:
+            logger.error(f"Failed to load control panel panels: {e}", exc_info=True)
+
+    def _save_panels(self) -> None:
+        """Save panel information to file."""
+        try:
+            with open(self.panels_file, "w", encoding="utf-8") as f:
+                with self._lock:
+                    fcntl.flock(f.fileno(), fcntl.LOCK_EX)  # Exclusive lock for writing
+                    data = {
+                        str(guild_id): panel_info.to_dict()
+                        for guild_id, panel_info in self._panels_cache.items()
+                    }
+                    json.dump(data, f, indent=2, ensure_ascii=False)
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)  # Release lock
+
+            logger.debug("Control panel panels saved successfully")
+        except Exception as e:
+            logger.error(f"Failed to save control panel panels: {e}", exc_info=True)
+
+    def save_panel_info(self, guild_id: int, channel_id: int, message_id: int) -> None:
+        """Save panel information for a guild."""
         with self._lock:
-            return self._settings_cache.copy()
+            panel_info = ControlPanelInfo(
+                guild_id=guild_id,
+                channel_id=channel_id,
+                message_id=message_id,
+            )
+            self._panels_cache[guild_id] = panel_info
+            self._save_panels()
+            logger.info(f"Saved control panel info for guild {guild_id}")
+
+    def get_panel_info(self, guild_id: int) -> Optional[ControlPanelInfo]:
+        """Get panel information for a guild."""
+        with self._lock:
+            return self._panels_cache.get(guild_id)
+
+    def remove_panel_info(self, guild_id: int) -> None:
+        """Remove panel information for a guild."""
+        with self._lock:
+            if guild_id in self._panels_cache:
+                del self._panels_cache[guild_id]
+                self._save_panels()
+                logger.info(f"Removed control panel info for guild {guild_id}")
+
+    def get_all_panels(self) -> Dict[int, ControlPanelInfo]:
+        """Get all panel information."""
+        with self._lock:
+            return self._panels_cache.copy()
 
 
 # Global storage instance

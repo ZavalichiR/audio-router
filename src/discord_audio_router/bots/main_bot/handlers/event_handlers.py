@@ -65,6 +65,22 @@ class EventHandlers:
                 subscription_manager=self.subscription_manager,
             )
 
+            # Clean up old control panels (after audio router is initialized)
+            try:
+                control_panel_handler = self.bot_instance.command_handlers.get(
+                    "control_panel"
+                )
+                if control_panel_handler:
+                    await control_panel_handler.reactivate_panels(self.bot)
+                else:
+                    self.logger.warning(
+                        "Control panel handler not found - cleanup skipped"
+                    )
+            except Exception as e:
+                self.logger.error(
+                    f"Failed to clean up old control panels: {e}", exc_info=True
+                )
+
             # Sync commands
             try:
                 await self.bot.tree.sync()

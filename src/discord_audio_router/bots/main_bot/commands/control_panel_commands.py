@@ -86,10 +86,14 @@ class ControlPanelCommands(BaseCommandHandler):
                     # Panel message was deleted, create new one
                     message = await ctx.send(embed=embed, view=view)
                     self.active_panels[guild_id] = message
+                    # Save panel information for auto-reactivation
+                    self.storage.save_panel_info(guild_id, ctx.channel.id, message.id)
             else:
                 # Create new panel
                 message = await ctx.send(embed=embed, view=view)
                 self.active_panels[guild_id] = message
+                # Save panel information for auto-reactivation
+                self.storage.save_panel_info(guild_id, ctx.channel.id, message.id)
 
         except Exception as e:
             await self._handle_command_error(ctx, e, "control_panel")
@@ -145,6 +149,69 @@ class ControlPanelCommands(BaseCommandHandler):
             f"Creating broadcast section: {settings.section_name} "
             f"with {settings.listener_channels} listeners"
         )
+
+    async def reactivate_panels(self, bot) -> None:
+        """Reactivate control panels by running !control_panel command for each guild."""
+        try:
+            all_panels = self.storage.get_all_panels()
+            self.logger.info(f"Reactivating {len(all_panels)} control panels")
+
+            if not all_panels:
+                self.logger.info("No stored panels found - nothing to reactivate")
+                return
+
+            for guild_id, panel_info in all_panels.items():
+                try:
+                    guild = bot.get_guild(guild_id)
+                    if not guild:
+                        self.logger.warning(
+                            f"Guild {guild_id} not found, skipping reactivation"
+                        )
+                        continue
+
+                    channel = guild.get_channel(panel_info.channel_id)
+                    if not channel:
+                        self.logger.warning(
+                            f"Channel {panel_info.channel_id} not found in guild {guild_id}"
+                        )
+                        continue
+
+                    # Delete the old panel message first
+                    try:
+                        old_message = await channel.fetch_message(panel_info.message_id)
+                        await old_message.delete()
+                        self.logger.info(
+                            f"Deleted old control panel for guild {guild_id}"
+                        )
+                    except discord.NotFound:
+                        self.logger.debug(
+                            f"Old panel message already deleted for guild {guild_id}"
+                        )
+                    except Exception as e:
+                        self.logger.warning(
+                            f"Could not delete old panel message for guild {guild_id}: {e}"
+                        )
+
+                    # Create a minimal context and run the control_panel command
+                    ctx = type(
+                        "Context",
+                        (),
+                        {"guild": guild, "channel": channel, "send": channel.send},
+                    )()
+
+                    await self.control_panel_command(ctx)
+                    self.logger.info(f"Reactivated control panel for guild {guild_id}")
+
+                except Exception as e:
+                    self.logger.error(
+                        f"Failed to reactivate panel for guild {guild_id}: {e}"
+                    )
+                    continue
+
+            self.logger.info("Control panel reactivation completed")
+
+        except Exception as e:
+            self.logger.error(f"Error during panel reactivation: {e}", exc_info=True)
 
     async def _refresh_control_panel(self, guild: discord.Guild) -> None:
         """Refresh the control panel for a guild."""
