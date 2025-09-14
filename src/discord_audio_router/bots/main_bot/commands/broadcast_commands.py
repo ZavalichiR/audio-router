@@ -55,7 +55,29 @@ class BroadcastCommands(BaseCommandHandler):
                 f"Creating broadcast section '{section_name}' with {listener_count} listener channels...",
             )
 
-            # Clean up existing section if needed
+            # Check if there's an existing section (active or recovered)
+            section = self.audio_router.section_manager.active_sections.get(
+                ctx.guild.id
+            )
+            if section:
+                await self._update_loading_embed(
+                    loading_message,
+                    "Restarting Broadcast",
+                    "Found existing channels, restarting bots...",
+                )
+                # Start the broadcast directly without creating new channels
+                start_result = await self.audio_router.start_broadcast(ctx.guild)
+                await self._handle_broadcast_start_result(
+                    ctx,
+                    loading_message,
+                    section.section_name,
+                    len(section.listener_channel_ids),
+                    None,  # role_name not available in this context
+                    start_result,
+                )
+                return
+
+            # Clean up any old sections with the same name if needed
             if ctx.guild.id in self.audio_router.section_manager.active_sections:
                 cleanup_result = await self._cleanup_existing_section(
                     ctx, loading_message

@@ -14,6 +14,7 @@ import discord
 from discord_audio_router.infrastructure.logging import setup_logging
 from .access_control import AccessControl
 from .bot_manager import BotManager
+from .section_storage import SectionStorage
 
 logger = setup_logging(
     component_name="section_manager",
@@ -61,11 +62,137 @@ class SectionManager:
         self.bot_manager = bot_manager
         self.access_control = access_control
         self.active_sections: Dict[int, BroadcastSection] = {}
+        self.storage = SectionStorage()
 
         # Auto-cleanup configuration
         self.auto_cleanup_timeout = auto_cleanup_timeout * 60  # seconds
         self._last_activity: Dict[int, float] = {}
         self._cleanup_task: Optional[asyncio.Task] = None
+
+    async def recover_sections_from_storage(self, main_bot: discord.Client) -> None:
+        """
+        Recover broadcast sections from storage after bot restart.
+        This allows the bot to rejoin existing channels instead of recreating them.
+        """
+        logger.info("Attempting to recover broadcast sections from storage...")
+
+        for guild_id, section_data in self.storage.get_all_sections().items():
+            try:
+                guild = main_bot.get_guild(guild_id)
+                if not guild:
+                    logger.warning(
+                        f"Guild {guild_id} not found, skipping section recovery"
+                    )
+                    continue
+
+                # Try to detect the existing section
+                existing_section = await self._detect_existing_section(
+                    guild,
+                    section_data.section_name,
+                    len(section_data.listener_channel_ids),
+                )
+
+                if existing_section:
+                    # Restore bot IDs from storage
+                    existing_section.speaker_bot_id = section_data.speaker_bot_id
+                    existing_section.listener_bot_ids = (
+                        section_data.listener_bot_ids or []
+                    )
+                    # Don't mark as active until bots are actually started
+                    existing_section.is_active = False
+
+                    self.active_sections[guild_id] = existing_section
+                    logger.info(
+                        f"Recovered section '{section_data.section_name}' for guild {guild_id} (channels exist, bots need to be restarted)"
+                    )
+                else:
+                    logger.warning(
+                        f"Could not detect existing section '{section_data.section_name}' for guild {guild_id}"
+                    )
+                    # Remove from storage if section no longer exists
+                    self.storage.remove_section(guild_id)
+
+            except Exception as e:
+                logger.error(
+                    f"Failed to recover section for guild {guild_id}: {e}",
+                    exc_info=True,
+                )
+
+        logger.info(
+            f"Section recovery completed. Active sections: {len(self.active_sections)}"
+        )
+
+    async def _detect_existing_section(
+        self, guild: discord.Guild, section_name: str, expected_listener_count: int
+    ) -> Optional[BroadcastSection]:
+        """
+        Detect if a broadcast section already exists and can be recovered.
+
+        Args:
+            guild: Discord guild to search in
+            section_name: Name of the section to look for
+            expected_listener_count: Expected number of listener channels
+
+        Returns:
+            BroadcastSection if found and valid, None otherwise
+        """
+        category_name = f"🔴 {section_name}"
+
+        # Find the category
+        category = discord.utils.get(guild.categories, name=category_name)
+        if not category:
+            return None
+
+        # Find the control channel
+        control_channel = discord.utils.get(category.channels, name="broadcast-control")
+        if not control_channel:
+            logger.warning(f"Found category '{category_name}' but no control channel")
+            return None
+
+        # Find the speaker channel
+        speaker_channel = discord.utils.get(category.channels, name="Speaker")
+        if not speaker_channel:
+            logger.warning(f"Found category '{category_name}' but no speaker channel")
+            return None
+
+        # Find listener channels
+        listener_channels = []
+        for channel in category.channels:
+            if channel.name.startswith("Channel-") and isinstance(
+                channel, discord.VoiceChannel
+            ):
+                listener_channels.append(channel)
+
+        # Sort by channel number for consistency
+        def extract_channel_number(channel):
+            import re
+
+            match = re.search(r"Channel-(\d+)", channel.name)
+            return int(match.group(1)) if match else float("inf")
+
+        listener_channels.sort(key=extract_channel_number)
+
+        # Check if we have the expected number of listener channels
+        if len(listener_channels) != expected_listener_count:
+            logger.warning(
+                f"Found {len(listener_channels)} listener channels, expected {expected_listener_count}"
+            )
+            return None
+
+        # Create the section object
+        section = BroadcastSection(
+            guild_id=guild.id,
+            section_name=section_name,
+            category_id=category.id,
+            control_channel_id=control_channel.id,
+            speaker_channel_id=speaker_channel.id,
+            listener_channel_ids=[ch.id for ch in listener_channels],
+        )
+
+        logger.info(
+            f"Successfully detected existing section '{section_name}' with {len(listener_channels)} listener channels"
+        )
+        return section
 
     async def start_auto_cleanup(self, main_bot: discord.Client) -> None:
         if self._cleanup_task and not self._cleanup_task.done():
@@ -151,22 +278,26 @@ class SectionManager:
             }
 
         category_name = f"🔴 {section_name}"
-        for category in guild.categories:
-            if category.name == category_name:
-                for channel in category.channels:
-                    try:
-                        await channel.delete(reason="Cleaning up broadcast section")
-                    except discord.Forbidden:
-                        logger.warning(
-                            f"Cannot delete channel {channel.name}: Insufficient permissions"
-                        )
-                try:
-                    await category.delete(reason="Cleaning up broadcast section")
-                except discord.Forbidden:
-                    logger.warning(
-                        f"Cannot delete category {category.name}: Insufficient permissions"
-                    )
-                break
+
+        # Check if section already exists and try to recover it
+        existing_section = await self._detect_existing_section(
+            guild, section_name, listener_count
+        )
+        if existing_section:
+            logger.info(
+                f"Found existing broadcast section '{section_name}', recovering..."
+            )
+            self.active_sections[guild.id] = existing_section
+            return {
+                "success": True,
+                "message": f"Recovered existing section '{section_name}'",
+                "section": existing_section,
+            }
+
+        # Note: We no longer clean up existing sections here because
+        # our new logic always tries to reuse existing channels first.
+        # If we reach this point, it means no existing section was found
+        # and we should create a new one.
 
         # Ensure roles
         roles = await self.access_control.ensure_roles_exist(guild, custom_role_name)
@@ -228,6 +359,18 @@ class SectionManager:
             listener_channel_ids=listener_ids,
         )
         self.active_sections[guild.id] = section
+
+        # Save to storage
+        self.storage.save_section(
+            guild_id=guild.id,
+            section_name=section_name,
+            category_id=category.id,
+            control_channel_id=control.id,
+            speaker_channel_id=speaker.id,
+            listener_channel_ids=listener_ids,
+            is_active=False,  # Will be set to True when broadcast starts
+        )
+
         logger.info(f"Created broadcast section '{section_name}' (Guild {guild.id})")
 
         return {
@@ -240,8 +383,18 @@ class SectionManager:
         section = self.active_sections.get(guild.id)
         if not section:
             return {"success": False, "message": "No section found"}
+
+        # If already active, stop the current bots first before restarting
         if section.is_active:
-            return {"success": False, "message": "Broadcast already active"}
+            logger.info(
+                f"Broadcast already active for section '{section.section_name}', stopping current bots..."
+            )
+            await self._stop_all_bots(
+                section.listener_bot_ids + [section.speaker_bot_id]
+            )
+            section.speaker_bot_id = None
+            section.listener_bot_ids = []
+            section.is_active = False
 
         def extract_channel_number(channel_id):
             channel = guild.get_channel(channel_id)
@@ -269,6 +422,15 @@ class SectionManager:
                 section.listener_bot_ids.append(lid)
 
         section.is_active = True
+
+        # Update storage with bot IDs
+        self.storage.update_section(
+            guild_id=guild.id,
+            is_active=True,
+            speaker_bot_id=section.speaker_bot_id,
+            listener_bot_ids=section.listener_bot_ids,
+        )
+
         logger.info(f"Broadcast started for section '{section.section_name}'")
         return {"success": True}
 
@@ -291,6 +453,14 @@ class SectionManager:
                 await category.delete(reason="Broadcast cleanup")
             except Exception:
                 pass
+
+        # Update storage
+        self.storage.update_section(
+            guild_id=guild.id,
+            is_active=False,
+            speaker_bot_id=None,
+            listener_bot_ids=[],
+        )
 
         del self.active_sections[guild.id]
         logger.info(f"Broadcast section '{section.section_name}' stopped and removed")

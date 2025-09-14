@@ -79,6 +79,10 @@ class AudioRouter:
         logger.debug("Starting auto-cleanup task for inactive broadcasts")
         await self.section_manager.start_auto_cleanup(main_bot)
 
+        # Recover existing sections from storage
+        logger.debug("Attempting to recover existing broadcast sections...")
+        await self.section_manager.recover_sections_from_storage(main_bot)
+
         logger.info("Audio router initialized")
 
     async def create_broadcast_section(

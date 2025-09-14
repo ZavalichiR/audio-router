@@ -279,19 +279,22 @@ class ControlPanelCommands(BaseCommandHandler):
             settings = self.storage.get_settings(guild_id)
             self._log_settings(settings)
 
-            # Check if there's already an active broadcast
-            if guild_id in self.audio_router.section_manager.active_sections:
-                self.logger.info(f"Broadcast already active for guild {guild_id}")
-                await ctx.send(
-                    "⚠️ A broadcast is already active in this server!", ephemeral=True
+            # Check if there's an existing section (active or recovered)
+            section = self.audio_router.section_manager.active_sections.get(guild_id)
+            if section:
+                self.logger.info(
+                    f"Found existing section for guild {guild_id}, restarting bots..."
                 )
-                return
-
-            # Clean up existing section if needed (same as command)
-            if ctx.guild.id in self.audio_router.section_manager.active_sections:
-                self.logger.info("Cleaning up existing section before creating new one")
-                cleanup_result = await self._cleanup_existing_section(ctx, None)
-                if not cleanup_result:
+                # Start the broadcast directly without creating new channels
+                start_result = await self.audio_router.start_broadcast(ctx.guild)
+                if start_result["success"]:
+                    await self._refresh_control_panel(ctx.guild)
+                    return
+                else:
+                    await ctx.send(
+                        f"❌ Failed to restart broadcast: {start_result['message']}",
+                        ephemeral=True,
+                    )
                     return
 
             # Create broadcast section directly
@@ -401,20 +404,24 @@ class ControlPanelCommands(BaseCommandHandler):
             settings = self.storage.get_settings(guild_id)
             self._log_settings(settings)
 
-            # Check if there's already an active broadcast
-            if guild_id in self.audio_router.section_manager.active_sections:
-                self.logger.info(f"Broadcast already active for guild {guild.id}")
-                return
-
-            # Clean up existing section if needed
-            if guild.id in self.audio_router.section_manager.active_sections:
-                self.logger.info("Cleaning up existing section before creating new one")
-                cleanup_result = await self.audio_router.section_manager.stop_broadcast(
-                    guild
+            # Check if there's an existing section (active or recovered)
+            section = self.audio_router.section_manager.active_sections.get(guild_id)
+            if section:
+                self.logger.info(
+                    f"Found existing section for guild {guild_id}, restarting bots..."
                 )
-                if not cleanup_result["success"]:
+                # Start the broadcast directly without creating new channels
+                start_result = await self.audio_router.start_broadcast(guild)
+                if start_result["success"]:
+                    self.logger.info(
+                        f"Successfully restarted broadcast for guild {guild.id}"
+                    )
+                    # Refresh the panel
+                    await self._refresh_control_panel(guild)
+                    return
+                else:
                     self.logger.error(
-                        f"Failed to cleanup existing section: {cleanup_result['message']}"
+                        f"Failed to restart broadcast: {start_result['message']}"
                     )
                     return
 
