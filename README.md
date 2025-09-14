@@ -233,7 +233,6 @@ For each bot, create an invite link:
 
 3. **Check status**:
    ```
-   !broadcast_status
    ```
 
 ### Complete Example
@@ -260,16 +259,12 @@ For each bot, create an invite link:
 |---------|-------------|---------|
 | `!start_broadcast 'Name' N [--role 'RoleName']` | Create and start broadcast section with N listener channels | `!start_broadcast 'War Room' 5`<br>`!start_broadcast 'VIP Session' 3 --role 'Premium'` |
 | `!stop_broadcast` | Stop broadcasting and remove entire section | `!stop_broadcast` |
-| `!broadcast_status` | Check current broadcast status | `!broadcast_status` |
 
 ### Setup Commands
 
 | Command | Description |
 |---------|-------------|
-| `!check_setup` | Check if your server is properly configured |
 | `!setup_roles` | Create and configure required roles (Admin only) |
-| `!check_permissions` | Check bot permissions and role hierarchy (Admin only) |
-| `!role_info` | Show information about audio router roles |
 
 ### Help Commands
 
@@ -353,7 +348,7 @@ AUDIO_RECEIVER_TOKENS=[
 
 #### ❌ "Bot lacks 'Manage Channels' permission"
 **Solution**: 
-1. Run `!check_permissions` for detailed instructions
+1. Check bot permissions in server settings
 2. Or give the bot Administrator permission in Server Settings
 
 #### ❌ "No available tokens for AudioReceiver bot"
@@ -366,12 +361,12 @@ AUDIO_RECEIVER_TOKENS=[
 **Solution**:
 1. Check that FFmpeg is installed
 2. Verify bot is connected to voice channels
-3. Run `!broadcast_status` to check broadcast health
+3. Monitor the broadcast channels for activity
 
 ### Getting Help
 
-1. **Check bot status**: `!broadcast_status`
-2. **Check permissions**: `!check_permissions`
+1. **Check bot status**: Use `!bot_status` to see receiver bots
+2. **Check permissions**: Verify in server settings
 3. **View logs**: Check the `logs/` directory for error messages
 4. **Restart bot**: Stop and restart the bot process
 
@@ -509,7 +504,6 @@ services:
 
 Monitor your bot with:
 
-- **Broadcast Status**: `!broadcast_status`
 - **Log Files**: Check `logs/` directory
 - **Health Checks**: Built-in Docker health checks
 
@@ -536,9 +530,6 @@ For high-traffic scenarios:
 
 1. **Check the logs** in the `logs/` directory
 2. **Run diagnostic commands**:
-   - `!check_setup`
-   - `!check_permissions`
-   - `!broadcast_status`
 3. **Review this documentation**
 4. **Check Discord bot permissions**
 

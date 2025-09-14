@@ -132,20 +132,6 @@ class BroadcastCommands(BaseCommandHandler):
         except Exception as e:
             await self._handle_command_error(ctx, e, "stop_broadcast")
 
-    async def broadcast_status_command(self, ctx: commands.Context) -> None:
-        """📊 Get the status of the current broadcast section."""
-        try:
-            if not self.audio_router:
-                await self._send_system_starting_embed(ctx)
-                return
-
-            status = await self.audio_router.get_section_status(ctx.guild)
-            embed = self._build_status_embed(status)
-            await ctx.send(embed=embed)
-
-        except Exception as e:
-            await self._handle_command_error(ctx, e, "broadcast_status")
-
     async def _parse_start_broadcast_args(
         self, ctx: commands.Context, args: str
     ) -> tuple[Optional[str], Optional[str], Optional[int]]:
@@ -367,29 +353,6 @@ class BroadcastCommands(BaseCommandHandler):
                 self.logger.warning(
                     f"Could not update original start_broadcast loading message: {e}"
                 )
-
-    def _build_status_embed(self, status: dict) -> discord.Embed:
-        """Build status embed based on section status."""
-        if not status["active"]:
-            return EmbedBuilder.warning("No Active Section", status["message"])
-
-        embed: discord.Embed = EmbedBuilder.info(f"{status['section_name']} Status")
-        embed.add_field(
-            name="🎤 Speaker Channel",
-            value=f"<#{status['speaker_channel_id']}>",
-            inline=True,
-        )
-        embed.add_field(
-            name="📢 Listener Channels",
-            value=f"{status['listener_count']} channels",
-            inline=True,
-        )
-        embed.add_field(
-            name="📡 Broadcasting",
-            value="🟢 Active" if status["is_broadcasting"] else "🔴 Inactive",
-            inline=True,
-        )
-        return embed
 
     async def _send_limited_bots_embed(
         self, ctx: commands.Context, requested: int, available: int

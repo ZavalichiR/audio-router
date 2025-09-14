@@ -77,18 +77,18 @@ class EmbedBuilder:
     def help_command() -> discord.Embed:
         """Create the main help command embed."""
         embed = discord.Embed(
-            title="🎵 Audio Router Bot - Commands",
+            title="📖 Audio Router Bot - Commands",
             description="Transform your Discord server into a professional broadcasting platform!",
             color=discord.Color.blue(),
         )
 
         embed.add_field(
             name="🚀 Quick Start Guide",
-            value="1. **Check Setup:** `!check_setup` - See what's needed\n"
-            "2. **Create Roles:** `!setup_roles` - Set up required roles\n"
-            "3. **Start Broadcast:** `!start_broadcast 'Room Name'` - Create your first broadcast\n"
-            "4. **Optional:** Add `--role 'RoleName'` to restrict category visibility\n"
-            "5. **Stop When Done:** `!stop_broadcast` - Clean up everything",
+            value="1. **Setup Roles:** `!setup_roles` - Set up required roles\n"
+            "2. **Check Subscription:** `!subscription_status` - Ensure you have the needed subscription\n"
+            "3. **Check Bots:** `!bot_status` - Ensure you have all bots installed\n"
+            "4. **Start Broadcast:** `!start_broadcast 'Room Name' [N]` - Start broadcast with proper parameters\n"
+            "5. **Learn More:** Use `!how_it_works` to learn about this bot",
             inline=False,
         )
 
@@ -96,25 +96,13 @@ class EmbedBuilder:
             name="🎤 Broadcast Commands",
             value="• `!start_broadcast 'Name' [N]` - Start a new broadcast section (visible to everyone)\n"
             "• `!start_broadcast 'Name' [N] --role 'RoleName'` - Start broadcast visible only to specified role\n"
-            "• `!stop_broadcast` - Stop and clean up current broadcast\n"
-            "• `!broadcast_status` - Check current broadcast status",
-            inline=False,
-        )
-
-        embed.add_field(
-            name="⚙️ Setup & Management",
-            value="• `!check_setup` - Verify your server is ready\n"
-            "• `!setup_roles` - Create required roles\n"
-            "• `!check_permissions` - Fix bot permission issues\n"
-            "• `!bot_status` - Check installed receiver bots",
+            "• `!stop_broadcast` - Stop and clean up current broadcast",
             inline=False,
         )
 
         embed.add_field(
             name="ℹ️ Information",
-            value="• `!subscription_status` - Check your subscription tier\n"
-            "• `!role_info` - Learn about roles and permissions\n"
-            "• `!how_it_works` - Understand the audio routing system",
+            value="• `!how_it_works` - Understand the audio routing system",
             inline=False,
         )
 
@@ -126,15 +114,15 @@ class EmbedBuilder:
         """Create the how it works explanation embed."""
         embed = discord.Embed(
             title="🔧 How the Audio Router System Works",
-            description="Learn how the audio routing system functions:",
+            description="Learn how the audio routing system functions and how to use it effectively:",
             color=discord.Color.green(),
         )
 
         embed.add_field(
             name="🎤 Speaker Channels",
-            value="• Only users with the **Speaker** role can join\n"
-            "• Audio from speakers is captured and forwarded\n"
-            "• Speakers can hear each other normally",
+            value="• Only users with the **Speaker** role (configured in your server) can join\n"
+            "• Audio from speakers is captured and forwarded to listener channels\n"
+            "• Speakers can hear each other normally within the speaker channel",
             inline=False,
         )
 
@@ -148,10 +136,10 @@ class EmbedBuilder:
         )
 
         embed.add_field(
-            name="🎛️ Control Channels",
-            value="• Only users with **Broadcast Admin** role can access\n"
-            "• Used to start/stop broadcasts and manage the system\n"
-            "• Contains setup instructions and status information",
+            name="🎛️ Broadcast Control",
+            value="• Only users with **Broadcast Admin** role (configured in your server) can use bot commands\n"
+            "• Commands like `!start_broadcast` and `!stop_broadcast` require this role\n"
+            "• Server administrators can always use all commands regardless of roles",
             inline=False,
         )
 
@@ -167,10 +155,11 @@ class EmbedBuilder:
 
         embed.add_field(
             name="👥 Role System",
-            value="• **Speaker Role:** Required to join speaker channels\n"
-            "• **Broadcast Admin Role:** Required to use bot commands\n"
-            "• **Server Administrators:** Can always use all commands\n"
-            "• **Everyone Else:** Can join listener channels freely\n"
+            value="• **Broadcast Admin Role:** Required to use bot commands (start/stop broadcasts)\n"
+            "• **Speaker Role:** Required to join speaker channels and broadcast audio\n"
+            "• **Listener Role:** Optional role for organizing listeners (can join listener channels)\n"
+            "• **Server Administrators:** Can always use all commands and join any channel\n"
+            "• **Everyone Else:** Can join listener channels freely (no role required)\n"
             "• **Category Visibility:** Use `--role 'RoleName'` to restrict who can see broadcast categories",
             inline=False,
         )
@@ -189,9 +178,19 @@ class EmbedBuilder:
             value="• **Default:** Categories are visible to everyone\n"
             "• **Restricted:** Use `--role 'RoleName'` to limit visibility\n"
             "• **Examples:**\n"
-            "  - `!start_broadcast 'Public Event' 5` (everyone can see)\n"
-            "  - `!start_broadcast 'VIP Session' 3 --role 'Premium'` (only Premium role can see)\n"
+            "  •    `!start_broadcast 'Public Event' 5` (everyone can see)\n"
+            "  •    `!start_broadcast 'VIP Session' 3 --role 'Premium'` (only Premium role can see)\n"
             "• **Perfect for:** VIP content, member-only events, private sessions",
+            inline=False,
+        )
+
+        embed.add_field(
+            name="🚀 Getting Started",
+            value="1. **Setup Roles:** Run `!setup_roles` to create required roles\n"
+            "2. **Check Subscription:** Run `!subscription_status` to verify your tier\n"
+            "3. **Check Bots:** Run `!bot_status` to ensure receiver bots are installed\n"
+            "4. **Start Broadcast:** Run `!start_broadcast 'Room Name' [N]` to create your first broadcast\n"
+            "5. **Assign Roles:** Give users the appropriate roles to join channels",
             inline=False,
         )
 
@@ -207,5 +206,7 @@ class EmbedBuilder:
             inline=False,
         )
 
-        embed.set_footer(text="Run !check_setup to see if your server is ready")
+        embed.set_footer(
+            text="Get started: Run !setup_roles → !subscription_status → !bot_status → !start_broadcast"
+        )
         return embed

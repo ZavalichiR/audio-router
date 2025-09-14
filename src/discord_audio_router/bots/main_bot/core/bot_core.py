@@ -127,33 +127,11 @@ class AudioRouterBot:
             broadcast_handler: BroadcastCommands = self.command_handlers["broadcast"]
             await broadcast_handler.stop_broadcast_command(ctx)
 
-        @self.bot.command(name="broadcast_status")
-        @PermissionUtils.get_broadcast_admin_decorator(self.audio_router)
-        async def broadcast_status_wrapper(ctx):
-            broadcast_handler: BroadcastCommands = self.command_handlers["broadcast"]
-            await broadcast_handler.broadcast_status_command(ctx)
-
         @self.bot.command(name="setup_roles")
         @PermissionUtils.is_admin()
         async def setup_roles_wrapper(ctx):
             setup_handler: SetupCommands = self.command_handlers["setup"]
             await setup_handler.setup_roles_command(ctx)
-
-        @self.bot.command(name="check_setup")
-        async def check_setup_wrapper(ctx):
-            setup_handler: SetupCommands = self.command_handlers["setup"]
-            await setup_handler.check_setup_command(ctx)
-
-        @self.bot.command(name="check_permissions")
-        @PermissionUtils.is_admin()
-        async def check_permissions_wrapper(ctx):
-            setup_handler: SetupCommands = self.command_handlers["setup"]
-            await setup_handler.check_permissions_command(ctx)
-
-        @self.bot.command(name="role_info")
-        async def role_info_wrapper(ctx):
-            setup_handler: SetupCommands = self.command_handlers["setup"]
-            await setup_handler.role_info_command(ctx)
 
         @self.bot.command(name="help")
         async def help_wrapper(ctx):
