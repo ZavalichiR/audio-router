@@ -7,6 +7,12 @@ from typing import Optional
 
 import websockets
 import websockets.exceptions
+from websockets.asyncio.client import connect, ClientConnection
+
+from discord_audio_router.core.types import (
+    WS_CLIENT_TYPE_FWD,
+    WS_MSG_REGISTER,
+)
 
 
 class WebSocketHandlers:
@@ -26,7 +32,7 @@ class WebSocketHandlers:
         self.guild_id = guild_id
         self.server_url = server_url
         self.logger = logger
-        self.websocket: Optional[websockets.WebSocketClientProtocol] = None
+        self.websocket: Optional[ClientConnection] = None
         self.event_loop: Optional[asyncio.AbstractEventLoop] = None
 
     async def connect(self) -> bool:
@@ -37,21 +43,22 @@ class WebSocketHandlers:
             )
 
             # Connect to centralized server with settings
-            self.websocket = await websockets.connect(
+            self.websocket = await connect(
                 self.server_url,
                 ping_interval=None,  # Disable automatic pings
                 ping_timeout=None,  # Disable ping timeout
                 close_timeout=5,  # Shorter close timeout
+                open_timeout=30,  # Longer connection timeout
                 max_size=2**20,  # 1MB max message size
                 compression=None,  # Disable compression for lower latency
             )
 
-            # Register as a speaker with the centralized server
+            # Register as a forwarder with the centralized server
+            client_id = f"{self.guild_id}_{self.channel_id}"
             registration_msg = {
-                "type": "speaker_register",
-                "speaker_id": self.bot_id,
-                "channel_id": self.channel_id,
-                "guild_id": self.guild_id,
+                "type": WS_MSG_REGISTER,
+                "id": client_id,
+                "client_type": WS_CLIENT_TYPE_FWD,
             }
             await self.websocket.send(json.dumps(registration_msg))
 

@@ -13,7 +13,21 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from discord_audio_router.config.settings import SimpleConfig
 from discord_audio_router.infrastructure import setup_logging
+from .types import (
+    BOT_TYPE_FWD,
+    BOT_TYPE_RCV,
+    BOT_SCRIPT_PATHS,
+    ENV_BOT_TOKEN,
+    ENV_BOT_ID,
+    ENV_BOT_TYPE,
+    ENV_CHANNEL_ID,
+    ENV_GUILD_ID,
+    ENV_SPEAKER_CHANNEL_ID,
+    ENV_CENTRALIZED_WEBSOCKET_URL,
+    DEFAULT_WEBSOCKET_URL,
+)
 
 # Configure logging
 logger = setup_logging(
@@ -27,33 +41,43 @@ class BotProcess:
 
     def __init__(
         self,
-        bot_id: str,
         bot_type: str,
         token: str,
         channel_id: int,
         guild_id: int,
         process: subprocess.Popen = None,
+        speaker_channel_id: Optional[int] = None,
     ):
         """
         Initialize a bot process.
 
         Args:
-            bot_id: Unique identifier for the bot
-            bot_type: Type of bot ('speaker' or 'listener')
+            bot_type: Type of bot ('fwd' or 'rcv')
             token: Discord bot token
             channel_id: Target channel ID
             guild_id: Guild ID
             process: Subprocess instance
+            speaker_channel_id: Speaker channel ID (for receiver bots)
         """
-        self.bot_id = bot_id
         self.bot_type = bot_type
         self.token = token
         self.channel_id = channel_id
         self.guild_id = guild_id
+        self.speaker_channel_id = speaker_channel_id
         self.process: Optional[subprocess.Popen] = process
         self.is_running = False
         self.start_time: Optional[float] = None
         self.pid: Optional[int] = None
+
+    @property
+    def bot_id(self) -> str:
+        """Generate bot ID from type and channel."""
+        return f"{self.bot_type}_{self.channel_id}"
+
+    @property
+    def websocket_id(self) -> str:
+        """Generate websocket ID for communication."""
+        return f"{self.guild_id}_{self.channel_id}"
 
     def start(self) -> bool:
         """Start the bot process."""
@@ -63,30 +87,31 @@ class BotProcess:
                 return True
 
             # Determine which script to run
-            if self.bot_type == "speaker":
-                script_path = Path(__file__).parent.parent / "bots" / "forwarder_bot.py"
-            elif self.bot_type == "listener":
-                script_path = Path(__file__).parent.parent / "bots" / "receiver_bot.py"
-            else:
+            if self.bot_type not in BOT_SCRIPT_PATHS:
                 logger.error(f"Unknown bot type: {self.bot_type}")
                 return False
+
+            script_path = (
+                Path(__file__).parent.parent / "bots" / BOT_SCRIPT_PATHS[self.bot_type]
+            )
 
             # Prepare environment variables
             env = os.environ.copy()
             env.update(
                 {
-                    "BOT_TOKEN": self.token,
-                    "BOT_ID": self.bot_id,
-                    "BOT_TYPE": self.bot_type,
-                    "CHANNEL_ID": str(self.channel_id),
-                    "GUILD_ID": str(self.guild_id),
+                    ENV_BOT_TOKEN: self.token,
+                    ENV_BOT_ID: self.bot_id,
+                    ENV_BOT_TYPE: self.bot_type,
+                    ENV_CHANNEL_ID: str(self.channel_id),
+                    ENV_GUILD_ID: str(self.guild_id),
+                    ENV_CENTRALIZED_WEBSOCKET_URL: DEFAULT_WEBSOCKET_URL,
                     "PYTHONPATH": str(Path(__file__).parent.parent.parent),
                 }
             )
 
-            # For listener bots, add speaker channel ID if available
-            if self.bot_type == "listener" and hasattr(self, "speaker_channel_id"):
-                env["SPEAKER_CHANNEL_ID"] = str(self.speaker_channel_id)
+            # For receiver bots, add speaker channel ID if available
+            if self.bot_type == BOT_TYPE_RCV and self.speaker_channel_id:
+                env[ENV_SPEAKER_CHANNEL_ID] = str(self.speaker_channel_id)
 
             # Start the process
             self.process = subprocess.Popen(
@@ -177,7 +202,7 @@ class BotManager:
     enabling true multi-channel audio with process isolation.
     """
 
-    def __init__(self, config):
+    def __init__(self, config: SimpleConfig):
         """
         Initialize the bot manager.
 
@@ -214,24 +239,20 @@ class BotManager:
             Bot ID if successful, None otherwise
         """
         try:
-            bot_id = f"audioforwarder_{channel_id}"
+            # Create bot process
+            bot_process = BotProcess(
+                bot_type=BOT_TYPE_FWD,
+                token=self.config.audio_forwarder_token,
+                channel_id=channel_id,
+                guild_id=guild_id,
+            )
+
+            bot_id = bot_process.bot_id
 
             # Check if already running
             if bot_id in self.bot_processes and self.bot_processes[bot_id].is_alive():
                 logger.info(f"AudioForwarder bot {bot_id} is already running")
                 return bot_id
-
-            # Use AudioForwarder token for speaker
-            token = self.config.audio_forwarder_token
-
-            # Create bot process
-            bot_process = BotProcess(
-                bot_id=bot_id,
-                bot_type="speaker",
-                token=token,
-                channel_id=channel_id,
-                guild_id=guild_id,
-            )
 
             # Start the process
             if bot_process.start():
@@ -266,13 +287,6 @@ class BotManager:
             Bot ID if successful, None otherwise
         """
         try:
-            bot_id = f"audioreceiver_{channel_id}"
-
-            # Check if already running
-            if bot_id in self.bot_processes and self.bot_processes[bot_id].is_alive():
-                logger.info(f"AudioReceiver bot {bot_id} is already running")
-                return bot_id
-
             # Get token based on channel number (Channel-1 gets Token-1, Channel-2 gets Token-2, etc.)
             if channel_number > len(self.available_tokens):
                 logger.error(
@@ -281,22 +295,25 @@ class BotManager:
                 return None
 
             token = self.available_tokens[channel_number - 1]  # Channel-1 = index 0
+
+            # Create bot process
+            bot_process = BotProcess(
+                bot_type=BOT_TYPE_RCV,
+                token=token,
+                channel_id=channel_id,
+                guild_id=guild_id,
+                speaker_channel_id=speaker_channel_id,
+            )
+
+            bot_id = bot_process.bot_id
             logger.info(
                 f"Assigned token #{channel_number} to Channel-{channel_number} (bot_id: {bot_id}) in guild {guild_id}"
             )
 
-            # Create bot process
-            bot_process = BotProcess(
-                bot_id=bot_id,
-                bot_type="listener",
-                token=token,
-                channel_id=channel_id,
-                guild_id=guild_id,
-            )
-
-            # Add speaker channel ID if provided
-            if speaker_channel_id:
-                bot_process.speaker_channel_id = speaker_channel_id
+            # Check if already running
+            if bot_id in self.bot_processes and self.bot_processes[bot_id].is_alive():
+                logger.info(f"AudioReceiver bot {bot_id} is already running")
+                return bot_id
 
             # Start the process
             if bot_process.start():

@@ -8,9 +8,7 @@ This package contains all network communication functionality including:
 - Network error handling
 """
 
-from .websocket_server import AudioRelayServer, AudioRoute
+# Note: AudioRelayServer has been moved to websockets.server
+# This module now only contains the legacy websocket_server implementation
 
-__all__ = [
-    "AudioRelayServer",
-    "AudioRoute",
-]
+__all__ = []

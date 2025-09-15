@@ -4,20 +4,32 @@ import os
 
 import discord
 
+from discord_audio_router.core.types import (
+    BOT_TYPE_RCV,
+    ENV_BOT_TOKEN,
+    ENV_BOT_ID,
+    ENV_BOT_TYPE,
+    ENV_CHANNEL_ID,
+    ENV_GUILD_ID,
+    ENV_SPEAKER_CHANNEL_ID,
+    ENV_CENTRALIZED_WEBSOCKET_URL,
+    DEFAULT_WEBSOCKET_URL,
+)
+
 
 class BotConfig:
     """Configuration class for the Audio Receiver Bot."""
 
     def __init__(self):
         """Initialize bot configuration from environment variables."""
-        self.bot_token = os.getenv("BOT_TOKEN")
-        self.bot_id = os.getenv("BOT_ID", "audioreceiver_bot")
-        self.bot_type = os.getenv("BOT_TYPE", "listener")
-        self.channel_id = int(os.getenv("CHANNEL_ID", "0"))
-        self.guild_id = int(os.getenv("GUILD_ID", "0"))
-        self.speaker_channel_id = int(os.getenv("SPEAKER_CHANNEL_ID", "0"))
+        self.bot_token = os.getenv(ENV_BOT_TOKEN)
+        self.bot_id = os.getenv(ENV_BOT_ID)
+        self.bot_type = os.getenv(ENV_BOT_TYPE, BOT_TYPE_RCV)
+        self.channel_id = int(os.getenv(ENV_CHANNEL_ID, "0"))
+        self.guild_id = int(os.getenv(ENV_GUILD_ID, "0"))
+        self.speaker_channel_id = int(os.getenv(ENV_SPEAKER_CHANNEL_ID, "0"))
         self.centralized_server_url = os.getenv(
-            "CENTRALIZED_WEBSOCKET_URL", "ws://localhost:8765"
+            ENV_CENTRALIZED_WEBSOCKET_URL, DEFAULT_WEBSOCKET_URL
         )
 
         self._validate_config()

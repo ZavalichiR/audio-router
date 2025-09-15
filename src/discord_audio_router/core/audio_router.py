@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 import discord
 from discord.ext import commands
 
+from discord_audio_router.config.settings import SimpleConfig
 from discord_audio_router.infrastructure import setup_logging
 
 from .access_control import AccessControl
@@ -30,14 +31,14 @@ class AudioRouter:
     section management and bot coordination.
     """
 
-    def __init__(self, config):
+    def __init__(self, config: SimpleConfig):
         """
         Initialize the audio router.
 
         Args:
             config: Bot configuration
         """
-        self.config = config
+        self.config: SimpleConfig = config
         self.bot_manager = BotManager(config)
         self.access_control = AccessControl(config)
 
@@ -58,10 +59,7 @@ class AudioRouter:
         self.main_bot = main_bot
 
         # Add available AudioReceiver bot tokens (required)
-        if (
-            hasattr(self.config, "audio_receiver_tokens")
-            and self.config.audio_receiver_tokens
-        ):
+        if self.config.audio_receiver_tokens:
             self.bot_manager.add_available_tokens(self.config.audio_receiver_tokens)
             logger.info(
                 f"Added {len(self.config.audio_receiver_tokens)} AudioReceiver bot tokens"

@@ -14,12 +14,17 @@ import time
 from pathlib import Path
 from typing import Dict, List
 
-# Add src to path for imports
+# Add src directory to Python path
 src_path = Path(__file__).parent / "src"
-if str(src_path) not in sys.path:
-    sys.path.insert(0, str(src_path))
+sys.path.insert(0, str(src_path))
 
-from discord_audio_router.infrastructure import setup_logging
+# Import after path setup
+try:
+    from discord_audio_router.infrastructure import setup_logging
+except ImportError as e:
+    print(f"Failed to import discord_audio_router: {e}")
+    print(f"Current sys.path: {sys.path}")
+    sys.exit(1)
 
 
 class ProcessManager:
@@ -104,7 +109,7 @@ class ProcessManager:
             "src/discord_audio_router/bots/main_bot.py",
             "src/discord_audio_router/bots/forwarder_bot.py",
             "src/discord_audio_router/bots/receiver_bot.py",
-            "src/discord_audio_router/networking/websocket_server.py",
+            "src/discord_audio_router/websockets/server/relay_server.py",
         ]
 
         missing_files = []
@@ -201,7 +206,7 @@ class ProcessManager:
         components = [
             (
                 "relay_server",
-                ["-m", "discord_audio_router.networking.websocket_server"],
+                ["-m", "discord_audio_router.websockets.server.relay_server"],
             ),
             ("audiobroadcast_bot", ["src/discord_audio_router/bots/main_bot.py"]),
         ]

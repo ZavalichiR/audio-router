@@ -39,7 +39,7 @@ from .audio.handlers import OpusAudioSink, OpusAudioSource, setup_audio_receiver
 from .audio.buffers import AudioBuffer
 
 # Networking components
-from .networking.websocket_server import AudioRelayServer, AudioRoute
+from .websockets.server import AudioRelayServer
 
 # Configuration
 from .config.settings import SimpleConfig

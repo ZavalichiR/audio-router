@@ -7,6 +7,7 @@ from typing import Any
 import discord
 from discord.ext import commands, voice_recv
 
+from discord_audio_router.bots.receiver_bot.handlers.audio_handlers import AudioHandlers
 from discord_audio_router.bots.receiver_bot.handlers.websocket_handlers import (
     WebSocketHandlers,
 )
@@ -20,7 +21,7 @@ class EventHandlers:
         self,
         bot: Any,
         websocket_handlers: WebSocketHandlers,
-        audio_handlers: Any,
+        audio_handlers: AudioHandlers,
         config: BotConfig,
         logger: logging.Logger,
     ):

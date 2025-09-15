@@ -7,6 +7,12 @@ from typing import Optional, Callable
 
 import websockets
 import websockets.exceptions
+from websockets.asyncio.client import connect, ClientConnection
+
+from discord_audio_router.core.types import (
+    WS_CLIENT_TYPE_RCV,
+    WS_MSG_REGISTER,
+)
 
 
 class WebSocketHandlers:
@@ -28,7 +34,7 @@ class WebSocketHandlers:
         self.speaker_channel_id = speaker_channel_id
         self.server_url = server_url
         self.logger = logger
-        self.websocket: Optional[websockets.WebSocketClientProtocol] = None
+        self.websocket: Optional[ClientConnection] = None
         self.audio_callback: Optional[Callable] = None
         self._reconnecting = False
 
@@ -56,22 +62,24 @@ class WebSocketHandlers:
             for attempt in range(max_retries):
                 try:
                     # Connect to centralized server with connection settings
-                    self.websocket = await websockets.connect(
+                    self.websocket = await connect(
                         self.server_url,
                         ping_interval=None,  # Disable automatic pings
                         ping_timeout=None,  # Disable ping timeout
                         close_timeout=10,  # Shorter close timeout
+                        open_timeout=30,  # Longer connection timeout
                         max_size=2**20,  # 1MB max message size
                         compression=None,  # Disable compression for lower latency
                     )
 
-                    # Register as a listener with the centralized server
+                    # Register as a receiver with the centralized server
+                    client_id = f"{self.guild_id}_{self.channel_id}"
+                    speaker_id = f"{self.guild_id}_{self.speaker_channel_id}"
                     registration_msg = {
-                        "type": "listener_register",
-                        "listener_id": self.bot_id,
-                        "speaker_id": f"audioforwarder_{self.speaker_channel_id}",
-                        "channel_id": self.channel_id,
-                        "guild_id": self.guild_id,
+                        "type": WS_MSG_REGISTER,
+                        "id": client_id,
+                        "client_type": WS_CLIENT_TYPE_RCV,
+                        "speaker_id": speaker_id,
                     }
                     await self.websocket.send(json.dumps(registration_msg))
 
@@ -145,7 +153,7 @@ class WebSocketHandlers:
 
                 if self.websocket and not getattr(self.websocket, "closed", True):
                     try:
-                        await self.websocket.send('{"type": "ping"}')
+                        await self.websocket.send('{"type": "ping", "timestamp": null}')
                         self.logger.debug("Sent ping to centralized server")
                     except websockets.exceptions.ConnectionClosed:
                         self.logger.debug("Connection closed while sending ping")
@@ -180,12 +188,12 @@ class WebSocketHandlers:
                         else:
                             # Text control message
                             try:
-                                # Simple parsing for control messages
-                                data = eval(message)
+                                # Parse JSON control messages
+                                data = json.loads(message)
 
-                                if data.get("type") == "listener_registered":
+                                if data.get("type") == "registered":
                                     self.logger.info(
-                                        f"Successfully registered as listener: {data.get('listener_id')}"
+                                        f"Successfully registered as listener: {data.get('client_id')}"
                                     )
                                     # Notify performance monitor that binary protocol is enabled
                                     if hasattr(self, "performance_monitor"):

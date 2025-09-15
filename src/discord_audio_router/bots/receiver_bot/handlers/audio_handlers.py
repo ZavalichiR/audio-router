@@ -4,6 +4,7 @@ import logging
 from typing import Optional
 
 from discord_audio_router.audio import AudioBuffer, OpusAudioSource
+from discord_audio_router.bots.receiver_bot.utils.performance import PerformanceMonitor
 
 
 class AudioHandlers:
@@ -12,11 +13,11 @@ class AudioHandlers:
     def __init__(
         self,
         logger: logging.Logger,
-        performance_monitor: Optional[object] = None,
+        performance_monitor: Optional[PerformanceMonitor] = None,
     ):
         """Initialize audio handlers."""
-        self.performance_monitor = performance_monitor
         self.logger = logger
+        self.performance_monitor = performance_monitor
         self.audio_buffer: Optional[AudioBuffer] = None
         self.audio_source: Optional[OpusAudioSource] = None
 
@@ -29,7 +30,6 @@ class AudioHandlers:
     async def process_audio_data(self, audio_data: bytes) -> None:
         """Process received audio data."""
         if not self.audio_buffer:
-            self.logger.warning("Received audio data but no buffer available")
             return
 
         # Add audio data to buffer

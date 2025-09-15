@@ -33,12 +33,6 @@ class SimpleConfig:
     # AudioReceiver bot tokens (for multiple bot instances)
     audio_receiver_tokens: List[str] = None
 
-    # Access control configuration (simplified)
-    speaker_role_name: str = "Speaker"
-    listener_role_name: str = "Listener"
-    broadcast_admin_role_name: str = "Broadcast Admin"
-    auto_create_roles: bool = True
-
     # Auto-cleanup configuration
     auto_cleanup_timeout: int = 10
 
@@ -203,22 +197,6 @@ class SimpleConfigManager:
             logger.error(f"Error parsing multi-line tokens from .env file: {e}")
             return tokens
 
-    def _get_speaker_role_name(self) -> str:
-        """Get speaker role name from environment variables."""
-        return self._get_optional_env("SPEAKER_ROLE_NAME", "Speaker")
-
-    def _get_listener_role_name(self) -> str:
-        """Get listener role name from environment variables."""
-        return self._get_optional_env("LISTENER_ROLE_NAME", "Listener")
-
-    def _get_broadcast_admin_role_name(self) -> str:
-        """Get broadcast admin role name from environment variables."""
-        return self._get_optional_env("BROADCAST_ADMIN_ROLE_NAME", "Broadcast Admin")
-
-    def _get_auto_create_roles(self) -> bool:
-        """Get auto-create roles setting from environment variables."""
-        return self._get_optional_env("AUTO_CREATE_ROLES", "true").lower() == "true"
-
     def _get_auto_cleanup_timeout(self) -> int:
         """Get auto-cleanup timeout from environment variables."""
         try:
@@ -256,10 +234,6 @@ class SimpleConfigManager:
                 audio_forwarder_token=audio_forwarder_token,
                 command_prefix=self._get_optional_env("BOT_PREFIX", "!"),
                 audio_receiver_tokens=audio_receiver_tokens,
-                speaker_role_name=self._get_speaker_role_name(),
-                listener_role_name=self._get_listener_role_name(),
-                broadcast_admin_role_name=self._get_broadcast_admin_role_name(),
-                auto_create_roles=self._get_auto_create_roles(),
                 auto_cleanup_timeout=self._get_auto_cleanup_timeout(),
             )
 

@@ -12,7 +12,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Optional, Set, Any
+from typing import Dict, Optional, Set
 
 # Add src directory to Python path for direct execution
 if __name__ == "__main__":
@@ -173,8 +173,6 @@ class AudioRelayServer:
                 await self._handle_listener_register(websocket, data)
             elif message_type == "ping":
                 await self._handle_ping(websocket, data)
-            elif message_type == "stats":
-                await self._handle_stats_request(websocket, data)
             else:
                 logger.warning(f"Unknown message type: {message_type}")
 
@@ -363,18 +361,6 @@ class AudioRelayServer:
             json.dumps({"type": "pong", "timestamp": data.get("timestamp")})
         )
 
-    async def _handle_stats_request(self, websocket, data):
-        """Handle stats request from client."""
-        await websocket.send(
-            json.dumps(
-                {
-                    "type": "stats",
-                    "stats": self.get_stats(),
-                    "routes": self.get_route_info(),
-                }
-            )
-        )
-
     async def _cleanup_connection(self, websocket):
         """Clean up when a connection is closed."""
         # Remove from speakers
@@ -427,31 +413,6 @@ class AudioRelayServer:
                 except Exception:
                     # Will be cleaned up on next message or disconnect
                     pass
-
-    def get_stats(self) -> Dict[str, Any]:
-        """Get server statistics."""
-        return {
-            **self.stats,
-            "connected_speakers": len(self.connected_speakers),
-            "connected_listeners": len(self.connected_listeners),
-            "active_routes": len(
-                [r for r in self.audio_routes.values() if r.is_active]
-            ),
-        }
-
-    def get_route_info(self) -> Dict[str, Any]:
-        """Get detailed route information."""
-        routes = {}
-        for speaker_id, route in self.audio_routes.items():
-            routes[speaker_id] = {
-                "speaker_channel_id": route.speaker_channel_id,
-                "guild_id": route.guild_id,
-                "listener_count": len(route.listener_ids),
-                "listener_ids": list(route.listener_ids),
-                "is_active": route.is_active,
-                "last_audio_ts": route.last_audio_ts,
-            }
-        return routes
 
 
 async def main():
