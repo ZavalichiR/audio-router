@@ -88,15 +88,109 @@ class SetupModal(discord.ui.Modal, title="⚙️ Broadcast Setup"):
             # Get role (can be empty)
             role_name = self.role_input.value.strip() or None
 
+            # Defer the response immediately to prevent timeout
+            await interaction.response.defer()
+
+            # If custom role is specified, validate it exists and assign to receiver bots
+            if role_name:
+                role = discord.utils.get(interaction.guild.roles, name=role_name)
+                if not role:
+                    await interaction.followup.send(
+                        f"❌ **Role Not Found**\nRole '{role_name}' does not exist in this server.\n\nPlease create the role first or use a different role name.",
+                        ephemeral=True,
+                    )
+                    return
+
+                # Send initial message about role assignment starting
+                await interaction.followup.send(
+                    f"🔍 **Role Found**\nRole '{role_name}' found! The AudioBroadcast bot is setting the role to receiver bots, please wait...",
+                    ephemeral=True,
+                )
+
+                # Assign role to receiver bots
+                assignment_result = await self._assign_role_to_receiver_bots(
+                    interaction.guild, role
+                )
+                # Send completion message
+                if assignment_result["assigned"] > 0:
+                    result_message = "✅ **Role Assignment Complete**\n"
+                    result_message += f"• Successfully assigned '{role_name}' to {assignment_result['assigned']} receiver bot(s)\n"
+                    if assignment_result["failed"] > 0:
+                        result_message += f"• Failed to assign role to {assignment_result['failed']} bot(s)\n"
+                    result_message += "\nYou can Start Broadcast now!"
+                elif assignment_result["failed"] > 0:
+                    result_message = "⚠️ **Role Assignment Issues**\n"
+                    result_message += f"• Failed to assign role to {assignment_result['failed']} bot(s)\n"
+                    result_message += "\nYou can Start Broadcast now!"
+                else:
+                    result_message = f"ℹ️ **Role Assignment**\nAll receiver bots already have the '{role_name}' role.\n\nYou can Start Broadcast now!"
+
+                await interaction.followup.send(result_message, ephemeral=True)
+
             # Call the callback with all values
             await self.callback_func(section_name, listener_count, role_name)
-            await interaction.response.defer()
 
         except Exception as e:
             await interaction.response.send_message(
                 f"⚠️ **Error**\nAn error occurred while saving settings: {str(e)}",
                 ephemeral=True,
             )
+
+    async def _get_receiver_bots(self, guild: discord.Guild) -> list[discord.Member]:
+        """
+        Get all AudioReceiver bots (Rcv-x/y/z) present in the Discord server.
+
+        Returns:
+            List of Discord Member objects representing receiver bots
+        """
+        try:
+            members = [member async for member in guild.fetch_members(limit=None)]
+            receiver_bots = [
+                member
+                for member in members
+                if member.bot and member.display_name.startswith("Rcv-")
+            ]
+            return receiver_bots
+        except Exception as e:
+            # Log error but don't raise - we'll handle gracefully
+            print(f"Error fetching AudioReceiver bots in guild {guild.id}: {e}")
+            return []
+
+    async def _assign_role_to_receiver_bots(
+        self, guild: discord.Guild, role: discord.Role
+    ) -> dict[str, int]:
+        """
+        Assign a custom role to all receiver bots in the guild.
+
+        Args:
+            guild: The Discord guild
+            role: The role to assign to receiver bots
+
+        Returns:
+            Dictionary with 'assigned' and 'failed' counts
+        """
+        receiver_bots = await self._get_receiver_bots(guild)
+        assigned = 0
+        failed = 0
+
+        for bot in receiver_bots:
+            try:
+                # Check if bot already has the role
+                if role in bot.roles:
+                    continue
+
+                await bot.add_roles(
+                    role, reason="Auto-assign custom role to receiver bot"
+                )
+                assigned += 1
+
+            except Exception as e:
+                failed += 1
+                print(
+                    f"Failed to assign role '{role.name}' to receiver bot '{bot.display_name}': {e}"
+                )
+
+        return {"assigned": assigned, "failed": failed}
 
 
 class StartBroadcastConfirmationView(discord.ui.View):
