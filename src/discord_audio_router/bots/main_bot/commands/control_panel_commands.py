@@ -238,10 +238,10 @@ class ControlPanelCommands(BaseCommandHandler):
                 max_listeners=max_listeners,
                 start_broadcast_callback=lambda ctx: self._start_broadcast_from_panel_guild(
                     guild
-                ),  # Fixed
+                ),
                 stop_broadcast_callback=lambda ctx: self._stop_broadcast_from_panel_guild(
                     guild
-                ),  # Fixed
+                ),
             )
 
             # Set up callback function
@@ -372,20 +372,6 @@ class ControlPanelCommands(BaseCommandHandler):
                 f"Error in _stop_broadcast_from_panel: {e}", exc_info=True
             )
             await ctx.send(f"❌ Failed to stop broadcast: {str(e)}", ephemeral=True)
-
-    async def _cleanup_existing_section(
-        self, ctx: commands.Context, loading_message=None
-    ) -> bool:
-        """Clean up existing section and return success status."""
-        cleanup_result = await self.audio_router.section_manager.stop_broadcast(
-            ctx.guild
-        )
-        if not cleanup_result["success"]:
-            self.logger.error(
-                f"Failed to cleanup existing section: {cleanup_result['message']}"
-            )
-            return False
-        return True
 
     # Guild-based versions for callbacks
     async def _start_broadcast_from_panel_guild(self, guild: discord.Guild) -> None:

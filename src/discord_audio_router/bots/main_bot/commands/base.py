@@ -94,7 +94,7 @@ class BaseCommandHandler:
                 if member.bot and member.display_name.startswith("Rcv-")
             )
             self.logger.info(
-                f"Found {receiver_bot_count} AudioReceiver bots in server '{guild.name}'"
+                f"Found {receiver_bot_count} AudioReceiver bots in server '{guild.name}: {guild.id}'"
             )
             return receiver_bot_count
         except Exception as e:

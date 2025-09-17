@@ -4,8 +4,7 @@ import asyncio
 import logging
 from typing import Optional
 
-from discord.ext import commands
-
+from discord.ext import commands, voice_recv
 from discord_audio_router.infrastructure import setup_logging
 
 from ..handlers.event_handlers import EventHandlers
@@ -63,20 +62,25 @@ class AudioForwarderBot:
     async def start(self) -> None:
         """Start the audio forwarder bot."""
         try:
-            self.logger.info(f"Starting AudioForwarder bot {self.config.bot_id}...")
-
-            # Start monitoring task
-            self._start_monitoring_task()
+            self.logger.info(f"[{self.config.bot_id}] Starting bot ...")
 
             # Start the bot
             await self.bot.start(self.config.bot_token)
 
+            # Start monitoring task
+            self._start_monitoring_task()
+            self.logger.info(f"[{self.config.bot_id}] Bot started!")
+
         except Exception as e:
-            self.logger.error(f"Failed to start AudioForwarder bot: {e}", exc_info=True)
+            self.logger.error(
+                f"[{self.config.bot_id}] Failed to start bot: {e}",
+                exc_info=True,
+            )
             raise
 
     def _start_monitoring_task(self) -> None:
         """Start background monitoring task."""
+        self.logger.info(f"[{self.config.bot_id}] Starting voice monitoring")
         self._voice_monitoring_task = asyncio.create_task(
             self._monitor_voice_connection()
         )
@@ -86,13 +90,18 @@ class AudioForwarderBot:
         while True:
             try:
                 await asyncio.sleep(20)  # Check every 20 seconds
+                self.logger.debug(
+                    f"[{self.config.bot_id}] Checking voice connection ..."
+                )
 
                 guild = self.bot.get_guild(self.config.guild_id)
                 if not guild:
-                    self.logger.warning(f"Guild {self.config.guild_id} not found")
+                    self.logger.warning(
+                        f"[{self.config.bot_id}] Guild {self.config.guild_id} not found"
+                    )
                     continue
 
-                voice_client = guild.voice_client
+                voice_client: voice_recv.VoiceRecvClient = guild.voice_client
                 target_channel_id = self.config.channel_id
 
                 # Check if we need to connect/reconnect
@@ -103,7 +112,9 @@ class AudioForwarderBot:
                 )
 
                 if should_reconnect and not self.event_handlers._connecting:
-                    self.logger.info("Voice monitoring detected need to reconnect")
+                    self.logger.warning(
+                        f"[{self.config.bot_id}] VoiceClient is not connected or is in the wrong channel, reconnecting..."
+                    )
                     await self.event_handlers.connect_to_channel()
                 elif voice_client and voice_client.is_connected():
                     # Log status every 5 minutes (5 * 60 seconds)
@@ -113,38 +124,47 @@ class AudioForwarderBot:
                         self._status_counter = 1
 
                     if self._status_counter % 5 == 0:
+                        status = (
+                            "Connected"
+                            if self.websocket_handlers.websocket
+                            else "Disconnected"
+                        )
                         self.logger.info(
-                            f"Voice connection healthy, centralized server: {'Connected' if self.websocket_handlers.websocket else 'Disconnected'}"
+                            f"[{self.config.bot_id}] Voice connection healthy, centralized server: {status}"
                         )
 
             except Exception as e:
                 self.logger.error(
-                    f"Error in voice connection monitoring: {e}", exc_info=True
+                    f"[{self.config.bot_id}] Error in voice connection monitoring: {e}",
+                    exc_info=True,
                 )
                 await asyncio.sleep(20)
 
     async def stop(self) -> None:
         """Stop the audio forwarder bot."""
         try:
-            self.logger.info(f"Stopping AudioForwarder bot {self.config.bot_id}...")
+            self.logger.info(f"[{self.config.bot_id}] Stopping bot...")
 
             # Cancel monitoring task
             if self._voice_monitoring_task:
                 self._voice_monitoring_task.cancel()
 
             # Disconnect and cleanup
-            await self.disconnect()
+            await self._disconnect()
 
             # Close the bot
             if not self.bot.is_closed():
                 await self.bot.close()
 
-            self.logger.info("AudioForwarder bot stopped")
+            self.logger.info(f"[{self.config.bot_id}] Bot stopped")
 
         except Exception as e:
-            self.logger.error(f"Error stopping AudioForwarder bot: {e}", exc_info=True)
+            self.logger.error(
+                f"[{self.config.bot_id}] Error stopping bot: {e}",
+                exc_info=True,
+            )
 
-    async def disconnect(self) -> None:
+    async def _disconnect(self) -> None:
         """Disconnect from voice channel and cleanup."""
         try:
             guild = self.bot.get_guild(self.config.guild_id)
@@ -153,10 +173,14 @@ class AudioForwarderBot:
 
             await self.websocket_handlers.disconnect()
 
-            self.logger.info("AudioForwarder bot disconnected and cleaned up")
+            self.logger.info(
+                f"[{self.config.bot_id}] Bot disconnected from {guild.name} and cleaned up"
+            )
 
         except Exception as e:
-            self.logger.error(f"Error during disconnect: {e}", exc_info=True)
+            self.logger.error(
+                f"[{self.config.bot_id}] Error during disconnect: {e}", exc_info=True
+            )
 
 
 async def main():
@@ -170,9 +194,11 @@ async def main():
         await audioforwarder_bot.start()
 
     except KeyboardInterrupt:
-        logging.info("AudioForwarder bot shutdown requested")
+        logging.info(f"[{audioforwarder_bot.config.bot_id}] Bot shutdown requested")
     except Exception as e:
-        logging.critical(f"Fatal error in AudioForwarder bot: {e}")
+        logging.critical(
+            f"[{audioforwarder_bot.config.bot_id}] Fatal error in bot: {e}"
+        )
         raise
     finally:
         if audioforwarder_bot:

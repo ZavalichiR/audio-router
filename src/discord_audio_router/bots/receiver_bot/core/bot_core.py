@@ -3,8 +3,7 @@
 import asyncio
 import logging
 
-from discord.ext import commands
-
+from discord.ext import commands, voice_recv
 from discord_audio_router.infrastructure import setup_logging
 
 from ..handlers.event_handlers import EventHandlers
@@ -74,7 +73,7 @@ class AudioReceiverBot:
     async def start(self) -> None:
         """Start the audio receiver bot."""
         try:
-            self.logger.info(f"Starting AudioReceiver bot {self.config.bot_id}...")
+            self.logger.info(f"[{self.config.bot_id}] Starting bot ...")
 
             # Start monitoring task
             self._start_monitoring_performance_task()
@@ -84,7 +83,9 @@ class AudioReceiverBot:
             await self.bot.start(self.config.bot_token)
 
         except Exception as e:
-            self.logger.error(f"Failed to start AudioReceiver bot: {e}", exc_info=True)
+            self.logger.error(
+                f"[{self.config.bot_id}] Failed to start bot: {e}", exc_info=True
+            )
             raise
 
     def _start_monitoring_performance_task(self) -> None:
@@ -98,6 +99,7 @@ class AudioReceiverBot:
         while True:
             try:
                 await asyncio.sleep(60)  # Log stats every 60 seconds
+                self.logger.debug(f"[{self.config.bot_id}] Checking performance ...")
 
                 # Get audio buffer stats
                 buffer_stats = self.audio_handlers.get_buffer_stats()
@@ -105,7 +107,8 @@ class AudioReceiverBot:
 
             except Exception as e:
                 self.logger.error(
-                    f"Error in performance monitoring: {e}", exc_info=True
+                    f"[{self.config.bot_id}] Error in performance monitoring: {e}",
+                    exc_info=True,
                 )
                 await asyncio.sleep(60)
 
@@ -120,13 +123,18 @@ class AudioReceiverBot:
         while True:
             try:
                 await asyncio.sleep(20)  # Check every 20 seconds
+                self.logger.debug(
+                    f"[{self.config.bot_id}] Checking voice connection ..."
+                )
 
                 guild = self.bot.get_guild(self.config.guild_id)
                 if not guild:
-                    self.logger.warning(f"Guild {self.config.guild_id} not found")
+                    self.logger.warning(
+                        f"[{self.config.bot_id}] Guild {self.config.guild_id} not found"
+                    )
                     continue
 
-                voice_client = guild.voice_client
+                voice_client: voice_recv.VoiceRecvClient = guild.voice_client
                 target_channel_id = self.config.channel_id
 
                 # Determine if reconnect is needed
@@ -137,7 +145,9 @@ class AudioReceiverBot:
                 )
 
                 if should_reconnect and not self.event_handlers._connecting:
-                    self.logger.info("Voice monitoring detected need to reconnect")
+                    self.logger.warning(
+                        f"[{self.config.bot_id}] Voice monitoring detected need to reconnect"
+                    )
                     await self.event_handlers.connect_to_channel()
                 elif voice_client and voice_client.is_connected():
                     # Log status every 5 minutes (5 * 60 seconds)
@@ -147,25 +157,26 @@ class AudioReceiverBot:
                         self._status_counter = 1
 
                     if self._status_counter % 5 == 0:
-                        connected = (
+                        status = (
                             "Connected"
                             if self.websocket_handlers.websocket
                             else "Disconnected"
                         )
                         self.logger.info(
-                            f"Voice connection healthy, centralized server: {connected}"
+                            f"[{self.config.bot_id}] Voice connection healthy, centralized server: {status}"
                         )
 
             except Exception as e:
                 self.logger.error(
-                    f"Error in voice connection monitoring: {e}", exc_info=True
+                    f"[{self.config.bot_id}] Error in voice connection monitoring: {e}",
+                    exc_info=True,
                 )
                 await asyncio.sleep(20)
 
     async def stop(self) -> None:
         """Stop the audio receiver bot."""
         try:
-            self.logger.info(f"Stopping AudioReceiver bot {self.config.bot_id}...")
+            self.logger.info(f"[{self.config.bot_id}] Stopping bot ...")
 
             # Cancel monitoring task
             if self._performance_monitoring_task:
@@ -181,12 +192,14 @@ class AudioReceiverBot:
             if not self.bot.is_closed():
                 await self.bot.close()
 
-            self.logger.info("AudioReceiver bot stopped")
+            self.logger.info(f"[{self.config.bot_id}] Bot stopped")
 
         except Exception as e:
-            self.logger.error(f"Error stopping AudioReceiver bot: {e}", exc_info=True)
+            self.logger.error(
+                f"[{self.config.bot_id}] Error stopping bot: {e}", exc_info=True
+            )
 
-    async def disconnect(self) -> None:
+    async def _disconnect(self) -> None:
         """Disconnect from voice channel and cleanup."""
         try:
             guild = self.bot.get_guild(self.config.guild_id)
@@ -199,10 +212,12 @@ class AudioReceiverBot:
             # Disconnect from WebSocket
             await self.websocket_handlers.disconnect()
 
-            self.logger.info("AudioReceiver bot disconnected and cleaned up")
+            self.logger.info(f"[{self.config.bot_id}] Bot disconnected and cleaned up")
 
         except Exception as e:
-            self.logger.error(f"Error during disconnect: {e}", exc_info=True)
+            self.logger.error(
+                f"[{self.config.bot_id}] Error during disconnect: {e}", exc_info=True
+            )
 
 
 async def main():
@@ -216,9 +231,9 @@ async def main():
         await audioreceiver_bot.start()
 
     except KeyboardInterrupt:
-        logging.info("AudioReceiver bot shutdown requested")
+        logging.info(f"[{audioreceiver_bot.config.bot_id}] Bot shutdown requested")
     except Exception as e:
-        logging.critical(f"Fatal error in AudioReceiver bot: {e}")
+        logging.critical(f"[{audioreceiver_bot.config.bot_id}] Fatal error in bot: {e}")
         raise
     finally:
         if audioreceiver_bot:

@@ -16,7 +16,7 @@ from discord_audio_router.infrastructure.logging import setup_logging
 
 logger = setup_logging(
     component_name="control_panel_storage",
-    log_file="logs/control_panel.log",
+    log_file="logs/audio_broadcast.log",
 )
 
 
@@ -112,7 +112,7 @@ class ControlPanelStorage:
     def _load_settings(self) -> None:
         """Load settings from file."""
         if not self.settings_file.exists():
-            logger.info("Control panel settings file not found, using defaults")
+            logger.warning("Control panel settings file not found, using defaults")
             return
 
         try:
@@ -200,7 +200,7 @@ class ControlPanelStorage:
     def _load_panels(self) -> None:
         """Load panel information from file."""
         if not self.panels_file.exists():
-            logger.info("Control panel panels file not found, using defaults")
+            logger.warning("Control panel panels file not found, using defaults")
             return
 
         try:

@@ -43,7 +43,7 @@ class AudioRouterBot:
         try:
             self.config = config_manager.get_config()
         except Exception as e:
-            self.logger.error(f"Failed to load configuration: {e}", exc_info=True)
+            self.logger.critical(f"Failed to load configuration: {e}", exc_info=True)
             sys.exit(1)
 
         # Setup Discord bot
@@ -193,10 +193,12 @@ class AudioRouterBot:
     async def start(self) -> None:
         """Start the bot."""
         try:
-            self.logger.info("Starting AudioBroadcast Bot...")
+            self.logger.debug("Starting AudioBroadcast Bot...")
             await self.bot.start(self.config.audio_broadcast_token)
         except Exception as e:
-            self.logger.critical(f"Failed to start AudioBroadcast Bot: {e}")
+            self.logger.critical(
+                f"Failed to start AudioBroadcast Bot: {e}", exc_info=True
+            )
             raise
 
     async def close(self) -> None:

@@ -2,7 +2,7 @@
 
 import logging
 from typing import Optional
-
+from discord.ext import voice_recv
 from discord_audio_router.audio import AudioBuffer, OpusAudioSource
 from discord_audio_router.bots.receiver_bot.utils.performance import PerformanceMonitor
 
@@ -48,26 +48,17 @@ class AudioHandlers:
                     f"{len(audio_data)} bytes. Buffer stats: {buffer_stats}"
                 )
 
-    def start_audio_playback(self, voice_client) -> bool:
+    def start_audio_playback(self, voice_client: voice_recv.VoiceRecvClient) -> bool:
         """Start audio playback on the voice client."""
         try:
-            if not self.audio_source:
-                self.logger.error("Audio source not initialized")
-                return False
+            # Only setup audio if it doesn't exist
+            if not (self.audio_source and self.audio_buffer):
+                self.setup_audio()
 
-            # Start the audio source first
             self.audio_source.start()
-            self.logger.info("Audio source started successfully")
-
-            # Then start playing
             voice_client.play(self.audio_source)
-            self.logger.info("Voice client play() called")
-
-            # Check if the voice client is actually playing
             self.logger.info(f"Voice client is_playing: {voice_client.is_playing()}")
-
             return True
-
         except Exception as e:
             self.logger.error(f"Error starting audio playback: {e}", exc_info=True)
             return False

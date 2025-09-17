@@ -52,12 +52,12 @@ class OpusAudioSink(voice_recv.AudioSink):
     def start(self):
         """Start processing audio packets."""
         self._is_active = True
-        logger.info("Audio sink started - ready to capture audio")
+        logger.debug("Audio sink started - ready to capture audio")
 
     def stop(self):
         """Stop processing audio packets."""
         self._is_active = False
-        logger.info("Audio sink stopped")
+        logger.debug("Audio sink stopped")
 
     def write(self, user: discord.Member, voice_data: voice_recv.VoiceData) -> None:
         """
@@ -99,7 +99,7 @@ class OpusAudioSink(voice_recv.AudioSink):
     def cleanup(self):
         """Clean up resources and stop processing."""
         self.stop()
-        logger.info(
+        logger.debug(
             f"Audio sink cleaned up - processed {self._packet_count} packets, "
             f"filtered {self._filtered_packets}, errors {self._error_count}"
         )
@@ -140,7 +140,7 @@ class OpusAudioSource(discord.AudioSource):
     def start(self):
         """Start playing audio packets."""
         self._is_playing = True
-        logger.info("OpusAudioSource started - ready to play audio")
+        logger.debug("OpusAudioSource started - ready to play audio")
 
     def stop(self):
         """Stop playing audio packets."""
@@ -164,16 +164,6 @@ class OpusAudioSource(discord.AudioSource):
 
         # Use thread-safe synchronous access to avoid deadlocks
         audio_packet = self.audio_buffer.get_sync(timeout=0.001)
-
-        # Essential logging only
-        if self._read_count == 1:
-            logger.info(
-                "🎵 Audio source read() called for the first time - Discord is requesting audio!"
-            )
-        elif self._read_count <= 5:  # Log first 5 calls only
-            logger.info(
-                f"🎵 Audio source read() #{self._read_count}: {len(audio_packet) if audio_packet else 0} bytes"
-            )
 
         result = audio_packet if audio_packet else self.audio_buffer.get_silence_frame()
 
@@ -207,12 +197,6 @@ async def setup_audio_receiver(
         ValueError: If voice_client is not a VoiceRecvClient
         RuntimeError: If voice client is not connected or setup fails
     """
-    if not isinstance(voice_client, voice_recv.VoiceRecvClient):
-        raise ValueError("Voice client must be VoiceRecvClient for audio receive")
-    if not voice_client.is_connected():
-        logger.error("VoiceRecvClient is not connected")
-        raise RuntimeError("Voice client not connected")
-
     audio_sink: Optional[OpusAudioSink] = None
     try:
         event_loop = asyncio.get_running_loop()
