@@ -81,8 +81,25 @@ class ControlPanelCommands(BaseCommandHandler):
             # Send or update the control panel
             if guild_id in self.active_panels:
                 try:
-                    # Update existing panel
-                    await self.active_panels[guild_id].edit(embed=embed, view=view)
+                    # Check if the existing panel is in the same channel
+                    existing_panel = self.active_panels[guild_id]
+                    if existing_panel.channel.id == ctx.channel.id:
+                        # Same channel, update existing panel
+                        await existing_panel.edit(embed=embed, view=view)
+                    else:
+                        # Different channel, delete old panel and create new one
+                        try:
+                            await existing_panel.delete()
+                        except discord.NotFound:
+                            pass  # Panel already deleted
+
+                        # Create new panel in current channel
+                        message = await ctx.send(embed=embed, view=view)
+                        self.active_panels[guild_id] = message
+                        # Save panel information for auto-reactivation
+                        self.storage.save_panel_info(
+                            guild_id, ctx.channel.id, message.id
+                        )
                 except discord.NotFound:
                     # Panel message was deleted, create new one
                     message = await ctx.send(embed=embed, view=view)
