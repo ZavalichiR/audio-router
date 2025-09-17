@@ -99,6 +99,96 @@ class SetupModal(discord.ui.Modal, title="⚙️ Broadcast Setup"):
             )
 
 
+class StartBroadcastConfirmationView(discord.ui.View):
+    """Confirmation dialog for starting broadcast when one is already active."""
+
+    def __init__(self, callback: Callable):
+        super().__init__(timeout=30)
+        self.callback = callback
+
+    async def on_timeout(self):
+        """Handle timeout by disabling all buttons."""
+        for item in self.children:
+            item.disabled = True
+        try:
+            await self.message.edit(view=self)
+        except Exception:
+            pass  # Message might be deleted or inaccessible
+
+    @discord.ui.button(label="Continue", style=discord.ButtonStyle.danger, emoji="⚠️")
+    async def confirm_start(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        """Confirm restart of broadcast."""
+        # Disable all buttons immediately
+        for item in self.children:
+            item.disabled = True
+
+        await interaction.response.edit_message(view=self)
+        await self.callback(interaction)
+        self.stop()
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary, emoji="❌")
+    async def cancel_start(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        """Cancel the restart."""
+        # Disable all buttons immediately
+        for item in self.children:
+            item.disabled = True
+
+        await interaction.response.edit_message(
+            content="✅ Broadcast restart cancelled.", view=self
+        )
+        self.stop()
+
+
+class StopBroadcastConfirmationView(discord.ui.View):
+    """Confirmation dialog for stopping broadcast."""
+
+    def __init__(self, callback: Callable):
+        super().__init__(timeout=30)
+        self.callback = callback
+
+    async def on_timeout(self):
+        """Handle timeout by disabling all buttons."""
+        for item in self.children:
+            item.disabled = True
+        try:
+            await self.message.edit(view=self)
+        except Exception:
+            pass  # Message might be deleted or inaccessible
+
+    @discord.ui.button(
+        label="Stop Broadcast", style=discord.ButtonStyle.danger, emoji="⏹️"
+    )
+    async def confirm_stop(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        """Confirm stopping broadcast."""
+        # Disable all buttons immediately
+        for item in self.children:
+            item.disabled = True
+
+        await interaction.response.edit_message(view=self)
+        await self.callback(interaction)
+        self.stop()
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary, emoji="❌")
+    async def cancel_stop(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        """Cancel stopping broadcast."""
+        # Disable all buttons immediately
+        for item in self.children:
+            item.disabled = True
+
+        await interaction.response.edit_message(
+            content="✅ Broadcast stop cancelled.", view=self
+        )
+        self.stop()
+
+
 class ControlPanelView(discord.ui.View):
     """Main control panel view with all interactive elements."""
 
@@ -108,12 +198,14 @@ class ControlPanelView(discord.ui.View):
         max_listeners: int,
         start_broadcast_callback: Callable[[], None],
         stop_broadcast_callback: Callable[[], None],
+        audio_router=None,
     ):
         super().__init__(timeout=None)  # Persistent view
         self.settings = settings
         self.max_listeners = max_listeners
         self.start_broadcast_callback = start_broadcast_callback
         self.stop_broadcast_callback = stop_broadcast_callback
+        self.audio_router = audio_router
         self._setup_buttons()
 
     async def on_error(
@@ -151,24 +243,71 @@ class ControlPanelView(discord.ui.View):
     ) -> None:
         """Handle start broadcast button click."""
         try:
-            await interaction.response.defer()
-
-            # Create a context for the command
-            bot = interaction.client
-            ctx = await bot.get_context(interaction.message)
-
-            if ctx is None:
-                await interaction.followup.send(
-                    "❌ Failed to create command context", ephemeral=True
+            # Get guild directly from interaction
+            guild = interaction.guild
+            if not guild:
+                await interaction.response.send_message(
+                    "❌ This command can only be used in a server", ephemeral=True
                 )
                 return
 
-            # Call the start broadcast method
-            await self.start_broadcast_callback(ctx)
+            # Check if broadcast section exists (regardless of active status)
+            bot = interaction.client
+            audio_router = self.audio_router
+            if audio_router and audio_router.section_manager.active_sections.get(
+                guild.id
+            ):
+                # Show confirmation dialog for restart
+                section = audio_router.section_manager.active_sections.get(guild.id)
+                status_text = (
+                    "active" if section.is_active else "created but not yet active"
+                )
+
+                embed = discord.Embed(
+                    title="⚠️ Broadcast Section Already Exists",
+                    description=(
+                        f"**A broadcast section '{section.section_name}' already exists** (status: {status_text}).\n\n"
+                        "**Starting again will:**\n"
+                        "• Restart the communication between speaker and channels\n"
+                        "• Interrupt audio for 5-10 seconds\n"
+                        "• Reconnect all bots to their channels\n\n"
+                        "**Run this command only if:**\n"
+                        "• The broadcast started but no one can hear the listeners\n"
+                        "• You need to force a restart of the communication\n\n"
+                        "**Are you sure you want to restart the broadcast?**"
+                    ),
+                    color=discord.Color.orange(),
+                )
+
+                async def confirmed_callback(interaction):
+                    # Create a context for the callback
+                    bot = interaction.client
+                    ctx = await bot.get_context(interaction.message)
+                    if ctx:
+                        await self.start_broadcast_callback(ctx)
+
+                view = StartBroadcastConfirmationView(confirmed_callback)
+                await interaction.response.send_message(
+                    embed=embed, view=view, ephemeral=True
+                )
+            else:
+                # No active broadcast, proceed normally
+                await interaction.response.defer()
+                # Create a context for the callback
+                ctx = await bot.get_context(interaction.message)
+                if ctx:
+                    await self.start_broadcast_callback(ctx)
 
         except Exception as e:
             try:
-                await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(
+                        f"❌ Error: {str(e)}", ephemeral=True
+                    )
+                else:
+                    await interaction.followup.send(
+                        f"❌ Error: {str(e)}", ephemeral=True
+                    )
             except Exception:
                 pass
 
@@ -184,24 +323,72 @@ class ControlPanelView(discord.ui.View):
     ) -> None:
         """Handle stop broadcast button click."""
         try:
-            await interaction.response.defer()
-
-            # Create a context for the command
-            bot = interaction.client
-            ctx = await bot.get_context(interaction.message)
-
-            if ctx is None:
-                await interaction.followup.send(
-                    "❌ Failed to create command context", ephemeral=True
+            # Get guild directly from interaction
+            guild = interaction.guild
+            if not guild:
+                await interaction.response.send_message(
+                    "❌ This command can only be used in a server", ephemeral=True
                 )
                 return
 
-            # Call the stop broadcast method
-            await self.stop_broadcast_callback(ctx)
+            # Check if broadcast section exists (regardless of active status)
+            audio_router = self.audio_router
+            if audio_router and audio_router.section_manager.active_sections.get(
+                guild.id
+            ):
+                # Show confirmation dialog for stop
+                section = audio_router.section_manager.active_sections.get(guild.id)
+                status_text = (
+                    "active" if section.is_active else "created but not yet active"
+                )
+
+                embed = discord.Embed(
+                    title="⚠️ Stop Broadcast Confirmation",
+                    description=(
+                        f"**The current section '{section.section_name}' will be deleted** (status: {status_text}).\n\n"
+                        "**This will:**\n"
+                        "• Delete all channels and the category\n"
+                        "• Kick everyone from their channels\n"
+                        "• Stop all bots and clean up resources\n\n"
+                        "**Please do this only if:**\n"
+                        "• The broadcast is completely finished\n"
+                        "• You want to end the meeting/session\n"
+                        "• You need to clean up the channels\n\n"
+                        "**Are you sure you want to stop the broadcast?**"
+                    ),
+                    color=discord.Color.red(),
+                )
+
+                async def confirmed_callback(interaction):
+                    # Create a context for the callback
+                    bot = interaction.client
+                    ctx = await bot.get_context(interaction.message)
+                    if ctx:
+                        await self.stop_broadcast_callback(ctx)
+
+                view = StopBroadcastConfirmationView(confirmed_callback)
+                await interaction.response.send_message(
+                    embed=embed, view=view, ephemeral=True
+                )
+            else:
+                # No broadcast section exists
+                await interaction.response.send_message(
+                    "⚠️ No broadcast section found in this server!\n\n"
+                    "**To stop a broadcast, you first need to create and start one.**\n"
+                    "Use the **Start Broadcast** button to create a new broadcast section.",
+                    ephemeral=True,
+                )
 
         except Exception as e:
             try:
-                await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(
+                        f"❌ Error: {str(e)}", ephemeral=True
+                    )
+                else:
+                    await interaction.followup.send(
+                        f"❌ Error: {str(e)}", ephemeral=True
+                    )
             except Exception:
                 pass
 

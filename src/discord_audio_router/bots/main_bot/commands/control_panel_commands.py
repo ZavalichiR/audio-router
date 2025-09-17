@@ -66,6 +66,7 @@ class ControlPanelCommands(BaseCommandHandler):
                 max_listeners=max_listeners,
                 start_broadcast_callback=self._start_broadcast_from_panel,
                 stop_broadcast_callback=self._stop_broadcast_from_panel,
+                audio_router=self.audio_router,
             )
 
             # Set up the callback function
@@ -242,6 +243,7 @@ class ControlPanelCommands(BaseCommandHandler):
                 stop_broadcast_callback=lambda ctx: self._stop_broadcast_from_panel_guild(
                     guild
                 ),
+                audio_router=self.audio_router,
             )
 
             # Set up callback function
