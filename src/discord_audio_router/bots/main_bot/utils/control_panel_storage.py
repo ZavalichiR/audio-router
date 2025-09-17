@@ -178,7 +178,7 @@ class ControlPanelStorage:
         guild_id: int,
         section_name: Optional[str] = None,
         listener_channels: Optional[int] = None,
-        permission_role: Optional[str] = None,
+        permission_role: Optional[str] = ...,  # Sentinel value
     ) -> ControlPanelSettings:
         """Update settings for a guild."""
         with self._lock:
@@ -188,7 +188,9 @@ class ControlPanelStorage:
                 settings.section_name = section_name
             if listener_channels is not None:
                 settings.listener_channels = listener_channels
-            if permission_role is not None:
+
+            # Update permission_role if it was provided (even if None)
+            if permission_role is not ...:
                 settings.permission_role = permission_role
 
             settings.last_updated = time.time()
