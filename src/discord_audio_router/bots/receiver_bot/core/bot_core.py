@@ -186,7 +186,7 @@ class AudioReceiverBot:
                 self._voice_monitoring_task.cancel()
 
             # Disconnect and cleanup
-            await self.disconnect()
+            await self._disconnect()
 
             # Close the bot
             if not self.bot.is_closed():

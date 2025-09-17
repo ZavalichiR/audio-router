@@ -87,16 +87,16 @@ class EmbedBuilder:
             value="1. **Setup Roles:** `!setup_roles` - Set up required roles\n"
             "2. **Check Subscription:** `!subscription_status` - Ensure you have the needed subscription\n"
             "3. **Check Bots:** `!bot_status` - Ensure you have all bots installed\n"
-            "4. **Start Broadcast:** `!start_broadcast 'Room Name' [N]` - Start broadcast with proper parameters\n"
+            "4. **Start Broadcast:** Use the control panel to start broadcasts with proper parameters\n"
             "5. **Learn More:** Use `!how_it_works` to learn about this bot",
             inline=False,
         )
 
         embed.add_field(
             name="🎤 Broadcast Commands",
-            value="• `!start_broadcast 'Name' [N]` - Start a new broadcast section (visible to everyone)\n"
-            "• `!start_broadcast 'Name' [N] --role 'RoleName'` - Start broadcast visible only to specified role\n"
-            "• `!stop_broadcast` - Stop and clean up current broadcast\n"
+            value="• Use the control panel to start and stop broadcasts\n"
+            "• Control panel allows you to set section name, listener count, and permissions\n"
+            "• All broadcast management is done through the interactive control panel\n"
             "• `!control_panel` - Open interactive control panel for easy broadcast management",
             inline=False,
         )
@@ -139,7 +139,7 @@ class EmbedBuilder:
         embed.add_field(
             name="🎛️ Broadcast Control",
             value="• Only users with **Broadcast Admin** role (configured in your server) can use bot commands\n"
-            "• Commands like `!start_broadcast` and `!stop_broadcast` require this role\n"
+            "• Commands like `!control_panel` require this role\n"
             "• Server administrators can always use all commands regardless of roles",
             inline=False,
         )
@@ -161,7 +161,7 @@ class EmbedBuilder:
             "• **Listener Role:** Optional role for organizing listeners (can join listener channels)\n"
             "• **Server Administrators:** Can always use all commands and join any channel\n"
             "• **Everyone Else:** Can join listener channels freely (no role required)\n"
-            "• **Category Visibility:** Use `--role 'RoleName'` to restrict who can see broadcast categories",
+            "• **Category Visibility:** Use the control panel to restrict who can see broadcast categories",
             inline=False,
         )
 
@@ -177,10 +177,10 @@ class EmbedBuilder:
         embed.add_field(
             name="🔒 Category Visibility Control",
             value="• **Default:** Categories are visible to everyone\n"
-            "• **Restricted:** Use `--role 'RoleName'` to limit visibility\n"
+            "• **Restricted:** Use the control panel to limit visibility\n"
             "• **Examples:**\n"
-            "  •    `!start_broadcast 'Public Event' 5` (everyone can see)\n"
-            "  •    `!start_broadcast 'VIP Session' 3 --role 'Premium'` (only Premium role can see)\n"
+            "  •    Use control panel to create 'Public Event' with 5 listeners (everyone can see)\n"
+            "  •    Use control panel to create 'VIP Session' with 3 listeners (only Premium role can see)\n"
             "• **Perfect for:** VIP content, member-only events, private sessions",
             inline=False,
         )
@@ -190,7 +190,7 @@ class EmbedBuilder:
             value="1. **Setup Roles:** Run `!setup_roles` to create required roles\n"
             "2. **Check Subscription:** Run `!subscription_status` to verify your tier\n"
             "3. **Check Bots:** Run `!bot_status` to ensure receiver bots are installed\n"
-            "4. **Start Broadcast:** Run `!start_broadcast 'Room Name' [N]` to create your first broadcast\n"
+            "4. **Start Broadcast:** Run `!control_panel` to open the interactive control panel and create your first broadcast\n"
             "5. **Assign Roles:** Give users the appropriate roles to join channels",
             inline=False,
         )
@@ -208,6 +208,6 @@ class EmbedBuilder:
         )
 
         embed.set_footer(
-            text="Get started: Run !setup_roles → !subscription_status → !bot_status → !start_broadcast"
+            text="Get started: Run !setup_roles → !subscription_status → !bot_status → !control_panel"
         )
         return embed

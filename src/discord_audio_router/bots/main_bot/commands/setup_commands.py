@@ -52,7 +52,7 @@ class SetupCommands(BaseCommandHandler):
         broadcast_admin_result = await self._create_single_role(
             ctx,
             access_control.broadcast_admin_role_name,
-            "Required to use bot commands like !start_broadcast",
+            "Required to use bot commands like !control_panel",
             discord.Color.red(),
         )
         role_results["broadcast_admin"] = broadcast_admin_result

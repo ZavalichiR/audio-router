@@ -122,17 +122,6 @@ class AudioRouterBot:
         """Register all bot commands."""
 
         # Create wrapper functions for commands with decorators
-        @self.bot.command(name="start_broadcast")
-        @PermissionUtils.get_broadcast_admin_decorator(self.audio_router)
-        async def start_broadcast_wrapper(ctx, *, args: str):
-            broadcast_handler: BroadcastCommands = self.command_handlers["broadcast"]
-            await broadcast_handler.start_broadcast_command(ctx, args=args)
-
-        @self.bot.command(name="stop_broadcast")
-        @PermissionUtils.get_broadcast_admin_decorator(self.audio_router)
-        async def stop_broadcast_wrapper(ctx):
-            broadcast_handler: BroadcastCommands = self.command_handlers["broadcast"]
-            await broadcast_handler.stop_broadcast_command(ctx)
 
         @self.bot.command(name="setup_roles")
         @PermissionUtils.is_admin()
