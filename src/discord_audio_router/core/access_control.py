@@ -84,27 +84,6 @@ class AccessControl:
             overwrites[custom] = discord.PermissionOverwrite(view_channel=True)
         return overwrites
 
-    def get_control_overwrites(
-        self,
-        guild: discord.Guild,
-        roles: Dict[str, Optional[discord.Role]],
-    ) -> Dict[discord.Role, discord.PermissionOverwrite]:
-        """
-        Build overwrites for control channel: default, bot
-        """
-        overwrites: Dict[discord.Role, discord.PermissionOverwrite] = {
-            guild.default_role: discord.PermissionOverwrite(
-                read_messages=False, send_messages=False
-            ),
-            guild.me: discord.PermissionOverwrite(
-                read_messages=True,
-                send_messages=True,
-                manage_messages=True,
-                embed_links=True,
-            ),
-        }
-        return overwrites
-
     def get_speaker_overwrites(
         self,
         guild: discord.Guild,

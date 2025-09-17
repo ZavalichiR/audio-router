@@ -143,10 +143,10 @@ class SectionManager:
         if not category:
             return None
 
-        # Find the control channel
-        control_channel = discord.utils.get(category.channels, name="broadcast-control")
+        # Find the chat channel
+        control_channel = discord.utils.get(category.channels, name="💬-chat")
         if not control_channel:
-            logger.warning(f"Found category '{category_name}' but no control channel")
+            logger.warning(f"Found category '{category_name}' but no chat channel")
             return None
 
         # Find the speaker channel
@@ -318,12 +318,13 @@ class SectionManager:
         except discord.HTTPException as e:
             logger.warning(f"Could not position category at top: {e}")
 
-        # 2. Create control channel (text)
+        # 2. Create chat channel (text)
+        chat_overwrites = self.access_control.get_listener_overwrites(guild, roles)
         control = await category.create_text_channel(
-            name="broadcast-control",
-            topic=f"Control channel for {category_name}",
-            overwrites=cat_overwrites,
-            reason="Control channel",
+            name="💬-chat",
+            topic=f"Discussion channel for {category_name}",
+            overwrites=chat_overwrites,
+            reason="Chat channel",
         )
 
         # 3. Create speaker channel
@@ -372,6 +373,9 @@ class SectionManager:
         )
 
         logger.info(f"Created broadcast section '{section_name}' (Guild {guild.id})")
+
+        # Send welcome message to chat channel after setup is complete
+        await self._send_chat_welcome_message(control, section_name)
 
         return {
             "success": True,
@@ -476,3 +480,28 @@ class SectionManager:
         tasks = [stop_one(bot_id) for bot_id in bot_ids]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         return results
+
+    async def _send_chat_welcome_message(
+        self, chat_channel: discord.TextChannel, section_name: str
+    ) -> None:
+        """Send welcome message to chat channel after broadcast setup is complete."""
+        try:
+            timeout_minutes = self.auto_cleanup_timeout // 60
+            description = (
+                f"🎉 **Broadcast section is ready!** You can now join the voice channels.\n\n"
+                f"🤖 **Bots are connecting...** Audio forwarding will start once the bots join the channels.\n\n"
+                f"💬 **Discussion:** Use this channel to discuss during the meeting or ask questions.\n\n"
+                f"⏰ **Auto-cleanup:** This section will be automatically deleted in {timeout_minutes} minutes "
+                f"after the speaker leaves the voice channel."
+            )
+
+            embed = discord.Embed(
+                title=f"🎉 {section_name} is Ready!",
+                description=description,
+                color=discord.Color.blue(),
+            )
+
+            await chat_channel.send(embed=embed)
+
+        except Exception as e:
+            logger.warning(f"Could not send welcome message to chat channel: {e}")

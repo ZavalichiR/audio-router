@@ -68,7 +68,7 @@ When you run `!start_broadcast 'Meeting Room' 5`:
 1. **Channel Setup**: Creates a "Meeting Room" category with:
    - 🎤 **Speaker** channel (for presenters)
    - 📢 **Channel-1** through **Channel-5** channels (for audience)
-   - 🎛️ **broadcast-control** channel (for commands)
+   - 💬 **chat** channel (for discussions during meetings)
 
 2. **Bot Deployment**: 
    - Starts one AudioForwarder bot in the speaker channel
