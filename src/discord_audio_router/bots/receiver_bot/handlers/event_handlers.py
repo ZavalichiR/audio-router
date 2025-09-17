@@ -43,8 +43,7 @@ class EventHandlers:
             if not self._initialized:
                 self._initialized = True
 
-                # Ensure the bot has the correct role and connect websockets
-                await self._ensure_listener_role()
+                # Connect websockets
                 await self.websocket_handlers.connect()
 
                 # Connect to the listener channel
@@ -59,56 +58,6 @@ class EventHandlers:
                 f"[{self.config.bot_id}] Session resumed—reconnecting voice if needed"
             )
             await self.connect_to_channel()
-
-    async def _ensure_listener_role(self) -> None:
-        """Ensure the AudioReceiver bot has the Listener role to join listener channels."""
-        try:
-            guild = self.bot.get_guild(self.config.guild_id)
-            if not guild:
-                self.logger.warning(
-                    f"[{self.config.bot_id}] Guild {self.config.guild_id} not in cache, fetching..."
-                )
-                guild = await self.bot.fetch_guild(self.config.guild_id)
-
-            bot_member = guild.get_member(self.bot.user.id)
-            if not bot_member:
-                self.logger.error(
-                    f"[{self.config.bot_id}] Bot member not found in guild {guild.name}"
-                )
-                return
-
-            listener_role = discord.utils.get(guild.roles, name="Listener")
-            if not listener_role:
-                self.logger.warning(
-                    f"[{self.config.bot_id}] Listener role not found in guild roles"
-                )
-                return
-
-            if listener_role in bot_member.roles:
-                self.logger.debug(
-                    f"[{self.config.bot_id}] Bot already has Listener role"
-                )
-                return
-
-            try:
-                await bot_member.add_roles(
-                    listener_role,
-                    reason="AudioReceiver bot needs Listener role",
-                )
-                self.logger.info(f"[{self.config.bot_id}] Added Listener role to bot")
-            except discord.Forbidden:
-                self.logger.warning(
-                    f"[{self.config.bot_id}] Insufficient permissions to add Listener role"
-                )
-            except Exception as e:
-                self.logger.error(
-                    f"[{self.config.bot_id}] Error adding role: {e}", exc_info=True
-                )
-        except Exception as e:
-            self.logger.error(
-                f"[{self.config.bot_id}] Error in _ensure_listener_role: {e}",
-                exc_info=True,
-            )
 
     def _setup_audio_playback(self, voice_client: voice_recv.VoiceRecvClient) -> None:
         """Setup audio playback."""

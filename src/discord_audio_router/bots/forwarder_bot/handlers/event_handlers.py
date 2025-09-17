@@ -40,8 +40,7 @@ class EventHandlers:
             if not self._initialized:
                 self._initialized = True
 
-                # Ensure the bot has the correct role and connect websockets
-                await self._ensure_speaker_role()
+                # Connect websockets
                 await self.websocket_handlers.connect()
 
                 # First-time voice connection
@@ -56,56 +55,6 @@ class EventHandlers:
                 f"[{self.config.bot_id}] Session resumed—reconnecting voice if needed"
             )
             await self.connect_to_channel()
-
-    async def _ensure_speaker_role(self) -> None:
-        """Ensure the AudioForwarder bot has the Speaker role to join speaker channels."""
-        try:
-            guild = self.bot.get_guild(self.config.guild_id)
-            if not guild:
-                self.logger.warning(
-                    f"[{self.config.bot_id}] Guild {self.config.guild_id} not in cache, fetching..."
-                )
-                guild = await self.bot.fetch_guild(self.config.guild_id)
-
-            bot_member = guild.get_member(self.bot.user.id)
-            if not bot_member:
-                self.logger.error(
-                    f"[{self.config.bot_id}] Bot member not found in guild {guild.name}"
-                )
-                return
-
-            speaker_role = discord.utils.get(guild.roles, name="Speaker")
-            if not speaker_role:
-                self.logger.warning(
-                    f"[{self.config.bot_id}] Speaker role not found in guild roles"
-                )
-                return
-
-            if speaker_role in bot_member.roles:
-                self.logger.debug(
-                    f"[{self.config.bot_id}] Bot already has Speaker role"
-                )
-                return
-
-            try:
-                await bot_member.add_roles(
-                    speaker_role,
-                    reason="AudioForwarder bot needs Speaker role",
-                )
-                self.logger.info(f"[{self.config.bot_id}] Added Speaker role to bot")
-            except discord.Forbidden:
-                self.logger.warning(
-                    f"[{self.config.bot_id}] Insufficient permissions to add Speaker role"
-                )
-            except Exception as e:
-                self.logger.error(
-                    f"[{self.config.bot_id}] Error adding role: {e}", exc_info=True
-                )
-        except Exception as e:
-            self.logger.error(
-                f"[{self.config.bot_id}] Error in _ensure_speaker_role: {e}",
-                exc_info=True,
-            )
 
     async def _setup_audio_sink(self, voice_client: voice_recv.VoiceRecvClient) -> None:
         """Setup audio sink."""

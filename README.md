@@ -13,7 +13,7 @@ The Discord Audio Router creates a **one-to-many audio broadcasting system** tha
 - **🔄 Real-time Audio Routing**: Audio from the speaker is instantly forwarded to all listener channels
 - **🏗️ Automatic Setup**: Creates organized channel categories with proper permissions
 - **🎛️ Easy Management**: Simple commands to start, stop, and monitor broadcasts
-- **👥 Access Control**: Role-based permissions for broadcast management
+- **👥 Access Control**: Administrator permissions for broadcast management
 
 ## 🏗️ How It's Structured
 
@@ -93,8 +93,8 @@ Presenter speaks → AudioForwarder captures → WebSocket relay → AudioReceiv
 - Resource management and token allocation
 
 ### 4. **Access Control**
-- Role-based permissions (Broadcast Admin, Speaker roles)
-- User authorization system
+- Administrator permissions for broadcast management
+- Speaker role for broadcast access control
 - Automatic role creation and management
 - Permission validation and error handling
 
@@ -104,7 +104,7 @@ Presenter speaks → AudioForwarder captures → WebSocket relay → AudioReceiv
 - 🎤 **One-to-Many Audio Routing**: Broadcast from one speaker channel to multiple listener channels
 - 🏗️ **Automatic Setup**: Creates organized channel categories with speaker and listener channels
 - 🎛️ **Easy Control**: Simple commands to start, stop, and manage broadcasts
-- 👥 **Access Control**: Role-based permissions for broadcast management
+- 👥 **Access Control**: Administrator permissions for broadcast management
 - 🔄 **Real-time**: Low-latency audio forwarding for seamless experience
 - 📊 **Status Monitoring**: Check broadcast status and system health
 - 🛡️ **Reliable**: Multi-bot architecture ensures stable performance
@@ -210,22 +210,19 @@ For each bot, create an invite link:
 
 ### Creating a Broadcast Section
 
-1. **Start a broadcast section** (creates organized channels and starts broadcasting):
+1. **Start a broadcast section** using the control panel:
    ```
-   !start_broadcast 'War Room' 5
-   !start_broadcast 'War Room' 5 --role 'VIP'
+   !control_panel
    ```
-   This creates and immediately starts:
-   - 📁 **War Room** category (visible to everyone, or restricted to specified role)
-   - 🎤 **Speaker** channel (for presenters with Speaker role)
-   - 📢 **Channel-1** through **Channel-5** channels (open to everyone)
-   - 🎛️ **broadcast-control** channel (for commands)
-   - 🎵 **Audio forwarding** from speaker to all listener channels
+   This opens an interactive control panel where you can:
+   - 📁 Create broadcast sections with custom names
+   - 🎤 Set up speaker channels (requires Speaker role)
+   - 📢 Configure listener channels (open to everyone or custom role)
+   - 🎛️ Manage all broadcasts from one interface
+   - 🎵 Start audio forwarding from speaker to all listener channels
 
 2. **Stop broadcasting and clean up**:
-   ```
-   !stop_broadcast
-   ```
+   Use the control panel to stop broadcasts and clean up channels
    - Stops all audio broadcasting
    - Deletes all broadcast channels
    - Removes the broadcast category
@@ -238,17 +235,20 @@ For each bot, create an invite link:
 ### Complete Example
 
 ```
-!start_broadcast 'Company Meeting' 10
-# Creates a meeting setup with 10 listener channels, visible to everyone
+# Open the control panel to create broadcasts
+!control_panel
 
-!start_broadcast 'VIP Session' 5 --role 'Premium Members'
-# Creates a session with 5 listener channels, only visible to Premium Members role
+# Create a company meeting with 10 listener channels
+# Use the control panel to set up "Company Meeting" with 10 listeners
+
+# Create a VIP session with 5 listener channels
+# Use the control panel to set up "VIP Session" with 5 listeners and custom role
 
 # Presenter joins "Speaker" channel (requires Speaker role)
-# Audience joins "Channel-1", "Channel-2", etc. (no role required)
+# Audience joins "Channel-1", "Channel-2", etc. (open to everyone or custom role)
 
-!stop_broadcast
-# Stops audio routing and removes all channels
+# Stop broadcasts using the control panel
+# Use the control panel to stop broadcasts and clean up channels
 ```
 
 ## 📋 Commands Reference
@@ -257,14 +257,10 @@ For each bot, create an invite link:
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `!start_broadcast 'Name' N [--role 'RoleName']` | Create and start broadcast section with N listener channels | `!start_broadcast 'War Room' 5`<br>`!start_broadcast 'VIP Session' 3 --role 'Premium'` |
-| `!stop_broadcast` | Stop broadcasting and remove entire section | `!stop_broadcast` |
-
-### Setup Commands
-
-| Command | Description |
-|---------|-------------|
-| `!setup_roles` | Create and configure required roles (Admin only) |
+| `!control_panel` | Open interactive control panel for broadcast management | `!control_panel` |
+| `!help` | Show help information and usage guide | `!help` |
+| `!bot_status` | Check status of all bots and system health | `!bot_status` |
+| `!subscription_status` | Check your subscription tier and limits | `!subscription_status` |
 
 ### Help Commands
 
@@ -295,7 +291,6 @@ AUDIO_RECEIVER_TOKENS=[
 BOT_PREFIX=!
 LOG_LEVEL=INFO
 SPEAKER_ROLE_NAME=Speaker
-BROADCAST_ADMIN_ROLE_NAME=Broadcast Admin
 AUTO_CREATE_ROLES=true
 ```
 
@@ -344,7 +339,7 @@ AUDIO_RECEIVER_TOKENS=[
 ### Common Issues
 
 #### ❌ "You need administrator permissions"
-**Solution**: Make sure you have Administrator permission or are in the Broadcast Admin role.
+**Solution**: Make sure you have Administrator permission on the server.
 
 #### ❌ "Bot lacks 'Manage Channels' permission"
 **Solution**: 
@@ -375,7 +370,7 @@ AUDIO_RECEIVER_TOKENS=[
 ### Bot Permissions Required
 
 - **Manage Channels**: Create and delete broadcast channels
-- **Manage Roles**: Set up access control roles
+- **Manage Roles**: Create and manage roles (optional)
 - **Connect**: Join voice channels
 - **Speak**: Transmit audio
 - **Send Messages**: Send command responses
@@ -384,11 +379,11 @@ AUDIO_RECEIVER_TOKENS=[
 
 ### Access Control
 
-The bot supports flexible access control:
+The bot supports simplified access control:
 
 - **Administrators**: Full access to all commands
-- **Authorized Roles**: Custom roles with broadcast control
-- **Authorized Users**: Specific users with broadcast control
+- **Speaker Role**: Required to join speaker channels and broadcast audio
+- **Custom Roles**: Optional roles for restricting listener channel access
 
 ## 📊 System Requirements
 
@@ -414,15 +409,6 @@ The launcher provides robust process management:
 # Start all components
 python launcher.py
 
-# Start specific component
-python launcher.py --component audiobroadcast_bot
-python launcher.py --component relay_server
-
-# Start with health monitoring
-python launcher.py --monitor
-
-# Check component status
-python launcher.py --status
 ```
 
 ### Configuration Management
@@ -451,7 +437,6 @@ AUDIO_RECEIVER_TOKENS=token1,token2,token3
 BOT_PREFIX=!
 LOG_LEVEL=INFO
 SPEAKER_ROLE_NAME=Speaker
-BROADCAST_ADMIN_ROLE_NAME=Broadcast Admin
 AUTO_CREATE_ROLES=true
 
 # WebSocket Relay Server

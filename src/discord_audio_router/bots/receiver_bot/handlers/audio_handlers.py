@@ -56,7 +56,10 @@ class AudioHandlers:
                 self.setup_audio()
 
             self.audio_source.start()
-            voice_client.play(self.audio_source)
+            if not voice_client.is_playing():
+                voice_client.play(self.audio_source)
+            else:
+                self.logger.info("Voice client is already playing")
             self.logger.info(f"Voice client is_playing: {voice_client.is_playing()}")
             return True
         except Exception as e:

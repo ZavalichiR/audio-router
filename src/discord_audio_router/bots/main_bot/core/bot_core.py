@@ -19,12 +19,11 @@ from discord_audio_router.core.audio_router import AudioRouter
 from discord_audio_router.infrastructure import setup_logging
 from ..commands import (
     BroadcastCommands,
-    SetupCommands,
     InfoCommands,
     ControlPanelCommands,
 )
 from ..handlers import EventHandlers
-from ..utils import PermissionUtils
+from discord_audio_router.core import is_administrator
 from discord_audio_router.subscription.subscription_manager import SubscriptionManager
 
 
@@ -95,12 +94,6 @@ class AudioRouterBot:
                 subscription_manager=self.subscription_manager,
                 config=self.config,
             ),
-            "setup": SetupCommands(
-                logger=self.logger,
-                audio_router=self.audio_router,
-                subscription_manager=self.subscription_manager,
-                config=self.config,
-            ),
             "info": InfoCommands(
                 logger=self.logger,
                 audio_router=self.audio_router,
@@ -123,12 +116,6 @@ class AudioRouterBot:
 
         # Create wrapper functions for commands with decorators
 
-        @self.bot.command(name="setup_roles")
-        @PermissionUtils.is_admin()
-        async def setup_roles_wrapper(ctx):
-            setup_handler: SetupCommands = self.command_handlers["setup"]
-            await setup_handler.setup_roles_command(ctx)
-
         @self.bot.command(name="help")
         async def help_wrapper(ctx):
             info_handler: InfoCommands = self.command_handlers["info"]
@@ -150,7 +137,7 @@ class AudioRouterBot:
             await info_handler.bot_status_command(ctx)
 
         @self.bot.command(name="control_panel")
-        @PermissionUtils.get_broadcast_admin_decorator(self.audio_router)
+        @is_administrator()
         async def control_panel_wrapper(ctx):
             control_panel_handler: ControlPanelCommands = self.command_handlers[
                 "control_panel"

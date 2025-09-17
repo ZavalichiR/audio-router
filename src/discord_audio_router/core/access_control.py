@@ -3,7 +3,6 @@ Simplified Access Control System for Discord Audio Router Bot.
 
 This module provides a clean role-based access control system:
 - Speaker role: Required to join speaker channels
-- Broadcast Admin role: Required to use bot commands
 - Custom role: Optional role for category visibility
 """
 
@@ -29,25 +28,18 @@ class AccessControl:
     def __init__(self, config):
         self.config = config
         self.speaker_role_name = getattr(config, "speaker_role_name", "Speaker")
-        self.broadcast_admin_role_name = getattr(
-            config, "broadcast_admin_role_name", "Broadcast Admin"
-        )
-        self.listener_role_name = getattr(config, "listener_role_name", "Listener")
-        self.auto_create_roles = getattr(config, "auto_create_roles", True)
 
-        logger.info(
-            f"AccessControl initialized: speaker='{self.speaker_role_name}', admin='{self.broadcast_admin_role_name}', listener='{self.listener_role_name}'"
-        )
+        logger.info(f"AccessControl initialized: speaker='{self.speaker_role_name}'")
 
     async def ensure_roles_exist(
         self, guild: discord.Guild, custom_role_name: Optional[str] = None
     ) -> Dict[str, Optional[discord.Role]]:
         """
         Ensure required roles exist, creating if allowed.
-        Returns dict with role objects: speaker, listener, admin, custom
+        Returns dict with role objects: speaker, custom
         """
-        result = {"speaker": None, "listener": None, "admin": None, "custom": None}
-        if not self.auto_create_roles or not guild.me.guild_permissions.manage_roles:
+        result = {"speaker": None, "custom": None}
+        if not guild.me.guild_permissions.manage_roles:
             return result
 
         async def get_or_create(name: str, color: discord.Color):
@@ -65,12 +57,6 @@ class AccessControl:
 
         result["speaker"] = await get_or_create(
             self.speaker_role_name, discord.Color.green()
-        )
-        result["listener"] = await get_or_create(
-            self.listener_role_name, discord.Color.blue()
-        )
-        result["admin"] = await get_or_create(
-            self.broadcast_admin_role_name, discord.Color.red()
         )
         if custom_role_name:
             result["custom"] = discord.utils.get(guild.roles, name=custom_role_name)
@@ -104,7 +90,7 @@ class AccessControl:
         roles: Dict[str, Optional[discord.Role]],
     ) -> Dict[discord.Role, discord.PermissionOverwrite]:
         """
-        Build overwrites for control channel: default, admin, bot
+        Build overwrites for control channel: default, bot
         """
         overwrites: Dict[discord.Role, discord.PermissionOverwrite] = {
             guild.default_role: discord.PermissionOverwrite(
@@ -117,11 +103,6 @@ class AccessControl:
                 embed_links=True,
             ),
         }
-        admin = roles.get("admin")
-        if admin:
-            overwrites[admin] = discord.PermissionOverwrite(
-                read_messages=True, send_messages=True, embed_links=True
-            )
         return overwrites
 
     def get_speaker_overwrites(
@@ -148,10 +129,6 @@ class AccessControl:
             overwrites[roles["speaker"]] = discord.PermissionOverwrite(
                 connect=True, speak=True, view_channel=True
             )
-        if roles.get("admin"):
-            overwrites[roles["admin"]] = discord.PermissionOverwrite(
-                connect=True, speak=True, view_channel=True, manage_channels=True
-            )
         return overwrites
 
     def get_listener_overwrites(
@@ -176,21 +153,13 @@ class AccessControl:
             overwrites[roles["custom"]] = discord.PermissionOverwrite(
                 view_channel=True, connect=True, speak=True
             )
-        if roles.get("listener"):
-            overwrites[roles["listener"]] = discord.PermissionOverwrite(
-                connect=True, speak=True, view_channel=True
-            )
-        if roles.get("admin"):
-            overwrites[roles["admin"]] = discord.PermissionOverwrite(
-                connect=True, speak=True, manage_channels=True
-            )
         return overwrites
 
 
-def is_broadcast_admin(role_name: str = "Broadcast Admin"):
+def is_administrator():
+    """Check if user has administrator permissions."""
+
     def predicate(ctx):
-        if ctx.author.guild_permissions.administrator:
-            return True
-        return role_name in {r.name for r in ctx.author.roles}
+        return ctx.author.guild_permissions.administrator
 
     return commands.check(predicate)

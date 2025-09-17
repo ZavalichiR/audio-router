@@ -55,27 +55,16 @@ class AudioMessageHandler:
             self.logger.debug(f"No listeners for speaker {speaker_id}")
             return
 
-        # Send to all listeners concurrently
+        # Send to all listeners concurrently with proper error handling
         send_tasks = []
+
         for listener_id in listener_ids:
-            listener_ws = self.connections.get_client_websocket(listener_id)
-            if listener_ws:
-                send_tasks.append(
-                    self._safe_send_audio(listener_ws, audio_data, listener_id)
-                )
+            # Create task that handles connection checking internally
+            send_tasks.append(self._safe_send_to_listener(listener_id, audio_data))
 
         if send_tasks:
-            results = await asyncio.gather(*send_tasks, return_exceptions=True)
-
-            # Handle disconnected listeners
-            for idx, result in enumerate(results):
-                if isinstance(result, Exception):
-                    listener_id = list(listener_ids)[idx]
-                    if isinstance(result, ConnectionClosed):
-                        self.logger.debug(f"Listener {listener_id} disconnected")
-                        self.connections.unregister(listener_id)
-                    else:
-                        self.logger.error(f"Error sending to {listener_id}: {result}")
+            # Execute all tasks and handle any exceptions
+            await asyncio.gather(*send_tasks, return_exceptions=True)
 
     async def _send_to_speaker(self, listener_id: str, audio_data: bytes) -> None:
         """Send audio from listener back to speaker."""
@@ -89,6 +78,22 @@ class AudioMessageHandler:
             await self._safe_send_audio(speaker_ws, audio_data, speaker_id)
         else:
             self.logger.warning(f"Speaker {speaker_id} not connected")
+
+    async def _safe_send_to_listener(self, listener_id: str, audio_data: bytes) -> None:
+        """Safely send audio to a listener, handling disconnections gracefully."""
+        try:
+            listener_ws = self.connections.get_client_websocket(listener_id)
+            if not listener_ws:
+                # Listener disconnected, silently skip
+                return
+
+            await listener_ws.send(audio_data)
+
+        except ConnectionClosed:
+            self.logger.debug(f"Listener {listener_id} disconnected during send")
+            self.connections.unregister(listener_id)
+        except Exception as e:
+            self.logger.error(f"Error sending audio to listener {listener_id}: {e}")
 
     async def _safe_send_audio(
         self, websocket: ServerConnection, audio_data: bytes, client_id: str

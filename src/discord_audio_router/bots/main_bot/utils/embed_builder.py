@@ -61,7 +61,7 @@ class EmbedBuilder:
     def no_permission() -> discord.Embed:
         """Create a no permission embed."""
         return discord.Embed(
-            description="❌ You don't have permission to use this command! You need either administrator permissions or the Broadcast Admin role.",
+            description="❌ You don't have permission to use this command! You need administrator permissions.",
             color=discord.Color.red(),
         )
 
@@ -84,11 +84,10 @@ class EmbedBuilder:
 
         embed.add_field(
             name="🚀 Quick Start Guide",
-            value="1. **Setup Roles:** `!setup_roles` - Set up required roles\n"
-            "2. **Check Subscription:** `!subscription_status` - Ensure you have the needed subscription\n"
-            "3. **Check Bots:** `!bot_status` - Ensure you have all bots installed\n"
-            "4. **Start Broadcast:** Use the control panel to start broadcasts with proper parameters\n"
-            "5. **Learn More:** Use `!how_it_works` to learn about this bot",
+            value="1. **Check Subscription:** `!subscription_status` - Ensure you have the needed subscription\n"
+            "2. **Check Bots:** `!bot_status` - Ensure you have all bots installed\n"
+            "3. **Start Broadcast:** Use the control panel to start broadcasts with proper parameters\n"
+            "4. **Learn More:** Use `!how_it_works` to learn about this bot",
             inline=False,
         )
 
@@ -138,9 +137,9 @@ class EmbedBuilder:
 
         embed.add_field(
             name="🎛️ Broadcast Control",
-            value="• Only users with **Broadcast Admin** role (configured in your server) can use bot commands\n"
-            "• Commands like `!control_panel` require this role\n"
-            "• Server administrators can always use all commands regardless of roles",
+            value="• Only server administrators can use bot commands\n"
+            "• Commands like `!control_panel` require administrator permissions\n"
+            "• The main bot should be installed with administrator permissions",
             inline=False,
         )
 
@@ -156,12 +155,10 @@ class EmbedBuilder:
 
         embed.add_field(
             name="👥 Role System",
-            value="• **Broadcast Admin Role:** Required to use bot commands (start/stop broadcasts)\n"
-            "• **Speaker Role:** Required to join speaker channels and broadcast audio\n"
-            "• **Listener Role:** Optional role for organizing listeners (can join listener channels)\n"
-            "• **Server Administrators:** Can always use all commands and join any channel\n"
-            "• **Everyone Else:** Can join listener channels freely (no role required)\n"
-            "• **Category Visibility:** Use the control panel to restrict who can see broadcast categories",
+            value="• **Speaker Role:** Required to join speaker channels and broadcast audio\n"
+            "• **Custom Role:** Optional role for restricting category visibility\n"
+            "• **@everyone:** Can join listener channels if no custom role is specified\n"
+            "• **Server Administrators:** Can always use all commands and join any channel",
             inline=False,
         )
 
@@ -187,11 +184,10 @@ class EmbedBuilder:
 
         embed.add_field(
             name="🚀 Getting Started",
-            value="1. **Setup Roles:** Run `!setup_roles` to create required roles\n"
-            "2. **Check Subscription:** Run `!subscription_status` to verify your tier\n"
-            "3. **Check Bots:** Run `!bot_status` to ensure receiver bots are installed\n"
-            "4. **Start Broadcast:** Run `!control_panel` to open the interactive control panel and create your first broadcast\n"
-            "5. **Assign Roles:** Give users the appropriate roles to join channels",
+            value="1. **Check Subscription:** Run `!subscription_status` to verify your tier\n"
+            "2. **Check Bots:** Run `!bot_status` to ensure receiver bots are installed\n"
+            "3. **Start Broadcast:** Run `!control_panel` to open the interactive control panel and create your first broadcast\n"
+            "4. **Assign Roles:** Give users the Speaker role to join speaker channels",
             inline=False,
         )
 
@@ -208,6 +204,6 @@ class EmbedBuilder:
         )
 
         embed.set_footer(
-            text="Get started: Run !setup_roles → !subscription_status → !bot_status → !control_panel"
+            text="Get started: Run !subscription_status → !bot_status → !control_panel"
         )
         return embed

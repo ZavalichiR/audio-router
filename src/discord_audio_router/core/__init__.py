@@ -8,7 +8,7 @@ that form the backbone of the audio routing system.
 from .audio_router import AudioRouter
 from .section_manager import SectionManager, BroadcastSection
 from .bot_manager import BotManager, BotProcess
-from .access_control import AccessControl, is_broadcast_admin
+from .access_control import AccessControl, is_administrator
 
 __all__ = [
     "AudioRouter",
@@ -17,5 +17,5 @@ __all__ = [
     "BotManager",
     "BotProcess",
     "AccessControl",
-    "is_broadcast_admin",
+    "is_administrator",
 ]
