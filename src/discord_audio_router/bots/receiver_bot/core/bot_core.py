@@ -6,8 +6,10 @@ import logging
 from discord.ext import commands, voice_recv
 from discord_audio_router.infrastructure import setup_logging
 
+from discord_audio_router.core.types import WS_CLIENT_TYPE_RCV
+from discord_audio_router.websockets.client import WebSocketClient
+
 from ..handlers.event_handlers import EventHandlers
-from ..handlers.websocket_handlers import WebSocketHandlers
 from ..handlers.audio_handlers import AudioHandlers
 from ..utils.config import BotConfig
 from ..utils.performance import PerformanceMonitor
@@ -39,23 +41,22 @@ class AudioReceiverBot:
             performance_monitor=self.performance_monitor,
         )
 
-        self.websocket_handlers = WebSocketHandlers(
-            bot_id=self.config.bot_id,
-            channel_id=self.config.channel_id,
-            guild_id=self.config.guild_id,
-            speaker_channel_id=self.config.speaker_channel_id,
+        # Initialize WebSocket client
+        client_id = f"{self.config.guild_id}_{self.config.channel_id}"
+        main_client_id = f"{self.config.guild_id}_{self.config.speaker_channel_id}"
+
+        self.websocket_client = WebSocketClient(
+            client_id=client_id,
+            client_type=WS_CLIENT_TYPE_RCV,
             server_url=self.config.centralized_server_url,
             logger=self.logger,
-        )
-
-        # Set the audio callback for WebSocket handlers
-        self.websocket_handlers.set_audio_callback(
-            self.audio_handlers.process_audio_data
+            main_client_id=main_client_id,
+            audio_callback=self.audio_handlers.process_audio_data,
         )
 
         self.event_handlers = EventHandlers(
             bot=self,
-            websocket_handlers=self.websocket_handlers,
+            websocket_client=self.websocket_client,
             audio_handlers=self.audio_handlers,
             config=self.config,
             logger=self.logger,
@@ -159,7 +160,7 @@ class AudioReceiverBot:
                     if self._status_counter % 5 == 0:
                         status = (
                             "Connected"
-                            if self.websocket_handlers.websocket
+                            if self.websocket_client.is_connected
                             else "Disconnected"
                         )
                         self.logger.info(
@@ -210,7 +211,7 @@ class AudioReceiverBot:
             self.audio_handlers.stop_audio_playback()
 
             # Disconnect from WebSocket
-            await self.websocket_handlers.disconnect()
+            await self.websocket_client.disconnect()
 
             self.logger.info(f"[{self.config.bot_id}] Bot disconnected and cleaned up")
 

@@ -7,9 +7,7 @@ from typing import Any
 import discord
 from discord.ext import commands, voice_recv
 from discord_audio_router.audio import setup_audio_receiver
-from discord_audio_router.bots.forwarder_bot.handlers.websocket_handlers import (
-    WebSocketHandlers,
-)
+from discord_audio_router.websockets.client import WebSocketClient
 from discord_audio_router.bots.forwarder_bot.utils.config import BotConfig
 
 
@@ -19,14 +17,14 @@ class EventHandlers:
     def __init__(
         self,
         bot: Any,
-        websocket_handlers: WebSocketHandlers,
+        websocket_client: WebSocketClient,
         config: BotConfig,
         logger: logging.Logger,
     ):
         """Initialize event handlers."""
         self.bot_instance = bot
         self.bot: commands.Bot = bot.bot
-        self.websocket_handlers = websocket_handlers
+        self.websocket_client = websocket_client
         self.config = config
         self.logger = logger
         self._connecting = False
@@ -39,13 +37,15 @@ class EventHandlers:
         async def on_ready():
             if not self._initialized:
                 self._initialized = True
-
+                self.logger.info(f"[{self.config.bot_id}] Bot ready to connect")
                 # Connect websockets
-                await self.websocket_handlers.connect()
+                await self.websocket_client.connect()
+                self.logger.info(f"[{self.config.bot_id}] Websocket connected")
 
                 # First-time voice connection
                 await asyncio.sleep(1)
                 await self.connect_to_channel()
+                self.logger.info(f"[{self.config.bot_id}] Voice connection established")
 
                 self.logger.info(f"[{self.config.bot_id}] Bot ready")
 
@@ -62,9 +62,12 @@ class EventHandlers:
             return
 
         try:
+            self.logger.info(
+                f"[{self.config.bot_id}] Setting up audio sink with callback: {self.websocket_client.forward_audio}"
+            )
             self.bot_instance.audio_sink = await setup_audio_receiver(
                 voice_client,
-                self.websocket_handlers.forward_audio,
+                self.websocket_client.forward_audio,
             )
             self.logger.info(f"[{self.config.bot_id}] Audio sink setup complete")
         except Exception as e:

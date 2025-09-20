@@ -7,8 +7,10 @@ from typing import Optional
 from discord.ext import commands, voice_recv
 from discord_audio_router.infrastructure import setup_logging
 
+from discord_audio_router.core.types import WS_CLIENT_TYPE_FWD
+from discord_audio_router.websockets.client import WebSocketClient
+
 from ..handlers.event_handlers import EventHandlers
-from ..handlers.websocket_handlers import WebSocketHandlers
 from ..utils.config import BotConfig
 
 
@@ -33,22 +35,19 @@ class AudioForwarderBot:
         # Audio handling - removed local voice_client storage
         self.audio_sink: Optional[object] = None
 
-        # Initialize handlers
-        self.websocket_handlers = WebSocketHandlers(
-            bot_id=self.config.bot_id,
-            channel_id=self.config.channel_id,
-            guild_id=self.config.guild_id,
+        # Initialize WebSocket client
+        client_id = f"{self.config.guild_id}_{self.config.channel_id}"
+
+        self.websocket_client = WebSocketClient(
+            client_id=client_id,
+            client_type=WS_CLIENT_TYPE_FWD,
             server_url=self.config.centralized_server_url,
             logger=self.logger,
         )
 
-        # Store the event loop for use in audio callbacks
-        event_loop = asyncio.get_running_loop()
-        self.websocket_handlers.set_event_loop(event_loop)
-
         self.event_handlers = EventHandlers(
             bot=self,
-            websocket_handlers=self.websocket_handlers,
+            websocket_client=self.websocket_client,
             config=self.config,
             logger=self.logger,
         )
@@ -126,7 +125,7 @@ class AudioForwarderBot:
                     if self._status_counter % 5 == 0:
                         status = (
                             "Connected"
-                            if self.websocket_handlers.websocket
+                            if self.websocket_client.is_connected
                             else "Disconnected"
                         )
                         self.logger.info(
@@ -171,7 +170,7 @@ class AudioForwarderBot:
             if guild and guild.voice_client:
                 await guild.voice_client.disconnect()
 
-            await self.websocket_handlers.disconnect()
+            await self.websocket_client.disconnect()
 
             self.logger.info(
                 f"[{self.config.bot_id}] Bot disconnected from {guild.name} and cleaned up"

@@ -35,6 +35,8 @@ class ControlMessageHandler:
     ) -> None:
         """Process control messages (registration, ping, etc.)."""
         try:
+            self.logger.debug(f"Processing control message: {message}")
+
             data = json.loads(message)
             message_type = data.get("type")
             client_id = data.get("id")

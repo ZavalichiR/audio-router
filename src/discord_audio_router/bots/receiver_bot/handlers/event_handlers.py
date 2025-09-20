@@ -8,9 +8,7 @@ import discord
 from discord.ext import commands, voice_recv
 
 from discord_audio_router.bots.receiver_bot.handlers.audio_handlers import AudioHandlers
-from discord_audio_router.bots.receiver_bot.handlers.websocket_handlers import (
-    WebSocketHandlers,
-)
+from discord_audio_router.websockets.client import WebSocketClient
 from discord_audio_router.bots.receiver_bot.utils.config import BotConfig
 
 
@@ -20,7 +18,7 @@ class EventHandlers:
     def __init__(
         self,
         bot: Any,
-        websocket_handlers: WebSocketHandlers,
+        websocket_client: WebSocketClient,
         audio_handlers: AudioHandlers,
         config: BotConfig,
         logger: logging.Logger,
@@ -28,7 +26,7 @@ class EventHandlers:
         """Initialize event handlers."""
         self.bot_instance = bot
         self.bot: commands.Bot = bot.bot
-        self.websocket_handlers = websocket_handlers
+        self.websocket_client = websocket_client
         self.audio_handlers = audio_handlers
         self.config = config
         self.logger = logger
@@ -44,7 +42,7 @@ class EventHandlers:
                 self._initialized = True
 
                 # Connect websockets
-                await self.websocket_handlers.connect()
+                await self.websocket_client.connect()
 
                 # Connect to the listener channel
                 await asyncio.sleep(1)
