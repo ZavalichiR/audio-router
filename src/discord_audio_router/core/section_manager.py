@@ -232,13 +232,20 @@ class SectionManager:
             last = self._last_activity.get(guild_id, now)
 
             if empty:
-                if now - last > self.auto_cleanup_timeout:
+                # Channel is empty - check if timeout has been reached
+                if now - last >= self.auto_cleanup_timeout:
                     to_cleanup.append(guild_id)
                 else:
+                    # Timeout not reached yet - set default for first time tracking
+                    # This only sets the value if the key doesn't exist (first time)
                     self._last_activity.setdefault(guild_id, now)
             else:
-                self._last_activity[guild_id] = now
+                # Channel has activity - only update if we're not already tracking an empty channel
+                # This prevents resetting the timer when speaker rejoins after leaving
+                if guild_id not in self._last_activity:
+                    self._last_activity[guild_id] = now
 
+        # Clean up sections that have timed out
         for guild_id in to_cleanup:
             logger.info(f"Cleaning up inactive section for guild {guild_id}")
             guild = main_bot.get_guild(guild_id)
@@ -246,6 +253,9 @@ class SectionManager:
                 await self.stop_broadcast(guild)
             else:
                 logger.warning(f"Guild {guild_id} not in cache")
+
+            # Clean up activity tracking for removed sections
+            self._last_activity.pop(guild_id, None)
 
     async def _is_speaker_channel_empty(
         self, main_bot: discord.Client, section: BroadcastSection
@@ -467,6 +477,10 @@ class SectionManager:
         )
 
         del self.active_sections[guild.id]
+
+        # Clean up activity tracking for this section
+        self._last_activity.pop(guild.id, None)
+
         logger.info(f"Broadcast section '{section.section_name}' stopped and removed")
         return {"success": True}
 
