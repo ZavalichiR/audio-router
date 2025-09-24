@@ -86,9 +86,10 @@ class AudioForwarderBot:
 
     async def _monitor_voice_connection(self) -> None:
         """Monitor voice connection and reconnect if needed."""
+        check_interval = 20
         while True:
             try:
-                await asyncio.sleep(20)  # Check every 20 seconds
+                await asyncio.sleep(check_interval)
                 self.logger.debug(
                     f"[{self.config.bot_id}] Checking voice connection ..."
                 )
@@ -115,7 +116,9 @@ class AudioForwarderBot:
                         f"[{self.config.bot_id}] VoiceClient is not connected or is in the wrong channel, reconnecting..."
                     )
                     await self.event_handlers.connect_to_channel()
+                    check_interval = 10
                 elif voice_client and voice_client.is_connected():
+                    check_interval = 20
                     # Log status every 5 minutes (5 * 60 seconds)
                     if hasattr(self, "_status_counter"):
                         self._status_counter += 1
@@ -137,7 +140,7 @@ class AudioForwarderBot:
                     f"[{self.config.bot_id}] Error in voice connection monitoring: {e}",
                     exc_info=True,
                 )
-                await asyncio.sleep(20)
+                await asyncio.sleep(check_interval)
 
     async def stop(self) -> None:
         """Stop the audio forwarder bot."""

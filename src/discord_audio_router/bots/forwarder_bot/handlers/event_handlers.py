@@ -76,6 +76,12 @@ class EventHandlers:
 
     async def connect_to_channel(self) -> bool:
         """Connect to the speaker channel and start audio capture."""
+        if not self._initialized:
+            self.logger.debug(
+                f"[{self.config.bot_id}] Bot not initialized, skipping connection"
+            )
+            return False
+
         if self._connecting:
             self.logger.debug(
                 f"[{self.config.bot_id}] Connection attempt already in progress"
@@ -98,7 +104,7 @@ class EventHandlers:
             try:
                 voice_client = await channel.connect(
                     cls=voice_recv.VoiceRecvClient,
-                    timeout=30.0,
+                    timeout=20.0,
                     reconnect=True,
                     self_deaf=True,
                     self_mute=False,
