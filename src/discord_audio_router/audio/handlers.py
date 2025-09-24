@@ -77,6 +77,12 @@ class OpusAudioSink(voice_recv.AudioSink):
             self._filtered_packets += 1
             return
 
+        # Filter out bot voices - only capture audio from human members
+        if user.bot:
+            self._filtered_packets += 1
+            logger.debug(f"Filtered out audio from bot: {user.display_name}")
+            return
+
         # Only filter out packets with no audio data at all
         if (
             not voice_data.packet.decrypted_data
