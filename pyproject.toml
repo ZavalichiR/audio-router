@@ -9,10 +9,10 @@ description = "Professional Discord bot for real-time audio routing between voic
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Discord Audio Router Team", email = "team@discord-audio-router.com"}
+    {name = "ZavalichiR", email = "razvan.zavalichi@gmail.com"}
 ]
 maintainers = [
-    {name = "Discord Audio Router Team", email = "team@discord-audio-router.com"}
+    {name = "ZavalichiR", email = "razvan.zavalichi@gmail.com"}
 ]
 keywords = ["discord", "bot", "audio", "routing", "voice", "websocket", "broadcast", "streaming"]
 classifiers = [
@@ -60,10 +60,9 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/discord-audio-router/discord-audio-router"
-Documentation = "https://discord-audio-router.readthedocs.io/"
-Repository = "https://github.com/discord-audio-router/discord-audio-router.git"
-Issues = "https://github.com/discord-audio-router/discord-audio-router/issues"
+Homepage = "https://github.com/ZavalichiR/audio-router"
+Repository = "https://github.com/ZavalichiR/audio-router.git"
+Issues = "https://github.com/ZavalichiR/audio-router/issues"
 
 [project.scripts]
 discord-audio-router = "discord_audio_router.bots.main_bot:main"
