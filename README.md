@@ -344,6 +344,20 @@ data/subscriptions.db
 #### ❌ "You need administrator permissions"
 **Solution**: Make sure you have Administrator permission on the server
 
+#### ❌ Speaker bot not joining channel / Voice connection timeout
+**Problem**: The AudioForwarder (speaker) bot fails to join the voice channel or experiences connection timeouts.
+
+**Solution**:
+1. **Assign the Speaker role to the AudioForwarder bot** (the bot with "forward" in its name, e.g., `Fwd-Speaker`):
+   - In your Discord server, right-click the **AudioForwarder bot** (NOT the AudioBroadcast bot)
+   - Go to Roles
+   - Assign the role that matches your `SPEAKER_NAME` in `.env` (default: "Speaker")
+2. **Verify bot permissions**: Ensure the AudioForwarder bot has `Connect`, `Speak`, and `View Channel` permissions
+3. **Check channel permissions**: Make sure the voice channel doesn't have role restrictions that block the bot
+4. **Configure permission role** (optional): In the control panel, you can set a specific role name for access control when creating a broadcast section
+
+**Important**: The `permission_role` setting in the control panel determines which role is required to be a speaker. The **AudioForwarder bot** (speaker bot) must have this role assigned in Discord, not the AudioBroadcast bot.
+
 #### ❌ Audio not working
 **Solution**: Check that FFmpeg is installed and bots are connected to voice channels
 
