@@ -17,6 +17,9 @@ ffmpeg-python>=0.2.0
 # System Monitoring
 psutil>=6.0.0
 
+# Cross-platform file locking
+portalocker>=2.8.2
+
 # Development Dependencies (optional)
 pytest>=8.3.0
 pytest-asyncio>=0.24.0

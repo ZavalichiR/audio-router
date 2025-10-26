@@ -10,7 +10,7 @@ import threading
 import time
 from pathlib import Path
 from typing import Dict, Optional, Any
-import fcntl
+import portalocker
 
 from discord_audio_router.infrastructure.logging import setup_logging
 
@@ -118,9 +118,9 @@ class ControlPanelStorage:
         try:
             with open(self.settings_file, "r", encoding="utf-8") as f:
                 with self._lock:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_SH)  # Shared lock for reading
+                    portalocker.lock(f, portalocker.LOCK_SH)  # Shared lock for reading
                     data = json.load(f)
-                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)  # Release lock
+                    portalocker.unlock(f)  # Release lock
 
             for guild_id_str, settings_data in data.items():
                 guild_id = int(guild_id_str)
@@ -142,13 +142,13 @@ class ControlPanelStorage:
 
             with open(temp_file, "w", encoding="utf-8") as f:
                 with self._lock:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_EX)  # Exclusive lock for writing
+                    portalocker.lock(f, portalocker.LOCK_EX)  # Exclusive lock for writing
                     data = {
                         str(guild_id): settings.to_dict()
                         for guild_id, settings in self._settings_cache.items()
                     }
                     json.dump(data, f, indent=2, ensure_ascii=False)
-                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)  # Release lock
+                    portalocker.unlock(f)  # Release lock
 
             # Atomic move
             temp_file.replace(self.settings_file)
@@ -208,9 +208,9 @@ class ControlPanelStorage:
         try:
             with open(self.panels_file, "r", encoding="utf-8") as f:
                 with self._lock:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_SH)  # Shared lock for reading
+                    portalocker.lock(f, portalocker.LOCK_SH)  # Shared lock for reading
                     data = json.load(f)
-                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)  # Release lock
+                    portalocker.unlock(f)  # Release lock
 
             for guild_id_str, panel_data in data.items():
                 guild_id = int(guild_id_str)
@@ -225,13 +225,13 @@ class ControlPanelStorage:
         try:
             with open(self.panels_file, "w", encoding="utf-8") as f:
                 with self._lock:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_EX)  # Exclusive lock for writing
+                    portalocker.lock(f, portalocker.LOCK_EX)  # Exclusive lock for writing
                     data = {
                         str(guild_id): panel_info.to_dict()
                         for guild_id, panel_info in self._panels_cache.items()
                     }
                     json.dump(data, f, indent=2, ensure_ascii=False)
-                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)  # Release lock
+                    portalocker.unlock(f)  # Release lock
 
             logger.debug("Control panel panels saved successfully")
         except Exception as e:

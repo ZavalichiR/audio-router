@@ -10,7 +10,7 @@ import threading
 import time
 from pathlib import Path
 from typing import Dict, Optional, Any, List
-import fcntl
+import portalocker
 
 from discord_audio_router.infrastructure.logging import setup_logging
 
@@ -97,9 +97,9 @@ class SectionStorage:
         try:
             with open(self.sections_file, "r", encoding="utf-8") as f:
                 with self._lock:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_SH)  # Shared lock for reading
+                    portalocker.lock(f, portalocker.LOCK_SH)  # Shared lock for reading
                     data = json.load(f)
-                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)  # Release lock
+                    portalocker.unlock(f)  # Release lock
 
             for guild_id_str, section_data in data.items():
                 guild_id = int(guild_id_str)
@@ -117,7 +117,7 @@ class SectionStorage:
         try:
             with open(self.sections_file, "w", encoding="utf-8") as f:
                 with self._lock:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_EX)  # Exclusive lock for writing
+                    portalocker.lock(f, portalocker.LOCK_EX)  # Exclusive lock for writing
                     json.dump(
                         {
                             str(guild_id): section.to_dict()
@@ -127,7 +127,7 @@ class SectionStorage:
                         indent=2,
                         ensure_ascii=False,
                     )
-                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)  # Release lock
+                    portalocker.unlock(f)  # Release lock
         except Exception as e:
             logger.error(f"Failed to save broadcast sections: {e}", exc_info=True)
 
