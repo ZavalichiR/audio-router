@@ -46,19 +46,75 @@ The system uses specialized Discord bots working together:
 
 ## 🚀 Quick Start
 
+**Before You Begin**: This software is for **personal, educational, and non-commercial use only**. See the [License](#-license) section for details. Commercial use requires explicit written permission from the owner.
+
 ### 1. Create Discord Bots
 
 Create multiple bot users in [Discord Developer Portal](https://discord.com/developers/applications):
 
-1. **AudioBroadcast Bot** (Main Control)
-2. **AudioForwarder Bot** (Speaker Bot)
-3. **AudioReceiver-1, AudioReceiver-2, etc.** (Listener Bots)
+#### Bot Naming Convention
+
+**IMPORTANT**: The system requires specific bot names to function correctly.
+
+| Bot Number | Application Name | Username | Display Name | Purpose |
+|------------|------------------|----------|--------------|---------|
+| 1 | AudioBroadcast | AudioBroadcast | AudioBroadcast | Main control bot (handles commands) |
+| 2 | AudioForwarder | AudioForwarder | Fwd-Speaker | Speaker bot (captures audio) |
+| 3 | AudioReceiver-1 | AudioReceiver-1 | **Rcv-1** | Listener channel 1 |
+| 4 | AudioReceiver-2 | AudioReceiver-2 | **Rcv-2** | Listener channel 2 |
+| 5 | AudioReceiver-3 | AudioReceiver-3 | **Rcv-3** | Listener channel 3 |
+| ... | ... | ... | ... | ... |
+| 14 | AudioReceiver-12 | AudioReceiver-12 | **Rcv-12** | Listener channel 12 |
+
+**Critical Naming Requirements**:
+
+- ⚠️ **AudioForwarder bot MUST have "forward" in its display name** (case-insensitive, e.g., `Fwd-Speaker`, `AudioForwarder`, `Forward-Bot`)
+- ⚠️ **AudioReceiver bots MUST have display names starting with `Rcv-`** (e.g., `Rcv-1`, `Rcv-2`, `Rcv-3`)
+- The system automatically detects bots by these naming patterns
+- The number after `Rcv-` should match the bot number for organization
+
+#### Required Permissions
 
 For each bot, enable these **Privileged Gateway Intents**:
 - ✅ Server Members Intent
 - ✅ Message Content Intent
 
-### 2. Install and Configure
+Grant each bot these **Bot Permissions**:
+- ✅ Manage Channels
+- ✅ Manage Roles
+- ✅ Connect (Voice)
+- ✅ Speak (Voice)
+- ✅ Send Messages
+- ✅ Read Message History
+- ✅ Embed Links
+
+**Tip**: You can grant Administrator permission for simplicity during setup.
+
+### 2. Invite Bots to Your Discord Server
+
+After creating all bots in the Developer Portal, you need to invite them to your Discord server:
+
+1. **Generate OAuth2 URLs** for each bot:
+   - Go to your bot in the [Discord Developer Portal](https://discord.com/developers/applications)
+   - Navigate to **OAuth2** → **URL Generator**
+   - Select **Scopes**: `bot`, `applications.commands`
+   - Select **Bot Permissions**: Check `Administrator` (or the specific permissions listed above)
+   - Copy the generated URL
+
+2. **Invite each bot** to your server:
+   - Open the generated URL in your browser
+   - Select your Discord server
+   - Click **Authorize**
+   - Complete the CAPTCHA if prompted
+   - Repeat for all bots (AudioBroadcast, AudioForwarder, and all AudioReceiver bots)
+
+3. **Verify bot names**:
+   - Go to your Discord server
+   - Check that the AudioForwarder bot has "forward" in its display name
+   - Check that all AudioReceiver bots have names starting with `Rcv-` (e.g., `Rcv-1`, `Rcv-2`)
+   - You can change bot nicknames in Discord: Right-click bot → Change Nickname
+
+### 3. Install and Configure
 
 ```bash
 # Clone the repository
@@ -73,11 +129,38 @@ cp env.example .env
 # Edit .env with your bot tokens
 ```
 
-### 3. Run the System
+**Important**: Edit the `.env` file and paste the bot tokens you copied from the Discord Developer Portal.
+
+### 4. Run the System
 
 ```bash
 python launcher.py
 ```
+
+The launcher will:
+
+- Start the WebSocket relay server
+- Start the AudioBroadcast bot
+- Validate all configuration
+
+### 5. Create Your First Broadcast
+
+In your Discord server, use these commands:
+
+```bash
+!help                    # View all available commands
+!bot_status             # Check that all bots are detected
+!control_panel          # Open the interactive control panel to create a broadcast section
+```
+
+**Using the Control Panel**:
+
+1. Click the "Create Broadcast" button
+2. Enter the number of listener channels you want (based on your subscription tier)
+3. Optionally enter a custom role name for access control
+4. Wait for the system to create channels and deploy bots
+5. Join the Speaker channel and start talking
+6. Audience members join the Channel-1, Channel-2, etc. to listen
 
 ## 🎛️ How to Use
 
@@ -134,28 +217,108 @@ AUTO_CLEANUP_TIMEOUT=10
 ENVIRONMENT=development
 ```
 
-## 🎯 Subscription System
+## 🎯 Subscription & Licensing System
 
-The system includes a subscription management system with different tiers:
+The system uses a **SQLite database** (`data/subscriptions.db`) to manage per-server licenses that control how many listener channels each Discord server can create.
 
-| Tier | Max Listeners |
-|------|---------------|
-| Free | 1 |
-| Basic | 2 |
-| Standard | 6 |
-| Advanced | 12 |
-| Premium | 24 |
-| Custom | Unlimited |
+### How It Works
 
-### Managing Subscriptions
+1. **Per-Server Licensing**: Each Discord server has its own subscription tier
+2. **Database Storage**: Subscriptions are stored in `data/subscriptions.db`
+3. **Invite Code Based**: Subscriptions are created using Discord invite codes
+4. **Automatic Enforcement**: The system automatically checks the database before creating broadcast sections
+5. **Default Tier**: Servers without a subscription default to the **Free** tier (1 listener)
+
+### Subscription Tiers
+
+| Tier | Max Listeners | Use Case |
+|------|---------------|----------|
+| **Free** | 1 | Basic functionality, testing |
+| **Basic** | 2 | Small groups, trial tier |
+| **Standard** | 6 | Small communities |
+| **Advanced** | 12 | Medium communities |
+| **Premium** | 24 | Large communities |
+| **Custom** | Unlimited | Custom features, enterprise |
+
+### Managing Subscriptions (Server Owner/Admin)
+
+You can manage subscriptions using the `manage_subscriptions.py` CLI tool:
+
+#### Create a Subscription
 
 ```bash
-# Create a subscription
-python manage_subscriptions.py create <invite_code> <tier>
+# Syntax: python manage_subscriptions.py create <invite_code> <tier>
+python manage_subscriptions.py create abc123xyz free
+python manage_subscriptions.py create abc123xyz premium
+```
 
-# Check subscription status
+**How to get an invite code**:
+
+1. Go to your Discord server
+2. Right-click on any channel → "Invite People"
+3. Click "Edit invite link" → Set "Expire After" to "Never"
+4. Copy the invite code (e.g., `https://discord.gg/abc123xyz` → use `abc123xyz`)
+
+#### List All Subscriptions
+
+```bash
+python manage_subscriptions.py list
+```
+
+#### Get Subscription Details
+
+```bash
+python manage_subscriptions.py get <invite_code>
+```
+
+#### Update Subscription Tier
+
+```bash
+python manage_subscriptions.py update <invite_code> <new_tier>
+# Example: Upgrade a server to premium
+python manage_subscriptions.py update abc123xyz premium
+```
+
+#### Delete a Subscription
+
+```bash
+python manage_subscriptions.py delete <invite_code>
+```
+
+#### View Available Tiers
+
+```bash
+python manage_subscriptions.py tiers
+```
+
+### Checking Subscription Status (Discord Users)
+
+Users can check their server's subscription status in Discord:
+
+```bash
 !subscription_status
 ```
+
+This command displays:
+
+- Current subscription tier
+- Maximum allowed listeners
+- Number of installed AudioReceiver bots
+- Upgrade information
+
+### Database Location
+
+The subscription database is stored at:
+
+```text
+data/subscriptions.db
+```
+
+**Important**:
+
+- Back up this database regularly if you're managing subscriptions
+- The database is created automatically on first use
+- Subscriptions persist across bot restarts
 
 ## 📊 System Requirements
 
@@ -192,7 +355,51 @@ python manage_subscriptions.py create <invite_code> <tier>
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+### Copyright
+
+Copyright (c) 2024-2025 - All Rights Reserved
+
+This project is provided for **personal, educational, and non-commercial use only**.
+
+### Terms of Use
+
+#### ✅ You MAY
+
+- Use this software for personal, non-commercial purposes
+- Study and learn from the code
+- Modify the code for your own personal use
+- Run the software on your own Discord servers
+
+#### ❌ You MAY NOT
+
+- Sell, license, or commercialize this software or derivatives without explicit written permission from the owner
+- Offer this as a paid service or product
+- Redistribute this software (modified or unmodified) for commercial purposes
+- Remove or modify copyright notices
+
+### Discord Policy Compliance
+
+This software must be used in compliance with:
+
+- [Discord Terms of Service](https://discord.com/terms)
+- [Discord Developer Terms of Service](https://discord.com/developers/docs/policies-and-agreements/developer-terms-of-service)
+- [Discord Developer Policy](https://support-dev.discord.com/hc/en-us/articles/8563934450327-Discord-Developer-Policy)
+- [Discord Community Guidelines](https://discord.com/guidelines)
+
+#### Key Requirements
+
+- You must comply with all Discord policies when using this software
+- You cannot use this software to violate Discord's Terms of Service
+- You are responsible for ensuring your use complies with Discord's Developer Policy
+- This software cannot be used to scrape data, spam, or abuse Discord's services
+
+### Commercial Use
+
+For commercial use, licensing inquiries, or partnerships, please contact the owner for explicit written permission.
+
+### Disclaimer
+
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. THE AUTHOR IS NOT RESPONSIBLE FOR ANY DAMAGES OR LEGAL ISSUES ARISING FROM THE USE OF THIS SOFTWARE. USERS ARE SOLELY RESPONSIBLE FOR ENSURING THEIR USE COMPLIES WITH ALL APPLICABLE LAWS AND DISCORD'S POLICIES.
 
 ## 🎉 Ready to Get Started?
 
