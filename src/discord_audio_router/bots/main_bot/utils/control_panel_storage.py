@@ -112,7 +112,7 @@ class ControlPanelStorage:
     def _load_settings(self) -> None:
         """Load settings from file."""
         if not self.settings_file.exists():
-            logger.warning("Control panel settings file not found, using defaults")
+            logger.debug("Control panel settings file not found, using defaults")
             return
 
         try:

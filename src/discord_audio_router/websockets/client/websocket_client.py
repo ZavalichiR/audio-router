@@ -129,16 +129,16 @@ class WebSocketClient:
                     f"[{self.client_id}] Connection created, registering..."
                 )
 
-                # Register with server BEFORE setting is_connected flag
+                # Start message processing task BEFORE registration
+                # so it can receive and process the registration acknowledgment
+                self._connection_task = asyncio.create_task(
+                    self._process_messages()
+                )
+
+                # Register with server and wait for acknowledgment
                 if await self.control_handler.register_with_server(self.websocket):
                     # Only set flag after successful registration
                     self.is_connected = True
-
-                    # Start message processing task after registration
-                    self._connection_task = asyncio.create_task(
-                        self._process_messages()
-                    )
-
                     self.logger.info(f"[{self.client_id}] Client ready")
                     return True
                 else:

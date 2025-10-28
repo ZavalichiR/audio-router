@@ -49,8 +49,8 @@ class AudioRouterBot:
         intents = discord.Intents.default()
         intents.voice_states = True
         intents.guilds = True
-        intents.members = True
-        intents.message_content = True
+        intents.members = True  # REQUIRED for fetch_members() to count receiver bots
+        intents.message_content = True  # REQUIRED for prefix commands
 
         self.bot = commands.Bot(
             command_prefix=self.config.command_prefix,

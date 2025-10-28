@@ -169,7 +169,7 @@ class OpusAudioSource(discord.AudioSource):
             return b""
 
         # Use thread-safe synchronous access to avoid deadlocks
-        audio_packet = self.audio_buffer.get_sync(timeout=0.001)
+        audio_packet = self.audio_buffer.get_sync(timeout=0.020)
 
         result = audio_packet if audio_packet else self.audio_buffer.get_silence_frame()
 

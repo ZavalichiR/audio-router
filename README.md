@@ -1,123 +1,80 @@
-# 🎵 Discord Audio Router
+# Discord Audio Router
 
-**A personal project that was really interesting and had as goal an MVP that is working**
+**A personal MVP project for broadcasting audio from one Discord voice channel to multiple listener channels simultaneously.**
 
-A multi-bot audio routing system for Discord that broadcasts audio from one speaker channel to multiple listener channels simultaneously. Perfect for presentations, meetings, events, and any scenario where you need to broadcast audio to multiple groups.
+Perfect for presentations, meetings, events, and any scenario where you need to broadcast audio to multiple groups at once.
 
-## 🏗️ System Architecture
+## How It Works
 
-### Multi-Bot Architecture
-The system uses specialized Discord bots working together:
+The system uses multiple Discord bots working together:
 
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Speaker       │    │  WebSocket       │    │   Listener      │
-│   Channel       │◄───┤  Relay Server    ├───►│   Channels      │
-│                 │    │                  │    │                 │
-│ [AudioForwarder]│    │  Audio Router    │    │ [AudioReceiver] │
-│      Bot        │    │   System         │    │      Bots       │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
+Speaker Channel  →  AudioForwarder Bot  →  WebSocket Relay  →  AudioReceiver Bots  →  Listener Channels
+   (Presenter)        (Captures audio)        (Routes audio)      (Play audio)         (Audiences)
 ```
 
-### Bot Types & Roles
+- **AudioBroadcast Bot**: Main control bot that handles commands and coordination
+- **AudioForwarder Bot**: Joins the speaker channel and captures audio
+- **AudioReceiver Bots**: Join listener channels and play the audio (one bot per channel)
+- **WebSocket Relay**: Routes audio between the forwarder and receiver bots
 
-1. **🎛️ AudioBroadcast Bot (Main Control)**
-   - Handles user commands and system management
-   - Creates and manages broadcast sections
-   - Coordinates all other bots
-
-2. **🎤 AudioForwarder Bot (Speaker Bot)**
-   - Joins the speaker channel
-   - Captures audio from presenters
-   - Sends audio data to the WebSocket relay server
-
-3. **📢 AudioReceiver Bots (Listener Bots)**
-   - Join individual listener channels
-   - Receive audio data from the relay server
-   - Play audio to audience members
-   - Multiple instances (one per listener channel)
-
-### Database & File Communication
-
-- **SQLite Database**: `data/subscriptions.db` - Stores subscription tiers and limits
-- **WebSocket Relay Server**: Centralized audio routing between bots
-- **JSON Configuration Files**: `data/broadcast_sections.json`, `data/control_panel_*.json`
-- **Logging**: Structured logging to `logs/` directory
-
-## 🚀 Quick Start
-
-**Before You Begin**: This software is for **personal, educational, and non-commercial use only**. See the [License](#-license) section for details. Commercial use requires explicit written permission from the owner.
+## Quick Start
 
 ### 1. Create Discord Bots
 
-Create multiple bot users in [Discord Developer Portal](https://discord.com/developers/applications):
+Create bots in the [Discord Developer Portal](https://discord.com/developers/applications):
 
-#### Bot Naming Convention
+| Bot | Display Name | Purpose |
+|-----|--------------|---------|
+| AudioBroadcast | AudioBroadcast | Main control bot (handles commands) |
+| AudioForwarder | Fwd-Speaker | Captures audio from speaker channel |
+| AudioReceiver-1 | Rcv-1 | Plays audio to listener channel 1 |
+| AudioReceiver-2 | Rcv-2 | Plays audio to listener channel 2 |
+| ... | ... | ... |
+| AudioReceiver-N | Rcv-N | Additional listener channels as needed |
 
-**IMPORTANT**: The system requires specific bot names to function correctly.
+**Important Naming Requirements:**
+- AudioForwarder bot **must have "forward" in its display name** (e.g., `Fwd-Speaker`, `AudioForwarder`)
+- AudioReceiver bots **must have names starting with `Rcv-`** (e.g., `Rcv-1`, `Rcv-2`, `Rcv-3`)
+- The system auto-detects bots by these naming patterns
 
-| Bot Number | Application Name | Username | Display Name | Purpose |
-|------------|------------------|----------|--------------|---------|
-| 1 | AudioBroadcast | AudioBroadcast | AudioBroadcast | Main control bot (handles commands) |
-| 2 | AudioForwarder | AudioForwarder | Fwd-Speaker | Speaker bot (captures audio) |
-| 3 | AudioReceiver-1 | AudioReceiver-1 | **Rcv-1** | Listener channel 1 |
-| 4 | AudioReceiver-2 | AudioReceiver-2 | **Rcv-2** | Listener channel 2 |
-| 5 | AudioReceiver-3 | AudioReceiver-3 | **Rcv-3** | Listener channel 3 |
-| ... | ... | ... | ... | ... |
-| 14 | AudioReceiver-12 | AudioReceiver-12 | **Rcv-12** | Listener channel 12 |
+### 2. Enable Privileged Intents
 
-**Critical Naming Requirements**:
+For the **AudioBroadcast bot only** (main control bot), go to the Discord Developer Portal → Bot section → Enable:
+- ✅ **Server Members Intent** (required for bot detection)
+- ✅ **Message Content Intent** (required for prefix commands)
 
-- ⚠️ **AudioForwarder bot MUST have "forward" in its display name** (case-insensitive, e.g., `Fwd-Speaker`, `AudioForwarder`, `Forward-Bot`)
-- ⚠️ **AudioReceiver bots MUST have display names starting with `Rcv-`** (e.g., `Rcv-1`, `Rcv-2`, `Rcv-3`)
-- The system automatically detects bots by these naming patterns
-- The number after `Rcv-` should match the bot number for organization
+**Note**: AudioForwarder and AudioReceiver bots do NOT need privileged intents enabled.
 
-#### Required Permissions
+### 3. Set Bot Permissions
 
-For each bot, enable these **Privileged Gateway Intents**:
-- ✅ Server Members Intent
-- ✅ Message Content Intent
+Give each bot these permissions (or use Administrator for simplicity):
+- Connect, Speak (Voice)
+- Manage Channels, Manage Roles
+- Send Messages, Read Message History, Embed Links
 
-Grant each bot these **Bot Permissions**:
-- ✅ Manage Channels
-- ✅ Manage Roles
-- ✅ Connect (Voice)
-- ✅ Speak (Voice)
-- ✅ Send Messages
-- ✅ Read Message History
-- ✅ Embed Links
+**Permission Integer for AudioReceiver bots**: `3145728`
 
-**Tip**: You can grant Administrator permission for simplicity during setup.
+### 4. Invite Bots to Your Server
 
-### 2. Invite Bots to Your Discord Server
+Generate OAuth2 URLs and invite all bots:
 
-After creating all bots in the Developer Portal, you need to invite them to your Discord server:
+1. Go to Discord Developer Portal → OAuth2 → URL Generator
+2. Select scopes: `bot`
+3. Select permissions or use Administrator
+4. Copy URL and open in browser to invite
 
-1. **Generate OAuth2 URLs** for each bot:
-   - Go to your bot in the [Discord Developer Portal](https://discord.com/developers/applications)
-   - Navigate to **OAuth2** → **URL Generator**
-   - Select **Scopes**: `bot`, `applications.commands`
-   - Select **Bot Permissions**: Check `Administrator` (or the specific permissions listed above)
-   - Copy the generated URL
+**Quick invite URL format:**
+```
+https://discord.com/oauth2/authorize?client_id=YOUR_BOT_CLIENT_ID&permissions=3145728&integration_type=0&scope=bot
+```
 
-2. **Invite each bot** to your server:
-   - Open the generated URL in your browser
-   - Select your Discord server
-   - Click **Authorize**
-   - Complete the CAPTCHA if prompted
-   - Repeat for all bots (AudioBroadcast, AudioForwarder, and all AudioReceiver bots)
+Replace `YOUR_BOT_CLIENT_ID` with each bot's client ID from the Developer Portal.
 
-3. **Verify bot names**:
-   - Go to your Discord server
-   - Check that the AudioForwarder bot has "forward" in its display name
-   - Check that all AudioReceiver bots have names starting with `Rcv-` (e.g., `Rcv-1`, `Rcv-2`)
-   - You can change bot nicknames in Discord: Right-click bot → Change Nickname
-
-### 3. Install and Configure
+### 5. Install and Configure
 
 ```bash
-# Clone the repository
+# Clone repository
 git clone <repository-url>
 cd discord-audio-router
 
@@ -126,304 +83,250 @@ pip install -r requirements.txt
 
 # Configure environment
 cp env.example .env
-# Edit .env with your bot tokens
+# Edit .env and paste your bot tokens
 ```
 
-**Important**: Edit the `.env` file and paste the bot tokens you copied from the Discord Developer Portal.
+**Important**: Edit `.env` and add all bot tokens from the Discord Developer Portal.
 
-### 4. Run the System
+### 6. Configure Bot Invite URLs (Optional but Recommended)
+
+The system can show invite links to users who need to add more receiver bots:
+
+```bash
+# Edit data/bot_urls.json with your bot invite URLs
+# Format: JSON array of invite URLs, one per receiver bot
+```
+
+Example `data/bot_urls.json`:
+```json
+[
+  "https://discord.com/oauth2/authorize?client_id=BOT1_ID&permissions=3145728&integration_type=0&scope=bot",
+  "https://discord.com/oauth2/authorize?client_id=BOT2_ID&permissions=3145728&integration_type=0&scope=bot"
+]
+```
+
+You can also use the management script:
+```bash
+python manage_urls.py list                    # List all URLs
+python manage_urls.py add <invite_url>        # Add a new URL
+python manage_urls.py remove <index>          # Remove URL by index
+```
+
+### 7. Run the System
 
 ```bash
 python launcher.py
 ```
 
-The launcher will:
+The launcher will start:
+- WebSocket relay server
+- AudioBroadcast bot
+- All system components
 
-- Start the WebSocket relay server
-- Start the AudioBroadcast bot
-- Validate all configuration
+### 8. Create Your First Broadcast
 
-### 5. Create Your First Broadcast
-
-In your Discord server, use these commands:
+In Discord, use these commands:
 
 ```bash
-!help                    # View all available commands
-!bot_status             # Check that all bots are detected
-!control_panel          # Open the interactive control panel to create a broadcast section
+!help                    # View all commands
+!bot_status             # Check system health and bot detection
+!control_panel          # Open interactive control panel
 ```
 
-**Using the Control Panel**:
-
-1. Click the "Create Broadcast" button
-2. Enter the number of listener channels you want (based on your subscription tier)
-3. Optionally enter a custom role name for access control
-4. Wait for the system to create channels and deploy bots
+**Using the Control Panel:**
+1. Click "Create Broadcast"
+2. Enter number of listener channels (based on your subscription tier)
+3. Optionally enter a custom role name for speaker access
+4. Wait for channels to be created
 5. Join the Speaker channel and start talking
-6. Audience members join the Channel-1, Channel-2, etc. to listen
+6. Audience joins Channel-1, Channel-2, etc. to listen
 
-## 🎛️ How to Use
-
-### Creating a Broadcast Section
-
-1. **Open the control panel**:
-   ```
-   !control_panel
-   ```
-
-2. **Create a broadcast section**:
-   - Use the interactive control panel to create sections
-   - Set up speaker channels and listener channels
-   - Configure access control and roles
-
-3. **Start audio broadcasting**:
-   - Presenter joins the speaker channel
-   - Audience joins listener channels (Channel-1, Channel-2, etc.)
-   - Audio is automatically routed from speaker to all listeners
-
-### Commands
+## Commands
 
 | Command | Description |
 |---------|-------------|
-| `!control_panel` | Open interactive control panel for broadcast management |
-| `!help` | Show help information and usage guide |
-| `!bot_status` | Check status of all bots and system health |
+| `!control_panel` | Open interactive control panel (admin only) |
+| `!help` | Show help and usage information |
+| `!bot_status` | Check system health and bot detection |
+| `!subscription_status` | View your server's subscription tier and limits |
+| `!how_it_works` | Learn how the audio router works |
 
-## ⚙️ Configuration
+## Subscription System
+
+The system uses a SQLite database (`data/subscriptions.db`) to manage per-server licenses that control how many listener channels each server can create.
+
+### Subscription Tiers
+
+| Tier | Max Listeners | Use Case |
+|------|---------------|----------|
+| Free | 1 | Testing, basic use |
+| Basic | 2 | Small groups |
+| Standard | 6 | Small communities |
+| Advanced | 12 | Medium communities |
+| Premium | 24 | Large communities |
+| Custom | Unlimited | Enterprise |
+
+### Managing Subscriptions
+
+Use the `manage_subscriptions.py` CLI tool:
+
+```bash
+# Create subscription using Discord invite code
+python manage_subscriptions.py create <invite_code> <tier>
+
+# Example: Create a premium subscription
+python manage_subscriptions.py create abc123xyz premium
+
+# List all subscriptions
+python manage_subscriptions.py list
+
+# Update tier
+python manage_subscriptions.py update <invite_code> <new_tier>
+
+# Delete subscription
+python manage_subscriptions.py delete <invite_code>
+
+# View available tiers
+python manage_subscriptions.py tiers
+```
+
+**Getting an invite code:**
+1. In Discord, right-click any channel → "Invite People"
+2. Click "Edit invite link" → Set "Expire After" to "Never"
+3. Copy invite code (e.g., `https://discord.gg/abc123xyz` → use `abc123xyz`)
+
+**Note**: Servers without a subscription default to the Free tier (1 listener).
+
+## Configuration
 
 ### Required Environment Variables
 
 ```env
-# Bot Tokens (Required)
-AUDIO_BROADCAST_TOKEN=your_audiobroadcast_bot_token_here
-AUDIO_FORWARDER_TOKEN=your_audioforwarder_bot_token_here
+# Main control bot
+AUDIO_BROADCAST_TOKEN=your_audiobroadcast_bot_token
 
-# AudioReceiver Bot Tokens (Required)
+# Speaker bot
+AUDIO_FORWARDER_TOKEN=your_audioforwarder_bot_token
+
+# Listener bots (one per line)
 AUDIO_RECEIVER_TOKENS=[
-    your_audioreceiver_1_bot_token,
-    your_audioreceiver_2_bot_token,
-    your_audioreceiver_3_bot_token
+    your_audioreceiver_1_token,
+    your_audioreceiver_2_token,
+    your_audioreceiver_3_token
 ]
 ```
 
 ### Optional Configuration
 
 ```env
-# Bot Configuration
-BOT_PREFIX=!
-AUTO_CLEANUP_TIMEOUT=10
-
-# Logging
-ENVIRONMENT=development
+BOT_PREFIX=!                # Command prefix (default: !)
+AUTO_CLEANUP_TIMEOUT=10     # Auto-cleanup inactive broadcasts in minutes (0 to disable)
+ENVIRONMENT=development     # Logging level: development, staging, production
 ```
 
-## 🎯 Subscription & Licensing System
+## Troubleshooting
 
-The system uses a **SQLite database** (`data/subscriptions.db`) to manage per-server licenses that control how many listener channels each Discord server can create.
+### "Privileged intents not enabled"
+**Solution**: Enable **Server Members Intent** and **Message Content Intent** in Discord Developer Portal for the **AudioBroadcast bot** (main control bot only).
 
-### How It Works
+### "No available tokens for AudioReceiver bot"
+**Solution**: Create more AudioReceiver bots and add their tokens to `AUDIO_RECEIVER_TOKENS` in `.env`.
 
-1. **Per-Server Licensing**: Each Discord server has its own subscription tier
-2. **Database Storage**: Subscriptions are stored in `data/subscriptions.db`
-3. **Invite Code Based**: Subscriptions are created using Discord invite codes
-4. **Automatic Enforcement**: The system automatically checks the database before creating broadcast sections
-5. **Default Tier**: Servers without a subscription default to the **Free** tier (1 listener)
-
-### Subscription Tiers
-
-| Tier | Max Listeners | Use Case |
-|------|---------------|----------|
-| **Free** | 1 | Basic functionality, testing |
-| **Basic** | 2 | Small groups, trial tier |
-| **Standard** | 6 | Small communities |
-| **Advanced** | 12 | Medium communities |
-| **Premium** | 24 | Large communities |
-| **Custom** | Unlimited | Custom features, enterprise |
-
-### Managing Subscriptions (Server Owner/Admin)
-
-You can manage subscriptions using the `manage_subscriptions.py` CLI tool:
-
-#### Create a Subscription
-
-```bash
-# Syntax: python manage_subscriptions.py create <invite_code> <tier>
-python manage_subscriptions.py create abc123xyz free
-python manage_subscriptions.py create abc123xyz premium
-```
-
-**How to get an invite code**:
-
-1. Go to your Discord server
-2. Right-click on any channel → "Invite People"
-3. Click "Edit invite link" → Set "Expire After" to "Never"
-4. Copy the invite code (e.g., `https://discord.gg/abc123xyz` → use `abc123xyz`)
-
-#### List All Subscriptions
-
-```bash
-python manage_subscriptions.py list
-```
-
-#### Get Subscription Details
-
-```bash
-python manage_subscriptions.py get <invite_code>
-```
-
-#### Update Subscription Tier
-
-```bash
-python manage_subscriptions.py update <invite_code> <new_tier>
-# Example: Upgrade a server to premium
-python manage_subscriptions.py update abc123xyz premium
-```
-
-#### Delete a Subscription
-
-```bash
-python manage_subscriptions.py delete <invite_code>
-```
-
-#### View Available Tiers
-
-```bash
-python manage_subscriptions.py tiers
-```
-
-### Checking Subscription Status (Discord Users)
-
-Users can check their server's subscription status in Discord:
-
-```bash
-!subscription_status
-```
-
-This command displays:
-
-- Current subscription tier
-- Maximum allowed listeners
-- Number of installed AudioReceiver bots
-- Upgrade information
-
-### Database Location
-
-The subscription database is stored at:
-
-```text
-data/subscriptions.db
-```
-
-**Important**:
-
-- Back up this database regularly if you're managing subscriptions
-- The database is created automatically on first use
-- Subscriptions persist across bot restarts
-
-## 📊 System Requirements
-
-### Minimum Requirements
-- **RAM**: 2GB
-- **CPU**: 2 cores
-- **Storage**: 1GB
-- **Network**: Stable internet connection
-
-### Recommended for Production
-- **RAM**: 4GB+ (1GB per 5 listener channels)
-- **CPU**: 4+ cores
-- **Storage**: 5GB+
-- **Network**: High-speed, stable connection
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-#### ❌ "No available tokens for AudioReceiver bot"
-**Solution**: Create more AudioReceiver bots and add their tokens to `AUDIO_RECEIVER_TOKENS`
-
-#### ❌ "You need administrator permissions"
-**Solution**: Make sure you have Administrator permission on the server
-
-#### ❌ Speaker bot not joining channel / Voice connection timeout
-**Problem**: The AudioForwarder (speaker) bot fails to join the voice channel or experiences connection timeouts.
-
+### Speaker bot not joining channel / Connection timeout
 **Solution**:
-1. **Assign the Speaker role to the AudioForwarder bot** (the bot with "forward" in its name, e.g., `Fwd-Speaker`):
-   - In your Discord server, right-click the **AudioForwarder bot** (NOT the AudioBroadcast bot)
-   - Go to Roles
-   - Assign the role that matches your `SPEAKER_NAME` in `.env` (default: "Speaker")
-2. **Verify bot permissions**: Ensure the AudioForwarder bot has `Connect`, `Speak`, and `View Channel` permissions
-3. **Check channel permissions**: Make sure the voice channel doesn't have role restrictions that block the bot
-4. **Configure permission role** (optional): In the control panel, you can set a specific role name for access control when creating a broadcast section
+1. Verify the AudioForwarder bot has "forward" in its display name
+2. Ensure the bot has Connect and Speak permissions
+3. Check that the voice channel doesn't have restrictions blocking the bot
 
-**Important**: The `permission_role` setting in the control panel determines which role is required to be a speaker. The **AudioForwarder bot** (speaker bot) must have this role assigned in Discord, not the AudioBroadcast bot.
+### Audio not working
+**Solution**:
+1. Verify FFmpeg is installed on your system
+2. Check that all bots are connected to voice channels (`!bot_status`)
+3. Ensure speaker channel has active speakers
+4. Check logs in the `logs/` directory
 
-#### ❌ Audio not working
-**Solution**: Check that FFmpeg is installed and bots are connected to voice channels
+### Bot can't detect receiver bots
+**Solution**:
+1. Verify all AudioReceiver bots have names starting with `Rcv-`
+2. Check that Server Members Intent is enabled for AudioBroadcast bot
+3. Ensure all bots are in the same Discord server
 
-### Getting Help
+## System Requirements
 
-1. **Check bot status**: Use `!bot_status`
-2. **View logs**: Check the `logs/` directory
-3. **Restart system**: Stop and restart `python launcher.py`
+**Minimum:**
+- RAM: 2GB
+- CPU: 2 cores
+- Storage: 1GB
+- Python 3.8+
+- FFmpeg
 
-## 📄 License
+**Recommended for Production:**
+- RAM: 4GB+ (add 1GB per 5 listener channels)
+- CPU: 4+ cores
+- Storage: 5GB+
+- Stable, high-speed internet connection
 
-### Copyright
+## File Structure
 
-Copyright (c) 2024-2025 - All Rights Reserved
+```
+discord-audio-router/
+├── launcher.py                      # Main launcher script
+├── manage_subscriptions.py          # Subscription management CLI
+├── manage_urls.py                   # Bot URL management CLI
+├── .env                             # Configuration (create from env.example)
+├── data/
+│   ├── subscriptions.db            # SQLite subscription database
+│   ├── bot_urls.json               # Bot invite URLs for users
+│   └── control_panel_panels.json   # Control panel state
+├── logs/                           # Application logs
+└── src/
+    └── discord_audio_router/       # Main application code
+```
 
-This project is provided for **personal, educational, and non-commercial use only**.
+## License
 
-### Terms of Use
+**Copyright (c) 2024-2025 - All Rights Reserved**
 
-#### ✅ You MAY
+This project is for **personal, educational, and non-commercial use only**.
 
-- Use this software for personal, non-commercial purposes
+### You MAY:
+- Use for personal, non-commercial purposes
 - Study and learn from the code
-- Modify the code for your own personal use
-- Run the software on your own Discord servers
+- Modify for personal use
+- Run on your own Discord servers
 
-#### ❌ You MAY NOT
-
-- Sell, license, or commercialize this software or derivatives without explicit written permission from the owner
-- Offer this as a paid service or product
-- Redistribute this software (modified or unmodified) for commercial purposes
-- Remove or modify copyright notices
+### You MAY NOT:
+- Sell, license, or commercialize this software
+- Offer as a paid service
+- Redistribute for commercial purposes
+- Remove copyright notices
 
 ### Discord Policy Compliance
 
-This software must be used in compliance with:
-
+This software must comply with:
 - [Discord Terms of Service](https://discord.com/terms)
-- [Discord Developer Terms of Service](https://discord.com/developers/docs/policies-and-agreements/developer-terms-of-service)
-- [Discord Developer Policy](https://support-dev.discord.com/hc/en-us/articles/8563934450327-Discord-Developer-Policy)
-- [Discord Community Guidelines](https://discord.com/guidelines)
+- [Discord Developer Terms](https://discord.com/developers/docs/policies-and-agreements/developer-terms-of-service)
+- [Discord Developer Policy](https://support-dev.discord.com/hc/en-us/articles/8563934450327)
 
-#### Key Requirements
-
-- You must comply with all Discord policies when using this software
-- You cannot use this software to violate Discord's Terms of Service
-- You are responsible for ensuring your use complies with Discord's Developer Policy
-- This software cannot be used to scrape data, spam, or abuse Discord's services
-
-### Commercial Use
-
-For commercial use, licensing inquiries, or partnerships, please contact the owner for explicit written permission.
+**For commercial use or licensing inquiries, contact the owner for written permission.**
 
 ### Disclaimer
 
-THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. THE AUTHOR IS NOT RESPONSIBLE FOR ANY DAMAGES OR LEGAL ISSUES ARISING FROM THE USE OF THIS SOFTWARE. USERS ARE SOLELY RESPONSIBLE FOR ENSURING THEIR USE COMPLIES WITH ALL APPLICABLE LAWS AND DISCORD'S POLICIES.
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. THE AUTHOR IS NOT RESPONSIBLE FOR ANY DAMAGES ARISING FROM USE. USERS ARE SOLELY RESPONSIBLE FOR COMPLIANCE WITH ALL LAWS AND DISCORD POLICIES.
 
-## 🎉 Ready to Get Started?
+## Getting Started Checklist
 
-1. **Create your Discord bots** in the Developer Portal
-2. **Configure your `.env` file** with bot tokens
-3. **Run the system**: `python launcher.py`
-4. **Create your first broadcast** with `!control_panel`
+- [ ] Create all Discord bots in Developer Portal
+- [ ] Enable Server Members Intent and Message Content Intent for **AudioBroadcast bot only**
+- [ ] Set correct display names (Fwd-Speaker, Rcv-1, Rcv-2, etc.)
+- [ ] Invite all bots to your Discord server
+- [ ] Copy `env.example` to `.env` and add bot tokens
+- [ ] (Optional) Configure `data/bot_urls.json` with invite links
+- [ ] Run `python launcher.py`
+- [ ] Use `!control_panel` in Discord to create your first broadcast
 
 **Happy Broadcasting! 🎵**
 
 ---
 
-*This is a personal project that was really interesting and had as goal an MVP that is working. The system provides a robust foundation for multi-channel audio broadcasting in Discord.*
+*A personal MVP project demonstrating multi-channel audio broadcasting in Discord.*
