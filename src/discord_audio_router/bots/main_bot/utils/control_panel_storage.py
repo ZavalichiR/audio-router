@@ -142,7 +142,9 @@ class ControlPanelStorage:
 
             with open(temp_file, "w", encoding="utf-8") as f:
                 with self._lock:
-                    portalocker.lock(f, portalocker.LOCK_EX)  # Exclusive lock for writing
+                    portalocker.lock(
+                        f, portalocker.LOCK_EX
+                    )  # Exclusive lock for writing
                     data = {
                         str(guild_id): settings.to_dict()
                         for guild_id, settings in self._settings_cache.items()
@@ -225,7 +227,9 @@ class ControlPanelStorage:
         try:
             with open(self.panels_file, "w", encoding="utf-8") as f:
                 with self._lock:
-                    portalocker.lock(f, portalocker.LOCK_EX)  # Exclusive lock for writing
+                    portalocker.lock(
+                        f, portalocker.LOCK_EX
+                    )  # Exclusive lock for writing
                     data = {
                         str(guild_id): panel_info.to_dict()
                         for guild_id, panel_info in self._panels_cache.items()

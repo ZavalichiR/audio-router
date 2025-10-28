@@ -70,12 +70,8 @@ class ControlPanelCommands(BaseCommandHandler):
             )
 
             # Set up the callback function
-            view._update_all_settings = (
-                lambda section_name,
-                listener_count,
-                role_name: self._update_all_settings(
-                    ctx, section_name, listener_count, role_name
-                )
+            view._update_all_settings = lambda section_name, listener_count, role_name: self._update_all_settings(
+                ctx, section_name, listener_count, role_name
             )
 
             # Send or update the control panel
@@ -264,12 +260,8 @@ class ControlPanelCommands(BaseCommandHandler):
             )
 
             # Set up callback function
-            view._update_all_settings = (
-                lambda section_name,
-                listener_count,
-                role_name: self._update_all_settings_guild(
-                    guild, section_name, listener_count, role_name
-                )
+            view._update_all_settings = lambda section_name, listener_count, role_name: self._update_all_settings_guild(
+                guild, section_name, listener_count, role_name
             )
 
             # Update the panel

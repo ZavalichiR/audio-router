@@ -117,7 +117,9 @@ class SectionStorage:
         try:
             with open(self.sections_file, "w", encoding="utf-8") as f:
                 with self._lock:
-                    portalocker.lock(f, portalocker.LOCK_EX)  # Exclusive lock for writing
+                    portalocker.lock(
+                        f, portalocker.LOCK_EX
+                    )  # Exclusive lock for writing
                     json.dump(
                         {
                             str(guild_id): section.to_dict()

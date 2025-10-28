@@ -52,8 +52,11 @@ class EventHandlers:
         @self.bot.event
         async def on_resumed():
             self.logger.info(
-                f"[{self.config.bot_id}] Session resumed—reconnecting voice if needed"
+                f"[{self.config.bot_id}] Session resumed—reconnecting WebSocket and voice"
             )
+            # Reconnect WebSocket first (session resume often breaks WebSocket)
+            await self.websocket_client.connect()
+            await asyncio.sleep(0.5)
             await self.connect_to_channel()
 
     async def _setup_audio_sink(self, voice_client: voice_recv.VoiceRecvClient) -> None:

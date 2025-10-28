@@ -71,9 +71,9 @@ class AudioRelayServer:
 
         # Audio routing state
         self.audio_routes: Dict[str, AudioRoute] = {}  # speaker_id -> route
-        self.guild_routes: Dict[
-            int, Dict[int, AudioRoute]
-        ] = {}  # guild_id -> {speaker_channel: route}
+        self.guild_routes: Dict[int, Dict[int, AudioRoute]] = (
+            {}
+        )  # guild_id -> {speaker_channel: route}
         self.connected_speakers: Dict[str, websockets.WebSocketServerProtocol] = {}
         self.connected_listeners: Dict[str, websockets.WebSocketServerProtocol] = {}
 

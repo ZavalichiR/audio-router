@@ -63,12 +63,11 @@ class AudioForwarderBot:
         try:
             self.logger.info(f"[{self.config.bot_id}] Starting bot ...")
 
-            # Start the bot
-            await self.bot.start(self.config.bot_token)
-
-            # Start monitoring task
+            # Start monitoring task BEFORE bot.start() (which blocks)
             self._start_monitoring_task()
-            self.logger.info(f"[{self.config.bot_id}] Bot started!")
+
+            # Start the bot (this blocks until bot stops)
+            await self.bot.start(self.config.bot_token)
 
         except Exception as e:
             self.logger.error(

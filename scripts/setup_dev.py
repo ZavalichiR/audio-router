@@ -19,9 +19,7 @@ def run_command(command: str, description: str) -> bool:
     """Run a command and return success status."""
     print(f"🔄 {description}...")
     try:
-        result = subprocess.run(
-            command, shell=True, check=True, capture_output=True, text=True
-        )
+        subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
         print(f"✅ {description} completed successfully")
         return True
     except subprocess.CalledProcessError as e:

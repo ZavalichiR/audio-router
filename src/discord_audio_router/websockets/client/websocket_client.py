@@ -125,16 +125,24 @@ class WebSocketClient:
                     compression=None,
                 )
 
-                self.is_connected = True
-                self.logger.info(f"[{self.client_id}] Connection created")
+                self.logger.info(
+                    f"[{self.client_id}] Connection created, registering..."
+                )
 
-                # Start message processing task BEFORE registration
-                self._connection_task = asyncio.create_task(self._process_messages())
-
+                # Register with server BEFORE setting is_connected flag
                 if await self.control_handler.register_with_server(self.websocket):
+                    # Only set flag after successful registration
+                    self.is_connected = True
+
+                    # Start message processing task after registration
+                    self._connection_task = asyncio.create_task(
+                        self._process_messages()
+                    )
+
                     self.logger.info(f"[{self.client_id}] Client ready")
                     return True
                 else:
+                    self.logger.error(f"[{self.client_id}] Registration failed")
                     await self.disconnect()
                     return False
 
@@ -242,33 +250,32 @@ class WebSocketClient:
 
     async def _handle_reconnection(self) -> None:
         """Handle automatic reconnection with exponential backoff."""
-        max_retries = 5
         base_delay = 1.0
+        max_delay = 60.0  # Cap at 60 seconds between retries
         retry_count = 0
 
-        while self._should_reconnect and retry_count < max_retries:
+        while self._should_reconnect:
             try:
                 retry_count += 1
-                delay = base_delay * (2 ** (retry_count - 1))
+                # Exponential backoff capped at max_delay
+                delay = min(base_delay * (2 ** (retry_count - 1)), max_delay)
 
                 self.logger.info(
-                    f"[{self.client_id}] Attempting reconnection {retry_count}/{max_retries} in {delay:.1f}s..."
+                    f"[{self.client_id}] Attempting reconnection #{retry_count} in {delay:.1f}s..."
                 )
                 await asyncio.sleep(delay)
 
                 await self.connect()
-                self.logger.info(f"[{self.client_id}] Reconnection successful")
+                self.logger.info(
+                    f"[{self.client_id}] Reconnection successful after {retry_count} attempts"
+                )
                 return
 
             except Exception as e:
                 self.logger.error(
-                    f"[{self.client_id}] Reconnection attempt {retry_count} failed: {e}"
+                    f"[{self.client_id}] Reconnection attempt #{retry_count} failed: {e}"
                 )
-                if retry_count >= max_retries:
-                    self.logger.error(
-                        f"[{self.client_id}] Max reconnection attempts reached, giving up"
-                    )
-                    break
+                # Continue trying indefinitely while _should_reconnect is True
 
     def _track_received_audio(self) -> None:
         """Track received audio packets for performance monitoring."""

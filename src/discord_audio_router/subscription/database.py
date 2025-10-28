@@ -33,7 +33,8 @@ class SubscriptionDatabase:
                 cursor = conn.cursor()
 
                 # Create subscriptions table
-                cursor.execute("""
+                cursor.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS subscriptions (
                         invite_code TEXT PRIMARY KEY,
                         server_id TEXT NOT NULL UNIQUE,
@@ -42,13 +43,16 @@ class SubscriptionDatabase:
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
-                """)
+                """
+                )
 
                 # Create index on server_id for faster lookups
-                cursor.execute("""
+                cursor.execute(
+                    """
                     CREATE INDEX IF NOT EXISTS idx_server_id 
                     ON subscriptions(server_id)
-                """)
+                """
+                )
 
                 conn.commit()
                 logger.info("Subscription database initialized successfully")
@@ -258,11 +262,13 @@ class SubscriptionDatabase:
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT invite_code, server_id, tier, max_listeners, created_at, updated_at
                     FROM subscriptions 
                     ORDER BY created_at DESC
-                """)
+                """
+                )
 
                 subscriptions = []
                 for row in cursor.fetchall():

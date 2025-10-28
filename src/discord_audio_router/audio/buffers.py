@@ -73,8 +73,8 @@ class AudioBuffer:
             return self._async_buffer.popleft() if self._async_buffer else None
 
     def get_sync(
-        self, timeout: float = 0.001
-    ) -> Optional[bytes]:  # Reduced timeout for lower latency (from 0.005 to 0.001)
+        self, timeout: float = 0.020
+    ) -> Optional[bytes]:  # 20ms timeout matches Discord's frame rate
         """Retrieve the oldest Opus packet synchronously (for discord.py)."""
         try:
             return self._sync_queue.get(timeout=timeout)

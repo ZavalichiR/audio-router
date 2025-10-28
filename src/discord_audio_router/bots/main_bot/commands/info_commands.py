@@ -140,9 +140,11 @@ class InfoCommands(BaseCommandHandler):
 
         embed.add_field(
             name="📢 Listener Limit",
-            value=f"**{subscription.max_listeners}** listener channel{'s' if subscription.max_listeners != 1 else ''}"
-            if subscription.max_listeners > 0
-            else "**Unlimited** listeners",
+            value=(
+                f"**{subscription.max_listeners}** listener channel{'s' if subscription.max_listeners != 1 else ''}"
+                if subscription.max_listeners > 0
+                else "**Unlimited** listeners"
+            ),
             inline=True,
         )
 
